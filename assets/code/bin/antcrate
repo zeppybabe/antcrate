@@ -1,0 +1,424 @@
+#!/usr/bin/env bash
+# antcrate — the Wrapper CLI
+#
+# Usage:
+#   antcrate --init
+#   antcrate --start <n> --domain <d> [--meta "csv,values"]
+#   antcrate --branch <n> --domain <d> [--meta "from=<base>"]
+#   antcrate --link <a> --rel <b>
+#   antcrate --pp <project> [-y]
+#   antcrate --resume <new_parent> --expand <child>
+#   antcrate --pipe-file <basename>      (internal: invoked by daemon)
+#   antcrate --status
+#   antcrate --list
+#   antcrate --help
+
+set -euo pipefail
+
+# shellcheck disable=SC2034  # AC_COMPONENT is read by lib/log.sh
+AC_COMPONENT="wrapper"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+LIB_DIR="$SCRIPT_DIR/../lib"
+
+# shellcheck disable=SC1091
+. "$LIB_DIR/log.sh"
+# shellcheck disable=SC1091
+. "$LIB_DIR/lock.sh"
+# shellcheck disable=SC1091
+. "$LIB_DIR/schema.sh"
+# shellcheck disable=SC1091
+. "$LIB_DIR/registry.sh"
+# shellcheck disable=SC1091
+. "$LIB_DIR/git_triage.sh"
+# shellcheck disable=SC1091
+. "$LIB_DIR/subbranch.sh"
+# shellcheck disable=SC1091
+. "$LIB_DIR/backup.sh"
+# shellcheck disable=SC1091
+. "$LIB_DIR/safety.sh"
+# shellcheck disable=SC1091
+. "$LIB_DIR/gh.sh"
+# shellcheck disable=SC1091
+. "$LIB_DIR/scaffold.sh"
+# shellcheck disable=SC1091
+. "$LIB_DIR/propose.sh"
+# shellcheck disable=SC1091
+. "$LIB_DIR/address.sh"
+# shellcheck disable=SC1091
+. "$LIB_DIR/anchor.sh"
+# shellcheck disable=SC1091
+. "$LIB_DIR/devops.sh"
+# shellcheck disable=SC1091
+. "$LIB_DIR/diagrams.sh"
+
+: "${ANTCRATE_HOME:=$HOME/.antcrate}"
+: "${ANTCRATE_ROOT:=$HOME/projects}"
+
+usage() {
+    cat <<'USAGE'
+antcrate — pure-Bash deterministic project scaffolder
+
+Commands:
+  --init                              first-run setup ($HOME/.antcrate, config)
+  --start <n> --domain <d>         create new project; --meta "csv" or "k=v"
+  --register <n> <existing-path> [--domain <d>]
+                                      add a registry entry for an existing tree (no scaffold)
+  --branch <n> --domain <d>        new project, optionally --meta "from=<base>"
+  --link <a> --rel <b>                bidirectional link between two projects
+  --pp <project> [-y]                 commit (if dirty) and push, with conflict triage
+  --resume <parent> --expand <child>  atomic sub-branch / nesting refactor
+  --gh-init <project> [--public]      create GitHub repo via HTTPS, push initial commit
+  --gh-help                           show GitHub HTTPS onboarding steps
+  --backup <project>                  create on-demand backup (tar.gz under ~/.antcrate/backups/)
+  --backups <project>                 list backups for a project
+  --restore <project> [--at <ts>]     restore project from backup (latest if --at omitted)
+  --propose <name> "<description>"    log a proposed pattern (escape valve when no flag fits)
+  --proposals                         list all logged pattern proposals
+  --addr <project> <code>             resolve a layered address (e.g. 1a3) to a path
+  --anchor <project> [--addr <code>]  emit eval-able exports: ANTCRATE_ANCHOR=...
+  --in <project> [--addr <code>] -- <cmd...>
+                                      run <cmd> with cwd set to anchor (no shell pollution)
+  --map <project>                     print addressed tree with dynamic/static tags
+  --rename <project> <new-name>       backup-protected rename + registry rewrite
+  --archive <project>                 backup-protected move to ~/projects/.archive/
+  --unarchive <project>               restore an archived project to its previous parent
+  --remove <project>                  PERMANENT delete (backup + approval; recovery via tarball only)
+  --touch <project> <relpath>         create a file via wrapper (auto-mkdir parents); echoes abs path
+  --mkdir <project> <relpath>         create a directory via wrapper (mkdir -p); echoes abs path
+  --logs [project] [lines]            tail wrapper/daemon/conflict logs (+git log if project)
+  --diff <project>                    git status + diff via git -C (no cd)
+  --selfsrc                           print the antcrate skill source root
+  --selfinstall                       run install.sh from selfsrc
+  --selftest [pattern]                run bats tests/[pattern].bats from selfsrc
+  --selfedit <relpath>                print absolute path to a file under selfsrc
+  --diagrams <project>                render docs/diagrams/*.{mmd,puml,d2} to .svg if tools present
+  --registry-diagram [out]            emit Mermaid graph of the entire registry
+  --tree-diagram <project> [out]      emit Mermaid graph of project's addressed tree
+  --ci                                run shellcheck + bats; nonzero on any failure
+  --pipe-file <basename>              decode a Positional filename and dispatch
+  --status                            show daemon + registry summary
+  --list                              list registered projects
+  --help                              this message
+
+Env:
+  ANTCRATE_ROOT      project root (default: $HOME/projects)
+  ANTCRATE_HOME      state dir   (default: $HOME/.antcrate)
+  ANTCRATE_EMAIL     triage email recipient
+  ANTCRATE_LOG_LEVEL debug|info|warn|error
+USAGE
+}
+
+cmd_init() {
+    mkdir -p "$ANTCRATE_HOME"/{log,templates}
+    mkdir -p "$ANTCRATE_ROOT"
+    ac_registry_init
+    if [[ ! -f "$ANTCRATE_HOME/config" ]]; then
+        cat > "$ANTCRATE_HOME/config" <<EOF
+# antcrate user config — sourced by wrapper and daemon
+# ANTCRATE_EMAIL="you@example.com"
+# ANTCRATE_GIT_REMOTE_PREFIX="https://github.com/youruser/"
+# ANTCRATE_LOG_LEVEL="info"
+#
+# DESTRUCTIVE-OP CONTROLS (default: maximally safe)
+# Set to 1 ONLY for fully unattended pipelines — all destructive ops still
+# require a successful backup tarball first; this only bypasses the y/N prompt.
+# ANTCRATE_REMOVAL_PREAPPROVED=0
+#
+# Path-zone widening (default 0). Even when 1, backup + approval still apply.
+# ANTCRATE_ALLOW_OUTSIDE_ROOT=0
+#
+# Backup retention (per project)
+# ANTCRATE_BACKUP_RETENTION=20
+EOF
+        ac_info "init: created $ANTCRATE_HOME/config (edit to set email + remote prefix)"
+    fi
+    ac_info "init: ready (root=$ANTCRATE_ROOT, home=$ANTCRATE_HOME)"
+}
+
+cmd_pipe_file() {
+    local fname="$1"
+    if ! ac_schema_decode "$fname"; then
+        local rc=$?
+        if (( rc == 2 )); then
+            ac_warn "pipe-file: unknown action in '$fname'"
+        else
+            ac_debug "pipe-file: '$fname' did not match schema (skipped)"
+        fi
+        return 0
+    fi
+    ac_info "pipe-file: $(ac_schema_describe)"
+    ac_with_lock ac_scaffold_dispatch
+}
+
+cmd_pp() {
+    local project="$1" auto_yes="${2:-}"
+    if ! ac_registry_has "$project"; then
+        ac_error "pp: unknown project '$project'"; exit 1
+    fi
+    local p; p=$(ac_registry_get "$project" path)
+    [[ -d "$p" ]] || { ac_error "pp: path missing: $p"; exit 1; }
+
+    cd "$p"
+    if [[ -n "$(git status --porcelain 2>/dev/null)" ]]; then
+        if [[ "$auto_yes" != "-y" ]]; then
+            read -r -p "Uncommitted changes in $project. Commit & push? [y/N] " ans
+            [[ "${ans,,}" == "y" ]] || { ac_warn "pp: aborted by user"; exit 0; }
+        fi
+        git add -A
+        git commit -qm "antcrate: auto-commit $(date -u +%Y-%m-%dT%H:%M:%SZ)" || true
+    fi
+    ac_git_push "$project" || true
+}
+
+cmd_resume_expand() {
+    local parent="$1" child="$2"
+    ac_subbranch_expand "$parent" "$child"
+}
+
+cmd_status() {
+    printf 'antcrate status\n'
+    printf '  root      : %s\n' "$ANTCRATE_ROOT"
+    printf '  home      : %s\n' "$ANTCRATE_HOME"
+    printf '  registry  : %s\n' "$ANTCRATE_REGISTRY"
+    if [[ -f "$ANTCRATE_HOME/daemon.pid" ]] \
+       && kill -0 "$(cat "$ANTCRATE_HOME/daemon.pid")" 2>/dev/null; then
+        printf '  daemon    : running (pid %s)\n' "$(cat "$ANTCRATE_HOME/daemon.pid")"
+    else
+        printf '  daemon    : not running\n'
+    fi
+    if ac_pipe_paused; then printf '  pipe      : PAUSED\n'; else printf '  pipe      : active\n'; fi
+    local n; n=$(ac_registry_list | wc -l)
+    printf '  projects  : %s registered\n' "$n"
+}
+
+cmd_list() {
+    ac_registry_dump | jq -r '
+        .projects | to_entries | .[] |
+        "\(.key)\t\(.value.path)\tparent=\(.value.parent)\tlinks=\(.value.linked_nodes | length)"
+    '
+}
+
+# load user config if present
+# shellcheck source=/dev/null
+[[ -f "$ANTCRATE_HOME/config" ]] && . "$ANTCRATE_HOME/config"
+
+# arg parsing
+[[ $# -eq 0 ]] && { usage; exit 0; }
+
+NAME="" DOMAIN="" META="" REL="" EXPAND="" RESUME="" AUTO_YES="" GH_VIS="private" RESTORE_TS="" PROPOSE_DESC=""
+ADDR_CODE="" RENAME_NEW="" LOGS_LINES="50" CMD_ARGS=() RELPATH="" REG_PATH="" DIAG_OUT=""
+ACTION=""
+while (( $# > 0 )); do
+    case "$1" in
+        --help|-h)           usage; exit 0 ;;
+        --init)              ACTION="init"; shift ;;
+        --status)            ACTION="status"; shift ;;
+        --list)              ACTION="list"; shift ;;
+        --start)             ACTION="start"; NAME="$2"; shift 2 ;;
+        --register)
+            ACTION="register"; NAME="${2:-}"; REG_PATH="${3:-}"
+            if [[ $# -ge 3 && -n "${3:-}" && "${3:0:2}" != "--" ]]; then shift 3
+            elif [[ $# -ge 2 ]]; then shift 2
+            else shift; fi ;;
+        --branch)            ACTION="branch"; NAME="$2"; shift 2 ;;
+        --link)              ACTION="link"; NAME="$2"; shift 2 ;;
+        --pp)                ACTION="pp"; NAME="$2"; shift 2 ;;
+        --resume)            ACTION="resume"; RESUME="$2"; shift 2 ;;
+        --expand)            EXPAND="$2"; shift 2 ;;
+        --gh-init)           ACTION="gh-init"; NAME="$2"; shift 2 ;;
+        --gh-help)           ACTION="gh-help"; shift ;;
+        --backup)            ACTION="backup"; NAME="$2"; shift 2 ;;
+        --backups)           ACTION="backups"; NAME="$2"; shift 2 ;;
+        --restore)           ACTION="restore"; NAME="$2"; shift 2 ;;
+        --at)                RESTORE_TS="$2"; shift 2 ;;
+        --propose)
+            ACTION="propose"; NAME="${2:-}"
+            if [[ $# -ge 3 && -n "${3:-}" && "${3:0:2}" != "--" ]]; then
+                PROPOSE_DESC="$3"; shift 3
+            elif [[ $# -ge 2 ]]; then
+                shift 2
+            else
+                shift
+            fi ;;
+        --proposals)         ACTION="proposals"; shift ;;
+        --addr)
+            if [[ -z "$ACTION" ]]; then
+                ACTION="addr"; NAME="${2:-}"; ADDR_CODE="${3:-}"
+                if [[ $# -ge 3 ]]; then shift 3
+                elif [[ $# -ge 2 ]]; then shift 2
+                else shift; fi
+            else
+                # --addr used as modifier on --anchor / --in
+                ADDR_CODE="${2:-}"; shift 2
+            fi ;;
+        --anchor)            ACTION="anchor"; NAME="${2:-}"; shift 2 ;;
+        --in)
+            ACTION="in"; NAME="${2:-}"; shift 2
+            # consume --addr <code> if present, then -- and the rest
+            if [[ "${1:-}" == "--addr" ]]; then ADDR_CODE="${2:-}"; shift 2; fi
+            if [[ "${1:-}" == "--" ]]; then shift; fi
+            CMD_ARGS=( "$@" ); set -- ;;
+        --map)               ACTION="map"; NAME="${2:-}"; shift 2 ;;
+        --rename)            ACTION="rename"; NAME="${2:-}"; RENAME_NEW="${3:-}"
+                             if [[ $# -ge 3 ]]; then shift 3
+                             elif [[ $# -ge 2 ]]; then shift 2
+                             else shift; fi ;;
+        --archive)           ACTION="archive"; NAME="${2:-}"; shift 2 ;;
+        --unarchive)         ACTION="unarchive"; NAME="${2:-}"; shift 2 ;;
+        --remove)            ACTION="remove"; NAME="${2:-}"; shift 2 ;;
+        --touch)             ACTION="touch"; NAME="${2:-}"; RELPATH="${3:-}"
+                             if [[ $# -ge 3 ]]; then shift 3
+                             elif [[ $# -ge 2 ]]; then shift 2
+                             else shift; fi ;;
+        --mkdir)             ACTION="mkdir"; NAME="${2:-}"; RELPATH="${3:-}"
+                             if [[ $# -ge 3 ]]; then shift 3
+                             elif [[ $# -ge 2 ]]; then shift 2
+                             else shift; fi ;;
+        --logs)
+            ACTION="logs"; NAME="${2:-}"
+            if [[ $# -ge 3 && "${3:-}" =~ ^[0-9]+$ ]]; then LOGS_LINES="$3"; shift 3
+            elif [[ $# -ge 2 && "${2:-}" =~ ^[0-9]+$ ]]; then NAME=""; LOGS_LINES="$2"; shift 2
+            elif [[ $# -ge 2 && -n "${2:-}" && "${2:0:2}" != "--" ]]; then shift 2
+            else shift; fi ;;
+        --diff)              ACTION="diff"; NAME="${2:-}"; shift 2 ;;
+        --selfsrc)           ACTION="selfsrc"; shift ;;
+        --selfinstall)       ACTION="selfinstall"; shift ;;
+        --selftest)
+            ACTION="selftest"
+            if [[ $# -ge 2 && -n "${2:-}" && "${2:0:2}" != "--" ]]; then NAME="$2"; shift 2
+            else shift; fi ;;
+        --selfedit)          ACTION="selfedit"; NAME="${2:-}"; shift 2 ;;
+        --diagrams)          ACTION="diagrams"; NAME="${2:-}"; shift 2 ;;
+        --registry-diagram)
+            ACTION="registry-diagram"
+            if [[ $# -ge 2 && -n "${2:-}" && "${2:0:2}" != "--" ]]; then DIAG_OUT="$2"; shift 2
+            else shift; fi ;;
+        --tree-diagram)
+            ACTION="tree-diagram"; NAME="${2:-}"
+            if [[ $# -ge 3 && -n "${3:-}" && "${3:0:2}" != "--" ]]; then DIAG_OUT="$3"; shift 3
+            elif [[ $# -ge 2 ]]; then shift 2
+            else shift; fi ;;
+        --ci)                ACTION="ci"; shift ;;
+        --public)            GH_VIS="public"; shift ;;
+        --private)           GH_VIS="private"; shift ;;
+        --pipe-file)         ACTION="pipe-file"; NAME="$2"; shift 2 ;;
+        --domain)            DOMAIN="$2"; shift 2 ;;
+        --meta)              META="$2"; shift 2 ;;
+        --rel)               REL="$2"; shift 2 ;;
+        -y)                  AUTO_YES="-y"; shift ;;
+        *) ac_error "unknown arg: $1"; usage; exit 2 ;;
+    esac
+done
+
+# meta string → AC_META_VALUES array
+META_VALUES=()
+if [[ -n "$META" ]]; then
+    if [[ "$META" =~ ^#.*#$ ]]; then META="${META#\#}"; META="${META%\#}"; fi
+    IFS=',' read -r -a META_VALUES <<< "$META"
+fi
+
+case "$ACTION" in
+    init)      cmd_init ;;
+    status)    cmd_status ;;
+    list)      cmd_list ;;
+    start)
+        [[ -z "$DOMAIN" ]] && { ac_error "--start requires --domain"; exit 2; }
+        ac_with_lock ac_action_start "$NAME" "$DOMAIN" "${META_VALUES[@]}"
+        # auto-scaffold diagrams (idempotent) for any new project
+        if ac_registry_has "$NAME"; then
+            target_path=$(ac_registry_get "$NAME" path)
+            ac_diagrams_scaffold "$target_path" "$NAME"
+        fi ;;
+    register)
+        [[ -z "$NAME" || -z "$REG_PATH" ]] && { ac_error "--register requires <name> <existing-path>"; exit 2; }
+        ac_with_lock ac_action_register "$NAME" "$REG_PATH" "$DOMAIN" ;;
+    branch)
+        [[ -z "$DOMAIN" ]] && { ac_error "--branch requires --domain"; exit 2; }
+        ac_with_lock ac_action_branch "$NAME" "$DOMAIN" "${META_VALUES[@]}" ;;
+    link)
+        [[ -z "$REL" ]] && { ac_error "--link requires --rel <other>"; exit 2; }
+        ac_with_lock ac_action_link "$NAME" "_" "rel=$REL" ;;
+    pp)        cmd_pp "$NAME" "$AUTO_YES" ;;
+    gh-init)
+        [[ -z "$NAME" ]] && { ac_error "--gh-init requires <project>"; exit 2; }
+        ac_with_lock ac_gh_init_repo "$NAME" "$GH_VIS" ;;
+    gh-help)   ac_gh_login_hint ;;
+    backup)
+        [[ -z "$NAME" ]] && { ac_error "--backup requires <project>"; exit 2; }
+        ac_registry_has "$NAME" || { ac_error "unknown project: $NAME"; exit 1; }
+        p=$(ac_registry_get "$NAME" path)
+        ac_backup_create "$NAME" "$p" ;;
+    backups)
+        [[ -z "$NAME" ]] && { ac_error "--backups requires <project>"; exit 2; }
+        ac_backup_list "$NAME" ;;
+    restore)
+        [[ -z "$NAME" ]] && { ac_error "--restore requires <project>"; exit 2; }
+        if [[ -n "$RESTORE_TS" ]]; then
+            tarball="$ANTCRATE_HOME/backups/$NAME/${NAME}-${RESTORE_TS}.tar.gz"
+            ac_backup_restore "$NAME" "$tarball"
+        else
+            ac_backup_restore "$NAME"
+        fi ;;
+    resume)
+        [[ -z "$EXPAND" ]] && { ac_error "--resume requires --expand <child>"; exit 2; }
+        cmd_resume_expand "$RESUME" "$EXPAND" ;;
+    propose)
+        [[ -z "$NAME" ]] && { ac_error "--propose requires <name>"; exit 2; }
+        [[ -z "$PROPOSE_DESC" ]] && { ac_error "--propose requires <description>"; exit 2; }
+        ac_propose_pattern "$NAME" "$PROPOSE_DESC" ;;
+    proposals) ac_propose_list ;;
+    addr)
+        [[ -z "$NAME" || -z "$ADDR_CODE" ]] && { ac_error "--addr requires <project> <code>"; exit 2; }
+        ac_registry_has "$NAME" || { ac_error "unknown project: $NAME"; exit 1; }
+        root=$(ac_registry_get "$NAME" path)
+        ac_addr_resolve "$root" "$ADDR_CODE" ;;
+    anchor)
+        [[ -z "$NAME" ]] && { ac_error "--anchor requires <project>"; exit 2; }
+        ac_anchor_export "$NAME" "$ADDR_CODE" ;;
+    in)
+        [[ -z "$NAME" ]] && { ac_error "--in requires <project>"; exit 2; }
+        (( ${#CMD_ARGS[@]} )) || { ac_error "--in requires a command after --"; exit 2; }
+        ac_anchor_run "$NAME" "$ADDR_CODE" -- "${CMD_ARGS[@]}" ;;
+    map)
+        [[ -z "$NAME" ]] && { ac_error "--map requires <project>"; exit 2; }
+        ac_devops_map "$NAME" ;;
+    rename)
+        [[ -z "$NAME" || -z "$RENAME_NEW" ]] && { ac_error "--rename requires <project> <new-name>"; exit 2; }
+        ac_with_lock ac_devops_rename "$NAME" "$RENAME_NEW" ;;
+    archive)
+        [[ -z "$NAME" ]] && { ac_error "--archive requires <project>"; exit 2; }
+        ac_with_lock ac_devops_archive "$NAME" ;;
+    unarchive)
+        [[ -z "$NAME" ]] && { ac_error "--unarchive requires <project>"; exit 2; }
+        ac_with_lock ac_devops_unarchive "$NAME" ;;
+    remove)
+        [[ -z "$NAME" ]] && { ac_error "--remove requires <project>"; exit 2; }
+        ac_with_lock ac_devops_remove "$NAME" ;;
+    touch)
+        [[ -z "$NAME" || -z "$RELPATH" ]] && { ac_error "--touch requires <project> <relpath>"; exit 2; }
+        ac_devops_touch "$NAME" "$RELPATH" ;;
+    mkdir)
+        [[ -z "$NAME" || -z "$RELPATH" ]] && { ac_error "--mkdir requires <project> <relpath>"; exit 2; }
+        ac_devops_mkdir "$NAME" "$RELPATH" ;;
+    logs)      ac_devops_logs "$NAME" "$LOGS_LINES" ;;
+    diff)      ac_devops_diff "$NAME" ;;
+    selfsrc)   ac_devops_selfsrc ;;
+    selfinstall) ac_devops_selfinstall ;;
+    selftest)  ac_devops_selftest "$NAME" ;;
+    selfedit)
+        [[ -z "$NAME" ]] && { ac_error "--selfedit requires <relpath>"; exit 2; }
+        ac_devops_selfedit "$NAME" ;;
+    diagrams)
+        [[ -z "$NAME" ]] && { ac_error "--diagrams requires <project>"; exit 2; }
+        ac_registry_has "$NAME" || { ac_error "unknown project: $NAME"; exit 1; }
+        ac_diagrams_render "$NAME" ;;
+    registry-diagram)
+        ac_diagrams_registry_emit "$DIAG_OUT" ;;
+    tree-diagram)
+        [[ -z "$NAME" ]] && { ac_error "--tree-diagram requires <project>"; exit 2; }
+        ac_registry_has "$NAME" || { ac_error "unknown project: $NAME"; exit 1; }
+        ac_diagrams_tree_emit "$NAME" "$DIAG_OUT" ;;
+    ci)        ac_devops_ci ;;
+    pipe-file) cmd_pipe_file "$NAME" ;;
+    "")        usage; exit 2 ;;
+esac

@@ -1,0 +1,109 @@
+#!/usr/bin/env bash
+# antcrated — the Pipe (inotifywait daemon)
+#
+# Watches $ANTCRATE_ROOT (and any registered project parents) for new files
+# matching the Positional Extension Schema. On close_write of a matching file,
+# invokes `antcrate --pipe-file <basename>`.
+#
+# Coordination: respects ~/.antcrate/pipe.paused (touched by sub-branch logic)
+# Lock: holds ~/.antcrate/daemon.pid for single-instance enforcement.
+
+set -euo pipefail
+
+# shellcheck disable=SC2034  # AC_COMPONENT is read by lib/log.sh
+AC_COMPONENT="daemon"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+LIB_DIR="$SCRIPT_DIR/../lib"
+ANTCRATE_BIN="$SCRIPT_DIR/antcrate"
+
+# shellcheck disable=SC1091
+. "$LIB_DIR/log.sh"
+# shellcheck disable=SC1091
+. "$LIB_DIR/lock.sh"
+# shellcheck disable=SC1091
+. "$LIB_DIR/schema.sh"
+
+: "${ANTCRATE_HOME:=$HOME/.antcrate}"
+: "${ANTCRATE_ROOT:=$HOME/projects}"
+: "${ANTCRATE_DEBOUNCE_MS:=200}"
+
+# load user config if present
+# shellcheck source=/dev/null
+[[ -f "$ANTCRATE_HOME/config" ]] && . "$ANTCRATE_HOME/config"
+
+PID_FILE="$ANTCRATE_HOME/daemon.pid"
+
+cleanup() { rm -f "$PID_FILE"; ac_info "stopped"; }
+trap cleanup EXIT
+trap 'ac_info "SIGTERM received"; exit 0' TERM INT
+
+# single-instance check
+if [[ -f "$PID_FILE" ]] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
+    ac_error "daemon already running (pid $(cat "$PID_FILE"))"
+    exit 1
+fi
+mkdir -p "$ANTCRATE_HOME"
+echo $$ > "$PID_FILE"
+
+# require inotify-tools
+command -v inotifywait >/dev/null 2>&1 || {
+    ac_error "inotifywait not found (install inotify-tools)"; exit 1; }
+
+mkdir -p "$ANTCRATE_ROOT"
+
+ac_info "starting (root=$ANTCRATE_ROOT, debounce=${ANTCRATE_DEBOUNCE_MS}ms)"
+
+# debounce table: basename → last_seen_epoch_ms
+declare -A LAST_SEEN
+
+now_ms() { date +%s%3N; }
+
+handle_event() {
+    local dir="$1" event="$2" fname="$3"
+
+    # respect pause flag
+    if ac_pipe_paused; then
+        ac_debug "paused; skipping $fname"
+        return 0
+    fi
+
+    # ignore directory and uninteresting events
+    [[ "$event" == *ISDIR* ]] && return 0
+    case "$fname" in
+        .*|*~|*.swp|*.swo|*.swx|*.tmp|"4913") return 0 ;;
+    esac
+
+    # debounce
+    local now last; now=$(now_ms); last="${LAST_SEEN[$fname]:-0}"
+    if (( now - last < ANTCRATE_DEBOUNCE_MS )); then
+        ac_debug "debounce drop: $fname"
+        return 0
+    fi
+    LAST_SEEN[$fname]=$now
+
+    # only act on close_write or moved_to
+    case "$event" in
+        *CLOSE_WRITE*|*MOVED_TO*) ;;
+        *) return 0 ;;
+    esac
+
+    ac_debug "event $event on $dir/$fname"
+
+    # decode for routing decision
+    if ! ac_schema_decode "$fname"; then return 0; fi
+
+    ac_info "dispatch → $fname"
+    "$ANTCRATE_BIN" --pipe-file "$fname" \
+        || ac_warn "wrapper exit nonzero on $fname"
+}
+
+# inotifywait monitor loop, recursive on the project root
+# -m monitor, -r recursive, -q quiet, --format gives us dir|event|file
+while IFS='|' read -r dir event fname; do
+    handle_event "$dir" "$event" "$fname" || true
+done < <(
+    inotifywait -m -r -q \
+        -e create -e close_write -e moved_to \
+        --format '%w|%e|%f' \
+        "$ANTCRATE_ROOT"
+)

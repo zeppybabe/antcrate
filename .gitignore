@@ -1,0 +1,20 @@
+# Runtime artifacts (none should normally land in this tree, but be defensive)
+*.log
+*.swp
+*~
+.DS_Store
+
+# Editor / IDE
+.vscode/
+.idea/
+
+# Local-only env / secrets — must never be committed
+.env
+.env.*
+*.pem
+*.key
+
+# Python / Node noise that could appear if anyone runs tools in the tree
+__pycache__/
+node_modules/
+.pytest_cache/

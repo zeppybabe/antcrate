@@ -1,0 +1,13 @@
+[Unit]
+Description=AntCrate Pipe (filesystem-driven project scaffolder daemon)
+After=default.target
+
+[Service]
+Type=simple
+ExecStart=__BIN__
+Restart=on-failure
+RestartSec=2
+Environment=ANTCRATE_LOG_LEVEL=info
+
+[Install]
+WantedBy=default.target
