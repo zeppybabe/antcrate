@@ -24,8 +24,29 @@ antcrate --pp coolapp                              # commit + push with conflict
 | `assets/code/AGENTS.md` | Hard rules every AI agent (Claude Code, Cursor, …) must follow when operating on AntCrate-managed projects. |
 | `assets/docs/PATTERNS.md` | Flag-by-intent index — read this before any project-level shell command. |
 | `assets/docs/architecture.md` | The blueprint: Core Objectives, Glossary, Schema, Registry, Triage, Sub-Branching. |
+| `assets/docs/BUNDLE_SPEC.md` | Bundle v1.0 — the typed handshake between research-AntCrate and dev-AntCrate. |
 | `assets/docs/DIAGRAM_AUTOMATION_GUIDE.md` | Source-of-truth-text diagram tooling reference (Mermaid, PlantUML, D2, SchemaSpy). |
 | `state.md` / `ledger.md` | Live development state and append-only decision log. |
+
+## Local pre-commit hook (opt-in)
+
+A versioned `.githooks/pre-commit` ships with the repo. It runs
+`antcrate --ci` and tees output to `.git/antcrate-hook.log`. Enable:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+If a commit gets blocked: `antcrate --hook-log antcrate` shows the last
+run's output. The full hook-management roadmap (templates,
+`--hook-install` / `--hook-remove` / `--hook-bypass`) lives in
+`assets/docs/HOOK_PLAN.md`.
+
+## Continuous integration
+
+`.github/workflows/ci.yml` runs `antcrate --ci` (shellcheck + bats) on
+every push to `master`/`main` and on pull requests. The workflow is the
+remote-side equivalent of the local pre-commit hook.
 
 ## Status
 

@@ -1,0 +1,27 @@
+{
+  "spec_version": "1.0",
+  "name": "antframe",
+  "domain": "webapps",
+  "objective": "Combine the 'auth-starter' upstream's session/auth scaffolding with the 'svelte-admin' upstream's admin-panel UI, producing a single-binary admin app.",
+  "generated_at": "2026-04-28T18:15:00Z",
+  "source": {
+    "type": "composite",
+    "sources": [
+      {
+        "type": "git",
+        "url": "https://github.com/example-org/auth-starter",
+        "commit": "1111aaaa2222bbbb3333cccc4444dddd5555eeee"
+      },
+      {
+        "type": "git",
+        "url": "https://github.com/example-org/svelte-admin",
+        "commit": "9999ffff8888eeee7777dddd6666cccc5555bbbb"
+      }
+    ]
+  },
+  "stack": ["sveltekit", "lucia", "tailwind"],
+  "tags": ["admin", "auth", "composite"],
+  "priority": 4,
+  "research_agent": "claude-research-v0.3",
+  "notes": "First source (auth-starter) wins on path conflicts; second source's admin/* paths are merged in over a base that the first source did not provide. Conflict candidates documented in attachments/merge-plan.md."
+}

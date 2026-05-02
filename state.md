@@ -1,8 +1,35 @@
 # AntCrate — Current State
 
-_Last updated: 2026-04-27_
+_Last updated: 2026-05-01_
 
 ## Top of mind
+
+**Hooks: CI workflow + opt-in pre-commit + read-only inspection landed (2026-05-01, ninth pass):**
+- `.github/workflows/ci.yml` — installs `jq` + `shellcheck` + `bats-core`, runs `install.sh`, then `antcrate --ci`. Fires on push to `master`/`main` and on PRs. Public-facing safety net for when the repo eventually goes public, regression-catcher today even while private.
+- `.githooks/pre-commit` — opt-in (enable per-clone via `git config core.hooksPath .githooks`), runs `antcrate --ci`, tees output to `.git/antcrate-hook.log` so blocked commits leave debuggable evidence.
+- New `lib/hooks.sh` with `ac_hooks_dir`, `ac_hooks_list`, `ac_hooks_log`. Wired as `--hooks <project>` (lists active hooks, honors `core.hooksPath`, flags antcrate opt-in when active) and `--hook-log <project> [lines]` (tails the hook log; default 50 lines).
+- `assets/docs/HOOK_PLAN.md` — full design contract for the queued install/remove/bypass surface (template library, `--hook-install`, `--hook-remove`, `--hook-bypass` with audit log + AGENTS.md rule, `--start --hooks <preset>` auto-install). Single source of truth so the surface stays coherent across follow-up sessions.
+- 12 new bats tests in `tests/hooks.bats`. **109/109 passing** (was 97), shellcheck clean.
+
+**Daemon hook for live-tree auto-regen shipped + verified (2026-05-01, eighth pass):**
+- New `ac_diagrams_resolve_project_for_path` in `lib/diagrams.sh` — longest-prefix-match maps an event's directory back to its registered project (handles sub-branches correctly).
+- `bin/antcrated` rewritten with a two-path event handler: schema-dispatch (existing) + live-tree auto-regen (new). Per-project debounce (`ANTCRATE_TREE_DEBOUNCE_MS`, default 600ms) coalesces bursts (`git checkout`, batch saves) into a single regen. Watched events broadened to `create|close_write|moved_to|moved_from|delete` so renames and removals refresh the tree. Daemon-local registry cache (mtime-keyed) avoids per-event jq invocation.
+- 8 end-to-end tests on real hardware all green: new file via `touch` updates tree.mmd; `mkdir` shows `[/dir/]`; swap/`~` files filtered (no spurious regens); `rm` and `mv` both refresh; bursts coalesce; orphan files inside the watched root but outside any project produce no regen; `registry.mmd` reflects all 4 projects. Daemon stopped cleanly via SIGTERM (PID file removed by cleanup trap).
+- 6 new bats tests for the resolver. **78/78 passing** (was 72), shellcheck clean.
+- **Pre-delete verify gate codified as standard practice**: before any `antcrate --remove`, agent runs `--status` + `jq .projects[<name>]` + `find <path>` and shows output to user before the destructive command runs. One notch tighter than AGENTS.md rule #1's interactive prompt.
+
+**BUNDLE_SPEC v1.0 drafted (2026-04-28, seventh pass):**
+- `assets/docs/BUNDLE_SPEC.md` — typed handshake between research-AntCrate (producer) and dev-AntCrate (consumer). Required `manifest.json` fields (`spec_version`, `name`, `domain`, `objective`, `generated_at`, `source`); four `source.type` variants (`git` / `archive` / `none` / `composite`); status lifecycle (`ready` → `claimed` → `ingested` → `consumed`, plus `failed`); `relationships` (`duplicate_of`, `supersedes`, `extends`, `depends_on`); validation contract (validate-then-write, no partial-disk-state failures); opaque-files policy (everything outside `manifest.json` is copied, never parsed).
+- Four reference bundles under `assets/docs/examples/bundles/`: `git-pinned/` (standard case, full payload), `theoretical/` (no source code, research-only), `composite/` (multi-source merge), `supersedes/` (replaces a registered project under AGENTS.md rule #1). All four `manifest.json` files validated by jq for required fields.
+- README.md + PATTERNS.md updated with pointers to the spec; PATTERNS.md gains a "Bundles" section with `--ingest` / `--queue` / `--next` / `--conclude` listed as **planned**.
+- Spec is **authored, not implemented**. No code shipped yet on the consumer side. Next step is `antcrate --ingest <local-path>` against a hand-crafted bundle to prove the consumer end-to-end before wiring the GitHub-backed queue.
+
+**Auto-regen wired (2026-04-28, sixth pass):**
+- New helper `ac_diagrams_auto_regen [project]` in `lib/diagrams.sh` — silent on stdout, errors swallowed, opt-out via `ANTCRATE_AUTO_DIAGRAMS=0`. Always rewrites `~/.antcrate/registry.mmd`; if a project arg is given and it's still on disk, also rewrites `<path>/docs/diagrams/tree.mmd`.
+- Hooked into every mutating wrapper action: `start`, `register`, `branch`, `link`, `resume --expand`, `rename`, `archive`, `unarchive`, `remove`, `touch`, `mkdir`, `restore`. Manual `--registry-diagram`/`--tree-diagram` flags are now a fallback/override path, not a required step.
+- `--touch`/`--mkdir` stdout contract preserved (composition with `Write` / `$EDITOR` still works) — auto-regen writes only to logfiles, never to stdout.
+- New tests in `tests/diagrams.bats` (5): emits both diagrams, opt-out via env var, registry-only when no project arg, stdout silent, doesn't fail when project missing from disk. Total: **72 / 72 bats passing**, shellcheck clean.
+- PATTERNS.md updated with auto-regen note + opt-out documentation.
 
 **Phase 2 + CI shipped (2026-04-28, fifth pass):**
 - `lib/diagrams.sh` (per `DIAGRAM_AUTOMATION_GUIDE.md`): `ac_diagrams_scaffold` (drops `docs/diagrams/architecture.mmd` on `--start`), `ac_diagrams_registry_to_mermaid` (graph of all projects, archived dimmed), `ac_diagrams_tree_to_mermaid` (project's addressed tree → Mermaid). `ac_diagrams_render` skips gracefully when `mmdc`/`plantuml`/`d2` absent — text source still renders inline on GitHub.
@@ -14,7 +41,7 @@ _Last updated: 2026-04-27_
 - Pre-existing scaffold bug fixed: `ac_scaffold_resolve_templates` was picking the empty `~/.antcrate/templates/` (created by `--init`) over the populated `~/.local/share/antcrate/templates/`. Now requires a candidate to actually contain `_generic/` or a domain dir before selecting.
 - New tests: `tests/diagrams.bats` (7), `tests/register.bats` (6).
 - `antcrate --ci`: shellcheck **clean** + bats **67/67 passing** (was 54).
-- Skill source registered: `antcrate → ~/.claude/skills/antcrate (parent=claude-skills)`. Awaiting user `gh auth login` refresh + decision on top-level README before `--gh-init antcrate --private` and `--pp antcrate`.
+- **Skill source pushed to GitHub (private):** `https://github.com/zeppybabe/antcrate`. Initial commit `e6b64fb`, 55 files. Top-level `README.md` + `.gitignore` added. Registry `git_remote` updated. `antcrate --pp antcrate` is the canonical update path going forward.
 
 **Wrapper coverage closed (2026-04-27, third pass):**
 - `--unarchive` — paired with `--archive` (which now stores `previous_parent`).
@@ -80,11 +107,26 @@ None for v0 codebase. Real-machine validation needed for `inotifywait` debounce 
 
 ## Next steps
 
-1. Upload to GitHub (user-managed, HTTPS via `gh`).
-2. Connect repo to Claude / Claude Code → audit + bats run on real hardware.
-3. **Phase 2 — Diagram automation**: extend `start` action to emit `assets/diagrams/` with Mermaid/PlantUML/D2/SchemaSpy hooks per `DIAGRAM_AUTOMATION_GUIDE.md`. Diagrams regenerate on every registry mutation so the visual is always current. Critical workflow: when an incorrect directory or branch is created, the diagram auto-updates so the developer (or agent in the project's per-project skill) immediately sees the misalignment.
-4. **Phase 3 — Per-project skill composition pattern**: document the canonical setup where Claude Code loads `antcrate` skill (orchestration) + `<my-project>` skill (code knowledge) simultaneously. AntCrate skill contributes commands; per-project skill contributes context.
-5. **Phase 4 — LLM orchestrator hook**: thin wrapper letting a local Ollama agent emit Positional-Extension filenames for deterministic execution.
+Now (consumer side, this machine):
+
+1. **`antcrate --ingest <bundle-path>`** — implement the consumer end-to-end against the four reference bundles in `assets/docs/examples/bundles/`. Start with local-path bundles only (no GitHub queue yet). Validation must run before any disk write per BUNDLE_SPEC §4. Bats coverage for each `source.type` variant + the `supersedes` rule-#1 path.
+
+Soon (queue + producer):
+
+3. **`QUEUE_SPEC.md`** — defines `queue.json` at the bundles-repo root and per-bundle `STATUS` semantics for multi-machine coordination. Builds on BUNDLE_SPEC v1.0 lifecycle.
+4. **`antcrate --queue` / `--next` / `--conclude`** — flags wired against a private GitHub `research-bundles` repo. `--next` claims oldest-ready, ingests, marks consumed.
+5. **GitHub auth model** — fine-grained PAT scoped only to `research-bundles`, installed on the research machine. Same GitHub user for now; machine-user upgrade deferred until there's a reason.
+
+Long horizon:
+
+6. **Phase 3 — Per-project skill composition pattern**: codify the canonical `antcrate skill (orchestration) + <project> skill (knowledge) + project CLAUDE.md (conventions)` triple. Bundle ingest already drops the per-project skill in place; this is the doc + worked example.
+7. **Phase 4 — LLM orchestrator hook**: thin wrapper letting a local Ollama agent on the research machine emit valid bundles deterministically. Conforms to BUNDLE_SPEC, runs unattended, queues bundles for human review.
+
+Already shipped (this session):
+- v0 codebase + GitHub upload (`https://github.com/zeppybabe/antcrate`)
+- Phase 2 diagram automation + auto-regen on every mutating wrapper action
+- Daemon hook for live-tree auto-regen (2026-05-01) — direct edits / git checkouts / outside-wrapper changes now refresh diagrams automatically
+- `--ci` shellcheck + bats green (78/78, was 72/72)
 
 ## Open questions
 

@@ -1,11 +1,18 @@
 #!/usr/bin/env bash
 # antcrated — the Pipe (inotifywait daemon)
 #
-# Watches $ANTCRATE_ROOT (and any registered project parents) for new files
-# matching the Positional Extension Schema. On close_write of a matching file,
-# invokes `antcrate --pipe-file <basename>`.
+# Watches $ANTCRATE_ROOT recursively. Two responsibilities, both event-driven:
 #
-# Coordination: respects ~/.antcrate/pipe.paused (touched by sub-branch logic)
+#   1. Schema dispatch — when a file whose basename decodes per the Positional
+#      Extension Schema is closed/moved-to, invoke `antcrate --pipe-file`.
+#
+#   2. Live-tree auto-regen — when ANY structural change happens inside a
+#      registered project (file create/close_write/delete/move, dir mkdir/rmdir/
+#      move), refresh that project's `docs/diagrams/tree.mmd` and the global
+#      `~/.antcrate/registry.mmd`. This closes the gap where direct edits made
+#      outside the wrapper would leave diagrams stale.
+#
+# Coordination: respects ~/.antcrate/pipe.paused (touched by sub-branch logic).
 # Lock: holds ~/.antcrate/daemon.pid for single-instance enforcement.
 
 set -euo pipefail
@@ -22,10 +29,19 @@ ANTCRATE_BIN="$SCRIPT_DIR/antcrate"
 . "$LIB_DIR/lock.sh"
 # shellcheck disable=SC1091
 . "$LIB_DIR/schema.sh"
+# shellcheck disable=SC1091
+. "$LIB_DIR/registry.sh"
+# shellcheck disable=SC1091
+. "$LIB_DIR/address.sh"
+# shellcheck disable=SC1091
+. "$LIB_DIR/devops.sh"
+# shellcheck disable=SC1091
+. "$LIB_DIR/diagrams.sh"
 
 : "${ANTCRATE_HOME:=$HOME/.antcrate}"
 : "${ANTCRATE_ROOT:=$HOME/projects}"
 : "${ANTCRATE_DEBOUNCE_MS:=200}"
+: "${ANTCRATE_TREE_DEBOUNCE_MS:=600}"
 
 # load user config if present
 # shellcheck source=/dev/null
@@ -51,12 +67,80 @@ command -v inotifywait >/dev/null 2>&1 || {
 
 mkdir -p "$ANTCRATE_ROOT"
 
-ac_info "starting (root=$ANTCRATE_ROOT, debounce=${ANTCRATE_DEBOUNCE_MS}ms)"
+ac_info "starting (root=$ANTCRATE_ROOT, debounce=${ANTCRATE_DEBOUNCE_MS}ms, tree_debounce=${ANTCRATE_TREE_DEBOUNCE_MS}ms)"
 
-# debounce table: basename → last_seen_epoch_ms
+# debounce table for schema dispatch: basename → last_seen_epoch_ms
 declare -A LAST_SEEN
+# debounce table for live-tree regen: project → last_seen_epoch_ms
+declare -A PROJECT_LAST_SEEN
+
+# in-memory cache of (name → path) loaded from registry; refreshed on mtime change
+declare -a REG_NAMES REG_PATHS
+REG_MTIME=0
 
 now_ms() { date +%s%3N; }
+
+reload_registry_cache() {
+    local rfile="$ANTCRATE_REGISTRY" m
+    [[ -f "$rfile" ]] || return 0
+    m=$(stat -c %Y "$rfile" 2>/dev/null || echo 0)
+    [[ "$m" == "$REG_MTIME" ]] && return 0
+    REG_MTIME=$m
+    REG_NAMES=()
+    REG_PATHS=()
+    local name path
+    while IFS=$'\t' read -r name path; do
+        [[ -z "$name" || -z "$path" ]] && continue
+        REG_NAMES+=("$name")
+        REG_PATHS+=("${path%/}")
+    done < <(jq -r '.projects | to_entries[] | "\(.key)\t\(.value.path)"' "$rfile" 2>/dev/null)
+    ac_debug "registry cache reloaded (${#REG_NAMES[@]} projects)"
+}
+
+# resolve_project_cached <abs_dir> — echo project name with longest path-prefix
+# match, or empty (return 1) if no match.
+resolve_project_cached() {
+    local target="${1%/}" i n best_idx=-1 best_len=0 path
+    n=${#REG_PATHS[@]}
+    for (( i=0; i<n; i++ )); do
+        path="${REG_PATHS[i]}"
+        [[ -z "$path" ]] && continue
+        if [[ "$target" == "$path" || "$target" == "$path"/* ]]; then
+            if (( ${#path} > best_len )); then
+                best_len=${#path}
+                best_idx=$i
+            fi
+        fi
+    done
+    if (( best_idx >= 0 )); then
+        printf '%s\n' "${REG_NAMES[best_idx]}"
+        return 0
+    fi
+    return 1
+}
+
+maybe_regen_tree() {
+    local dir="$1" event="$2" fname="$3"
+    [[ "${ANTCRATE_AUTO_DIAGRAMS:-1}" == "1" ]] || return 0
+
+    reload_registry_cache
+    local project
+    project=$(resolve_project_cached "$dir") || return 0
+    [[ -z "$project" ]] && return 0
+
+    # per-project debounce
+    local now last
+    now=$(now_ms)
+    last="${PROJECT_LAST_SEEN[$project]:-0}"
+    if (( now - last < ANTCRATE_TREE_DEBOUNCE_MS )); then
+        ac_debug "tree-regen debounce drop: $project ($fname)"
+        return 0
+    fi
+    PROJECT_LAST_SEEN[$project]=$now
+
+    ac_debug "auto-regen tree: project=$project event=$event dir=$dir fname=$fname"
+    ac_diagrams_auto_regen "$project" >/dev/null 2>&1 || true
+}
 
 handle_event() {
     local dir="$1" event="$2" fname="$3"
@@ -67,25 +151,33 @@ handle_event() {
         return 0
     fi
 
-    # ignore directory and uninteresting events
-    [[ "$event" == *ISDIR* ]] && return 0
+    # always ignore editor swap/dot files (both for schema dispatch and tree regen)
     case "$fname" in
         .*|*~|*.swp|*.swo|*.swx|*.tmp|"4913") return 0 ;;
     esac
 
-    # debounce
-    local now last; now=$(now_ms); last="${LAST_SEEN[$fname]:-0}"
-    if (( now - last < ANTCRATE_DEBOUNCE_MS )); then
-        ac_debug "debounce drop: $fname"
-        return 0
-    fi
-    LAST_SEEN[$fname]=$now
+    # ---- live-tree auto-regen path ----
+    # Fires for any structural event (incl. dirs) inside a registered project.
+    # Per-project debounce coalesces bursts (e.g., `git checkout`, batch saves).
+    maybe_regen_tree "$dir" "$event" "$fname"
+
+    # ---- schema-dispatch path ----
+    # Schema applies to files only; ignore directory events here.
+    [[ "$event" == *ISDIR* ]] && return 0
 
     # only act on close_write or moved_to
     case "$event" in
         *CLOSE_WRITE*|*MOVED_TO*) ;;
         *) return 0 ;;
     esac
+
+    # debounce per basename
+    local now last; now=$(now_ms); last="${LAST_SEEN[$fname]:-0}"
+    if (( now - last < ANTCRATE_DEBOUNCE_MS )); then
+        ac_debug "debounce drop: $fname"
+        return 0
+    fi
+    LAST_SEEN[$fname]=$now
 
     ac_debug "event $event on $dir/$fname"
 
@@ -97,13 +189,18 @@ handle_event() {
         || ac_warn "wrapper exit nonzero on $fname"
 }
 
-# inotifywait monitor loop, recursive on the project root
-# -m monitor, -r recursive, -q quiet, --format gives us dir|event|file
+# inotifywait monitor loop, recursive on the project root.
+# Events:
+#   create        — new files/dirs (dirs only signal here, no close_write)
+#   close_write   — finished writes (file content / new files)
+#   moved_to      — files/dirs moved into the watched tree
+#   moved_from    — files/dirs moved out
+#   delete        — files/dirs removed
 while IFS='|' read -r dir event fname; do
     handle_event "$dir" "$event" "$fname" || true
 done < <(
     inotifywait -m -r -q \
-        -e create -e close_write -e moved_to \
+        -e create -e close_write -e moved_to -e moved_from -e delete \
         --format '%w|%e|%f' \
         "$ANTCRATE_ROOT"
 )

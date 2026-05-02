@@ -1,0 +1,15 @@
+{
+  "spec_version": "1.0",
+  "name": "submodular-scheduler",
+  "domain": "projects",
+  "objective": "Prototype a submodular-optimization-based scheduler for the antcrate ingest queue, drawing from recent literature on streaming submodular maximization.",
+  "generated_at": "2026-04-28T17:30:00Z",
+  "source": {
+    "type": "none"
+  },
+  "stack": ["theoretical", "scheduling", "optimization"],
+  "tags": ["math", "queue-theory", "research-prereq"],
+  "priority": 7,
+  "research_agent": "human-curated",
+  "notes": "No baseline repo exists for this exact problem; the bundle ships only the literature review and a reference notebook. Implementation starts from scratch on the dev side."
+}

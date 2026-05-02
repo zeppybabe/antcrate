@@ -100,11 +100,31 @@ AntCrate develops AntCrate. These flags route the build/test/edit loop through t
 
 Mermaid `.mmd` files render inline on GitHub without any tool installed — that's the default. SVG rendering is opt-in via `mmdc -i in.mmd -o out.svg`.
 
+**Auto-regen.** Every mutating wrapper action (`--start`, `--register`, `--branch`, `--link`, `--resume --expand`, `--rename`, `--archive`, `--unarchive`, `--remove`, `--touch`, `--mkdir`, `--restore`) silently refreshes `~/.antcrate/registry.mmd` and (when applicable) `<project>/docs/diagrams/tree.mmd` after the operation succeeds. You normally never need to call `--registry-diagram` or `--tree-diagram` by hand — they exist as a manual override / repair path.
+
+Disable with `export ANTCRATE_AUTO_DIAGRAMS=0` (e.g. for batch scripted mutations where you want a single explicit regen at the end). Failures are swallowed: a diagram refresh never blocks the action that triggered it.
+
 ## CI
 
 | Intent | Command | Notes |
 |---|---|---|
 | Run shellcheck + full bats suite | `antcrate --ci` | One command, fail-fast on either. Use before any change. |
+
+## Hooks (read-only today; install/remove/bypass queued — see `HOOK_PLAN.md`)
+
+| Intent | Command | Notes |
+|---|---|---|
+| List active git hooks for a project | `antcrate --hooks <project>` | Honors `core.hooksPath`; flags antcrate's `.githooks` opt-in when active; shows `active`/`disabled` per hook. |
+| Debug a blocked commit | `antcrate --hook-log <project> [lines]` | Tails `.git/antcrate-hook.log` (the file the shipped pre-commit tees to). Default 50 lines. |
+
+The shipped opt-in pre-commit (`.githooks/pre-commit` in the antcrate
+repo) runs `antcrate --ci` and writes to that log. Enable with
+`git config core.hooksPath .githooks` per-clone.
+
+**Not yet implemented (queued in `assets/docs/HOOK_PLAN.md`):** hook
+template library, `--hook-install`, `--hook-remove`, `--hook-bypass`
+(single-shot, audit-logged), `--start --hooks <preset>` for
+auto-install on scaffold, `--hook-debug` (re-run with annotation).
 
 ## Filename triggers (Positional Extension Schema)
 
@@ -123,6 +143,23 @@ Use the wrapper directly inside Claude Code sessions; reserve filename triggers 
 | Intent | Command |
 |---|---|
 | First-run setup | `antcrate --init` |
+
+## Bundles (research → dev handshake)
+
+A *bundle* is the typed artifact that crosses between research-AntCrate (on
+the research machine) and dev-AntCrate (on this machine). Spec lives at
+`assets/docs/BUNDLE_SPEC.md`; complete examples under
+`assets/docs/examples/bundles/`.
+
+| Intent | Command | Status |
+|---|---|---|
+| Ingest a bundle into a registered project | `antcrate --ingest <bundle-path>` | **planned** — see `state.md` "Next steps" |
+| Peek the queue of ready bundles | `antcrate --queue` | **planned** |
+| Claim and ingest the next ready bundle | `antcrate --next` | **planned** |
+| Mark a project complete and close its bundle | `antcrate --conclude <project>` | **planned** |
+
+Until those flags ship, bundles can be authored by hand against the spec and
+reviewed locally — the spec is the contract, the wrapper just enforces it.
 
 ## Proposing new patterns (the escape valve)
 

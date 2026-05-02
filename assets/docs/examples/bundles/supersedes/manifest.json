@@ -1,0 +1,28 @@
+{
+  "spec_version": "1.0",
+  "name": "tasklite",
+  "domain": "webapps",
+  "objective": "Replace the original tasklite bundle: upstream has been abandoned; switch baseline to the actively-maintained 'tasklite-fork' which carries the patches we wanted plus a Telegram notifier already wired.",
+  "generated_at": "2026-05-12T09:00:00Z",
+  "source": {
+    "type": "git",
+    "url": "https://github.com/active-fork-owner/tasklite-fork",
+    "commit": "abcdef0123456789abcdef0123456789abcdef01",
+    "branch": "main"
+  },
+  "stack": ["typescript", "sveltekit", "sqlite", "drizzle"],
+  "tags": ["tasks", "self-hosted", "single-binary", "telegram"],
+  "priority": 2,
+  "research_agent": "claude-research-v0.4",
+  "relationships": [
+    {
+      "kind": "supersedes",
+      "bundle": "tasklite",
+      "note": "Original upstream stopped getting commits; fork is healthier and ships the Telegram piece we were going to build by hand."
+    }
+  ],
+  "claude": {
+    "skill_name": "tasklite"
+  },
+  "notes": "Dev side: AGENTS.md rule #1 applies — backup the existing tasklite project tree and the existing per-project skill before this ingest overwrites them."
+}

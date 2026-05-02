@@ -50,6 +50,10 @@ LIB_DIR="$SCRIPT_DIR/../lib"
 . "$LIB_DIR/devops.sh"
 # shellcheck disable=SC1091
 . "$LIB_DIR/diagrams.sh"
+# shellcheck disable=SC1091
+. "$LIB_DIR/hooks.sh"
+# shellcheck disable=SC1091
+. "$LIB_DIR/commit.sh"
 
 : "${ANTCRATE_HOME:=$HOME/.antcrate}"
 : "${ANTCRATE_ROOT:=$HOME/projects}"
@@ -65,6 +69,9 @@ Commands:
                                       add a registry entry for an existing tree (no scaffold)
   --branch <n> --domain <d>        new project, optionally --meta "from=<base>"
   --link <a> --rel <b>                bidirectional link between two projects
+  --commit <project> -m "<msg>" [--all-tracked | -- <files...>]
+                                      stage + commit via the wrapper (secret-pattern guard,
+                                      Gateway Law preview, y/N prompt). Replaces bare git add+commit.
   --pp <project> [-y]                 commit (if dirty) and push, with conflict triage
   --resume <parent> --expand <child>  atomic sub-branch / nesting refactor
   --gh-init <project> [--public]      create GitHub repo via HTTPS, push initial commit
@@ -95,6 +102,8 @@ Commands:
   --registry-diagram [out]            emit Mermaid graph of the entire registry
   --tree-diagram <project> [out]      emit Mermaid graph of project's addressed tree
   --ci                                run shellcheck + bats; nonzero on any failure
+  --hooks <project>                   list active git hooks for a project (read-only)
+  --hook-log <project> [lines]        tail .git/antcrate-hook.log for debugging blocked commits
   --pipe-file <basename>              decode a Positional filename and dispatch
   --status                            show daemon + registry summary
   --list                              list registered projects
@@ -207,6 +216,7 @@ cmd_list() {
 
 NAME="" DOMAIN="" META="" REL="" EXPAND="" RESUME="" AUTO_YES="" GH_VIS="private" RESTORE_TS="" PROPOSE_DESC=""
 ADDR_CODE="" RENAME_NEW="" LOGS_LINES="50" CMD_ARGS=() RELPATH="" REG_PATH="" DIAG_OUT=""
+COMMIT_MSG="" COMMIT_MODE=""
 ACTION=""
 while (( $# > 0 )); do
     case "$1" in
@@ -223,6 +233,16 @@ while (( $# > 0 )); do
         --branch)            ACTION="branch"; NAME="$2"; shift 2 ;;
         --link)              ACTION="link"; NAME="$2"; shift 2 ;;
         --pp)                ACTION="pp"; NAME="$2"; shift 2 ;;
+        --commit)
+            ACTION="commit"; NAME="${2:-}"; shift 2
+            while (( $# > 0 )); do
+                case "${1:-}" in
+                    -m)            COMMIT_MSG="${2:-}"; shift 2 ;;
+                    --all-tracked) COMMIT_MODE="all"; shift ;;
+                    --)            shift; COMMIT_MODE="${COMMIT_MODE:-explicit}"; CMD_ARGS=( "$@" ); set -- ;;
+                    *)             break ;;
+                esac
+            done ;;
         --resume)            ACTION="resume"; RESUME="$2"; shift 2 ;;
         --expand)            EXPAND="$2"; shift 2 ;;
         --gh-init)           ACTION="gh-init"; NAME="$2"; shift 2 ;;
@@ -299,6 +319,12 @@ while (( $# > 0 )); do
             elif [[ $# -ge 2 ]]; then shift 2
             else shift; fi ;;
         --ci)                ACTION="ci"; shift ;;
+        --hooks)             ACTION="hooks"; NAME="${2:-}"; shift 2 ;;
+        --hook-log)
+            ACTION="hook-log"; NAME="${2:-}"
+            if [[ $# -ge 3 && "${3:-}" =~ ^[0-9]+$ ]]; then LOGS_LINES="$3"; shift 3
+            elif [[ $# -ge 2 ]]; then shift 2
+            else shift; fi ;;
         --public)            GH_VIS="public"; shift ;;
         --private)           GH_VIS="private"; shift ;;
         --pipe-file)         ACTION="pipe-file"; NAME="$2"; shift 2 ;;
@@ -328,17 +354,25 @@ case "$ACTION" in
         if ac_registry_has "$NAME"; then
             target_path=$(ac_registry_get "$NAME" path)
             ac_diagrams_scaffold "$target_path" "$NAME"
-        fi ;;
+        fi
+        ac_diagrams_auto_regen "$NAME" ;;
     register)
         [[ -z "$NAME" || -z "$REG_PATH" ]] && { ac_error "--register requires <name> <existing-path>"; exit 2; }
-        ac_with_lock ac_action_register "$NAME" "$REG_PATH" "$DOMAIN" ;;
+        ac_with_lock ac_action_register "$NAME" "$REG_PATH" "$DOMAIN"
+        ac_diagrams_auto_regen "$NAME" ;;
     branch)
         [[ -z "$DOMAIN" ]] && { ac_error "--branch requires --domain"; exit 2; }
-        ac_with_lock ac_action_branch "$NAME" "$DOMAIN" "${META_VALUES[@]}" ;;
+        ac_with_lock ac_action_branch "$NAME" "$DOMAIN" "${META_VALUES[@]}"
+        ac_diagrams_auto_regen "$NAME" ;;
     link)
         [[ -z "$REL" ]] && { ac_error "--link requires --rel <other>"; exit 2; }
-        ac_with_lock ac_action_link "$NAME" "_" "rel=$REL" ;;
+        ac_with_lock ac_action_link "$NAME" "_" "rel=$REL"
+        ac_diagrams_auto_regen "$NAME" ;;
     pp)        cmd_pp "$NAME" "$AUTO_YES" ;;
+    commit)    ac_commit_run "$NAME" "$COMMIT_MSG" "$COMMIT_MODE" "${CMD_ARGS[@]}"
+               # auto-regen diagrams after commit (registry-only; project tree
+               # may have changed too, so pass project)
+               ac_diagrams_auto_regen "$NAME" >/dev/null 2>&1 || true ;;
     gh-init)
         [[ -z "$NAME" ]] && { ac_error "--gh-init requires <project>"; exit 2; }
         ac_with_lock ac_gh_init_repo "$NAME" "$GH_VIS" ;;
@@ -358,10 +392,12 @@ case "$ACTION" in
             ac_backup_restore "$NAME" "$tarball"
         else
             ac_backup_restore "$NAME"
-        fi ;;
+        fi
+        ac_diagrams_auto_regen "$NAME" ;;
     resume)
         [[ -z "$EXPAND" ]] && { ac_error "--resume requires --expand <child>"; exit 2; }
-        cmd_resume_expand "$RESUME" "$EXPAND" ;;
+        cmd_resume_expand "$RESUME" "$EXPAND"
+        ac_diagrams_auto_regen "$RESUME" ;;
     propose)
         [[ -z "$NAME" ]] && { ac_error "--propose requires <name>"; exit 2; }
         [[ -z "$PROPOSE_DESC" ]] && { ac_error "--propose requires <description>"; exit 2; }
@@ -384,22 +420,28 @@ case "$ACTION" in
         ac_devops_map "$NAME" ;;
     rename)
         [[ -z "$NAME" || -z "$RENAME_NEW" ]] && { ac_error "--rename requires <project> <new-name>"; exit 2; }
-        ac_with_lock ac_devops_rename "$NAME" "$RENAME_NEW" ;;
+        ac_with_lock ac_devops_rename "$NAME" "$RENAME_NEW"
+        ac_diagrams_auto_regen "$RENAME_NEW" ;;
     archive)
         [[ -z "$NAME" ]] && { ac_error "--archive requires <project>"; exit 2; }
-        ac_with_lock ac_devops_archive "$NAME" ;;
+        ac_with_lock ac_devops_archive "$NAME"
+        ac_diagrams_auto_regen "" ;;
     unarchive)
         [[ -z "$NAME" ]] && { ac_error "--unarchive requires <project>"; exit 2; }
-        ac_with_lock ac_devops_unarchive "$NAME" ;;
+        ac_with_lock ac_devops_unarchive "$NAME"
+        ac_diagrams_auto_regen "$NAME" ;;
     remove)
         [[ -z "$NAME" ]] && { ac_error "--remove requires <project>"; exit 2; }
-        ac_with_lock ac_devops_remove "$NAME" ;;
+        ac_with_lock ac_devops_remove "$NAME"
+        ac_diagrams_auto_regen "" ;;
     touch)
         [[ -z "$NAME" || -z "$RELPATH" ]] && { ac_error "--touch requires <project> <relpath>"; exit 2; }
-        ac_devops_touch "$NAME" "$RELPATH" ;;
+        ac_devops_touch "$NAME" "$RELPATH"
+        ac_diagrams_auto_regen "$NAME" ;;
     mkdir)
         [[ -z "$NAME" || -z "$RELPATH" ]] && { ac_error "--mkdir requires <project> <relpath>"; exit 2; }
-        ac_devops_mkdir "$NAME" "$RELPATH" ;;
+        ac_devops_mkdir "$NAME" "$RELPATH"
+        ac_diagrams_auto_regen "$NAME" ;;
     logs)      ac_devops_logs "$NAME" "$LOGS_LINES" ;;
     diff)      ac_devops_diff "$NAME" ;;
     selfsrc)   ac_devops_selfsrc ;;
@@ -419,6 +461,12 @@ case "$ACTION" in
         ac_registry_has "$NAME" || { ac_error "unknown project: $NAME"; exit 1; }
         ac_diagrams_tree_emit "$NAME" "$DIAG_OUT" ;;
     ci)        ac_devops_ci ;;
+    hooks)
+        [[ -z "$NAME" ]] && { ac_error "--hooks requires <project>"; exit 2; }
+        ac_hooks_list "$NAME" ;;
+    hook-log)
+        [[ -z "$NAME" ]] && { ac_error "--hook-log requires <project>"; exit 2; }
+        ac_hooks_log "$NAME" "$LOGS_LINES" ;;
     pipe-file) cmd_pipe_file "$NAME" ;;
     "")        usage; exit 2 ;;
 esac

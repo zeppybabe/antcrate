@@ -1,0 +1,7 @@
+%% tasklite — architecture (seed from upstream, dev side will keep this fresh)
+graph TD
+    user[Browser] --> sk[SvelteKit server]
+    sk --> api[API routes]
+    api --> db[(sqlite via drizzle)]
+    sk --> static[Static SSR pages]
+    api --> tg[Telegram notifier — optional]

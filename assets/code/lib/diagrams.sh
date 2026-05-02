@@ -158,6 +158,76 @@ ac_diagrams_tree_emit() {
     printf '%s\n' "$out"
 }
 
+# ---------- path → project resolver ----------
+#
+# ac_diagrams_resolve_project_for_path <abs_path>
+# Echoes the project name whose registered `path` is the longest prefix of
+# <abs_path>. Returns 1 (and emits nothing) if no project matches.
+#
+# Used by the daemon's live-tree auto-regen path: an inotify event fires on
+# some directory under the watched root; we need to map that directory back to
+# whichever registered project (possibly nested) it belongs to. Longest-prefix
+# match handles sub-branches correctly — a file under
+# ~/projects/parent/child/x.sh resolves to `child`, not `parent`.
+ac_diagrams_resolve_project_for_path() {
+    local target="${1:-}"
+    [[ -z "$target" ]] && return 1
+    target="${target%/}"
+    local best_name="" best_path="" name path
+    while IFS= read -r name; do
+        [[ -z "$name" ]] && continue
+        path=$(ac_registry_get "$name" path 2>/dev/null || true)
+        [[ -z "$path" ]] && continue
+        path="${path%/}"
+        if [[ "$target" == "$path" || "$target" == "$path"/* ]]; then
+            if (( ${#path} > ${#best_path} )); then
+                best_path="$path"
+                best_name="$name"
+            fi
+        fi
+    done < <(ac_registry_list 2>/dev/null)
+    if [[ -n "$best_name" ]]; then
+        printf '%s\n' "$best_name"
+        return 0
+    fi
+    return 1
+}
+
+# ---------- auto-regeneration ----------
+#
+# Called by mutating wrapper actions so a human/AI never has to remember to
+# refresh diagrams. Always silent (no stdout), failures are swallowed: a
+# diagram refresh must never block the action that triggered it.
+#
+# Opt out for scripted pipelines: export ANTCRATE_AUTO_DIAGRAMS=0
+#
+# Always regenerates the registry-level diagram (cheap, single jq pass).
+# If <project> is given AND it's still registered AND its path still exists,
+# also regenerates the project's tree diagram at <path>/docs/diagrams/tree.mmd.
+ac_diagrams_auto_regen() {
+    [[ "${ANTCRATE_AUTO_DIAGRAMS:-1}" == "1" ]] || return 0
+    local project="${1:-}"
+
+    # registry-level — always
+    {
+        local out="$ANTCRATE_HOME/registry.mmd"
+        mkdir -p "$(dirname "$out")" 2>/dev/null || true
+        ac_diagrams_registry_to_mermaid > "$out" 2>/dev/null
+    } >/dev/null 2>&1 || true
+
+    # project-level — only if project still resolvable on disk
+    if [[ -n "$project" ]] && ac_registry_has "$project" 2>/dev/null; then
+        local proj_path
+        proj_path=$(ac_registry_get "$project" path 2>/dev/null || true)
+        if [[ -n "$proj_path" && -d "$proj_path" ]]; then
+            local tree_out="$proj_path/$ANTCRATE_DIAGRAMS_DIR/tree.mmd"
+            mkdir -p "$(dirname "$tree_out")" 2>/dev/null || true
+            ac_diagrams_tree_to_mermaid "$project" > "$tree_out" 2>/dev/null || true
+        fi
+    fi
+    return 0
+}
+
 # ---------- bulk render ----------
 
 # ac_diagrams_render <project>
