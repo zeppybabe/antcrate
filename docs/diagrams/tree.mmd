@@ -1,4 +1,4 @@
-%% antcrate tree — generated 2026-05-04T01:39:41Z
+%% antcrate tree — generated 2026-05-04T02:02:01Z
 graph TD
   root(["antcrate"])
   1["README.md"]
@@ -43,22 +43,24 @@ graph TD
   3a6 --> 3a6h
   3a6i["hooks.sh"]
   3a6 --> 3a6i
-  3a6j["lock.sh"]
+  3a6j["ingest.sh"]
   3a6 --> 3a6j
-  3a6k["log.sh"]
+  3a6k["lock.sh"]
   3a6 --> 3a6k
-  3a6l["propose.sh"]
+  3a6l["log.sh"]
   3a6 --> 3a6l
-  3a6m["registry.sh"]
+  3a6m["propose.sh"]
   3a6 --> 3a6m
-  3a6n["safety.sh"]
+  3a6n["registry.sh"]
   3a6 --> 3a6n
-  3a6o["scaffold.sh"]
+  3a6o["safety.sh"]
   3a6 --> 3a6o
-  3a6p["schema.sh"]
+  3a6p["scaffold.sh"]
   3a6 --> 3a6p
-  3a6q["subbranch.sh"]
+  3a6q["schema.sh"]
   3a6 --> 3a6q
+  3a6r["subbranch.sh"]
+  3a6 --> 3a6r
   3a7[/systemd/]
   3a --> 3a7
   3a7a["antcrated.service"]
@@ -115,16 +117,18 @@ graph TD
   3a9 --> 3a9f
   3a9g["hooks.bats"]
   3a9 --> 3a9g
-  3a9h["propose.bats"]
+  3a9h["ingest.bats"]
   3a9 --> 3a9h
-  3a9i["register.bats"]
+  3a9i["propose.bats"]
   3a9 --> 3a9i
-  3a9j["registry.bats"]
+  3a9j["register.bats"]
   3a9 --> 3a9j
-  3a9k["scaffold.bats"]
+  3a9k["registry.bats"]
   3a9 --> 3a9k
-  3a9l["schema.bats"]
+  3a9l["scaffold.bats"]
   3a9 --> 3a9l
+  3a9m["schema.bats"]
+  3a9 --> 3a9m
   3b[/docs/]
   3 --> 3b
   3b1["AntCrate_blueprint_v0.pdf"]
