@@ -169,6 +169,39 @@ are informational warnings. Set `ANTCRATE_INGEST_OFFLINE=1` to skip
 reachability network checks (used by tests). Queue/next/conclude
 remain planned.
 
+## Cleanup (per-project)
+
+| Intent | Command |
+|---|---|
+| List test/cache/empty-dir candidates (read-only) | `antcrate --cleanup <project>` |
+| Remove specific candidates by ID | `antcrate --cleanup <project> --apply <id>[,<id>...]` |
+
+Categories detected: **`test-tmp`** (`__pycache__`, `.pytest_cache`,
+`.mypy_cache`, `.tox`, `.cache`, `.turbo`, `.nyc_output`, `coverage` and
+file-pattern matches `*.test.tmp`, `*.pyc`, `*.bats.log`) and
+**`empty-dir`** (zero-entry dirs). `.git`, `.github`, `.githooks`,
+`node_modules` are pruned at any depth.
+
+`--apply` runs each removal through `ac_safety_guard_destructive` (rule
+#1 backup + approval), emits a `delete` event with category as label
+(`--watch` paints a 1s tombstone), and appends to
+`projects.<n>.recent_removals` (capped at `ANTCRATE_CLEANUP_RECENT_CAP`,
+default 50).
+
+## Activity stream (live agent awareness)
+
+| Intent | Command |
+|---|---|
+| Append an activity event | `antcrate --emit-activity <project> <kind> <relpath> [--ttl-ms N] [--label X] [--agent A]` |
+| Watch the project tree painted by active events | `antcrate --watch <project> [--once] [--interval-ms N] [--no-color] [--depth N]` |
+
+Kinds: `modify` (yellow), `read` (cyan), `think` (magenta), `delegate`
+(green), `delete` (bright red strikethrough). Default TTLs are
+kind-specific. The event stream is durable JSONL at
+`~/.antcrate/events/<project>.jsonl` — agents emit; watchers tail.
+Severity ordering: delete > modify > delegate > think > read; ancestor
+directories paint with the highest-severity descendant kind.
+
 ## Proposing new patterns (the escape valve)
 
 When no flag fits the current intent, **do not** fall back to a bare command. Instead:

@@ -53,6 +53,8 @@ hook and `.github/workflows/ci.yml` invoke it.
   - `config` — user defaults; **rule #13: human-only territory**
   - `proposals.log` — `--propose` append-only log
   - `backups/<project>/` — verified `.tar.gz` snapshots + `.sha256` manifests
+  - `events/<project>.jsonl` — append-only activity stream (lib/events.sh)
+  - `cleanup/<project>.list` — persisted classify output for `--apply` (lib/cleanup.sh)
   - `log/{wrapper,daemon}.log` — leveled logs
   - `daemon.{pid,lock}` — single-instance + flock coord
   - `pipe.paused` — pause flag (atomic sub-branching)
@@ -67,7 +69,8 @@ hook and `.github/workflows/ci.yml` invoke it.
     `registry.sh`, `schema.sh`, `scaffold.sh`, `subbranch.sh`,
     `safety.sh`, `backup.sh`, `commit.sh`, `git_triage.sh`, `gh.sh`,
     `address.sh`, `anchor.sh`, `devops.sh`, `diagrams.sh`, `hooks.sh`,
-    `propose.sh`, `log.sh`, `lock.sh`
+    `propose.sh`, `log.sh`, `lock.sh`, `ingest.sh`, `events.sh`,
+    `watch.sh`, `cleanup.sh`
   - `templates/<domain>/` — scaffolding per domain (`webapps`,
     `scripts`, `notes`, `projects`, `_generic`)
   - `tests/*.bats` — bats coverage; run via `antcrate --ci`
@@ -128,6 +131,25 @@ hook and `.github/workflows/ci.yml` invoke it.
 | `ANTCRATE_BACKUP_RETENTION` | `20` | Backups kept per project |
 | `ANTCRATE_SELFSRC` | (set by installer) | Path to skill source root for `--selfsrc` / `--selftest` / `--selfedit` |
 | `ANTCRATE_ADDR_INCLUDE_HIDDEN` | `0` | Address resolver — include hidden files |
+| `ANTCRATE_INGEST_OFFLINE` | `0` | Skip `--ingest` reachability network checks (tests) |
+| `ANTCRATE_INGEST_SKIP_FETCH` | `0` | Skip clone/download in `--ingest` (validation-only) |
+| `ANTCRATE_EVENTS_TAIL` | `200` | Active-event scan window (lines from end of jsonl) |
+| `ANTCRATE_WATCH_INTERVAL_MS` | `200` | `--watch` redraw cadence |
+| `ANTCRATE_WATCH_FORCE_COLOR` | `0` | Emit ANSI even when stdout isn't a TTY |
+| `ANTCRATE_CLEANUP_MAX_DEPTH` | `6` | `--cleanup` traversal depth |
+| `ANTCRATE_CLEANUP_RECENT_CAP` | `50` | Cap on `projects.<n>.recent_removals` |
+| `ANTCRATE_AGENT` | `clyde` | Name attached to emitted activity events |
+
+## Code conventions
+
+**Lib header convention** (applied progressively across `lib/*.sh`).
+Each module top comments with: a one-line summary, context paragraph,
+**Public API** list (entry points other modules / the wrapper may
+call), and an **Internal** list of helpers that *must not* be called
+from outside the file. When an internal would bypass an invariant if
+called directly (e.g. skip a rule #1 backup gate), a `Reason:` line
+documents what would break. Shipped today on `ingest.sh`, `events.sh`,
+`watch.sh`, `cleanup.sh`; queued for the existing 17 libs.
 
 ## Known-good configs
 

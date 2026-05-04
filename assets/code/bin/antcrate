@@ -56,6 +56,12 @@ LIB_DIR="$SCRIPT_DIR/../lib"
 . "$LIB_DIR/commit.sh"
 # shellcheck disable=SC1091
 . "$LIB_DIR/ingest.sh"
+# shellcheck disable=SC1091
+. "$LIB_DIR/events.sh"
+# shellcheck disable=SC1091
+. "$LIB_DIR/watch.sh"
+# shellcheck disable=SC1091
+. "$LIB_DIR/cleanup.sh"
 
 : "${ANTCRATE_HOME:=$HOME/.antcrate}"
 : "${ANTCRATE_ROOT:=$HOME/projects}"
@@ -76,6 +82,15 @@ Commands:
                                       Gateway Law preview, y/N prompt). Replaces bare git add+commit.
   --pp <project> [-y]                 commit (if dirty) and push, with conflict triage
   --ingest <bundle-path>              consume a research bundle (BUNDLE_SPEC v1.0)
+  --emit-activity <project> <kind> <relpath> [--ttl-ms N] [--label X] [--agent A]
+                                      append an event to the activity stream
+                                      kinds: modify | read | think | delegate | delete
+  --watch <project> [--once] [--interval-ms N] [--no-color] [--depth N]
+                                      colored tree painted by active events
+  --cleanup <project> [--apply <id>[,<id>...]]
+                                      list test/cache/empty-dir candidates;
+                                      --apply removes per id (rule #1 backup gate,
+                                      emits 1s tombstone event per removal)
   --resume <parent> --expand <child>  atomic sub-branch / nesting refactor
   --gh-init <project> [--public]      create GitHub repo via HTTPS, push initial commit
   --gh-help                           show GitHub HTTPS onboarding steps
@@ -220,6 +235,9 @@ cmd_list() {
 NAME="" DOMAIN="" META="" REL="" EXPAND="" RESUME="" AUTO_YES="" GH_VIS="private" RESTORE_TS="" PROPOSE_DESC=""
 ADDR_CODE="" RENAME_NEW="" LOGS_LINES="50" CMD_ARGS=() RELPATH="" REG_PATH="" DIAG_OUT=""
 COMMIT_MSG="" COMMIT_MODE=""
+EVENT_KIND="" EVENT_TTL="" EVENT_LABEL="" EVENT_AGENT=""
+WATCH_ONCE="" WATCH_INTERVAL="" WATCH_NOCOLOR="" WATCH_DEPTH=""
+CLEANUP_IDS=()
 ACTION=""
 while (( $# > 0 )); do
     case "$1" in
@@ -237,6 +255,22 @@ while (( $# > 0 )); do
         --link)              ACTION="link"; NAME="$2"; shift 2 ;;
         --pp)                ACTION="pp"; NAME="$2"; shift 2 ;;
         --ingest)            ACTION="ingest"; NAME="$2"; shift 2 ;;
+        --emit-activity)
+            ACTION="emit-activity"; NAME="${2:-}"; EVENT_KIND="${3:-}"; RELPATH="${4:-}"
+            if [[ $# -ge 4 ]]; then shift 4
+            elif [[ $# -ge 3 ]]; then shift 3
+            elif [[ $# -ge 2 ]]; then shift 2
+            else shift; fi ;;
+        --watch)             ACTION="watch"; NAME="${2:-}"; shift 2 ;;
+        --cleanup)           ACTION="cleanup"; NAME="${2:-}"; shift 2 ;;
+        --apply)             CLEANUP_IDS+=("$2"); shift 2 ;;
+        --once)              WATCH_ONCE="1"; shift ;;
+        --interval-ms)       WATCH_INTERVAL="$2"; shift 2 ;;
+        --no-color)          WATCH_NOCOLOR="1"; shift ;;
+        --depth)             WATCH_DEPTH="$2"; shift 2 ;;
+        --ttl-ms)            EVENT_TTL="$2"; shift 2 ;;
+        --label)             EVENT_LABEL="$2"; shift 2 ;;
+        --agent)             EVENT_AGENT="$2"; shift 2 ;;
         --commit)
             ACTION="commit"; NAME="${2:-}"; shift 2
             while (( $# > 0 )); do
@@ -376,6 +410,33 @@ case "$ACTION" in
     ingest)
         [[ -z "$NAME" ]] && { ac_error "--ingest requires <bundle-path>"; exit 2; }
         ac_with_lock ac_ingest "$NAME" ;;
+    emit-activity)
+        [[ -z "$NAME" || -z "$EVENT_KIND" || -z "$RELPATH" ]] && {
+            ac_error "--emit-activity requires <project> <kind> <relpath>"; exit 2; }
+        emit_args=()
+        [[ -n "$EVENT_TTL"   ]] && emit_args+=(--ttl-ms "$EVENT_TTL")
+        [[ -n "$EVENT_LABEL" ]] && emit_args+=(--label "$EVENT_LABEL")
+        [[ -n "$EVENT_AGENT" ]] && emit_args+=(--agent "$EVENT_AGENT")
+        ac_events_emit "$NAME" "$EVENT_KIND" "$RELPATH" "${emit_args[@]}" ;;
+    watch)
+        [[ -z "$NAME" ]] && { ac_error "--watch requires <project>"; exit 2; }
+        watch_args=()
+        [[ "$WATCH_NOCOLOR" == "1" ]] && watch_args+=(--no-color)
+        [[ -n "$WATCH_DEPTH"      ]] && watch_args+=(--depth "$WATCH_DEPTH")
+        if [[ "$WATCH_ONCE" == "1" ]]; then
+            ac_watch_render_once "$NAME" "${watch_args[@]}"
+        else
+            [[ -n "$WATCH_INTERVAL" ]] && watch_args+=(--interval-ms "$WATCH_INTERVAL")
+            ac_watch_loop "$NAME" "${watch_args[@]}"
+        fi ;;
+    cleanup)
+        [[ -z "$NAME" ]] && { ac_error "--cleanup requires <project>"; exit 2; }
+        if (( ${#CLEANUP_IDS[@]} == 0 )); then
+            ac_cleanup_classify "$NAME"
+        else
+            ac_with_lock ac_cleanup_apply "$NAME" "${CLEANUP_IDS[@]}"
+            ac_diagrams_auto_regen "$NAME" >/dev/null 2>&1 || true
+        fi ;;
     commit)    ac_commit_run "$NAME" "$COMMIT_MSG" "$COMMIT_MODE" "${CMD_ARGS[@]}"
                # auto-regen diagrams after commit (registry-only; project tree
                # may have changed too, so pass project)

@@ -1,6 +1,6 @@
 ---
 name: antcrate
-description: Persistent project context for AntCrate — the deterministic Bash orchestration shell for solo-developer project ops. Covers the wrapper CLI (start, branch, link, pp, commit, rename, archive, unarchive, remove, touch, mkdir, in, anchor, addr, map, hooks, hook-log, ci, diagrams, registry-diagram, tree-diagram, propose, ingest), the inotifywait daemon (live-tree auto-regen + filename-trigger schema dispatch), the jq-backed registry at ~/.antcrate/registry.json, the Gateway Law (AGENTS.md rule #12), the secret-pattern guard in --commit, the bundle handshake spec (BUNDLE_SPEC.md v1.0), git fail-safe conflict triage to /tmp/antcrate_conflict.log, and the hook + gh-pipeline roadmaps. Use when the user mentions "AntCrate", "antcrate", filenames of form name.domain.action.#meta#, "the Wrapper", "the Pipe", "registry.json" under ~/.antcrate/, "research-bundles", "bundle ingest", "Gateway Law", "BUNDLE_SPEC", "HOOK_PLAN", "GH_PIPELINE_PLAN", any antcrate flag, or wants to log a decision, run bats tests, audit the codebase, or work in ~/projects/.
+description: Persistent project context for AntCrate — the deterministic Bash orchestration shell for solo-developer project ops. Covers the wrapper CLI (start, branch, link, pp, commit, rename, archive, unarchive, remove, touch, mkdir, in, anchor, addr, map, hooks, hook-log, ci, diagrams, registry-diagram, tree-diagram, propose, ingest, emit-activity, watch, cleanup), the inotifywait daemon (live-tree auto-regen + filename-trigger schema dispatch), the jq-backed registry at ~/.antcrate/registry.json, the Gateway Law (AGENTS.md rule #12), the secret-pattern guard in --commit, the bundle handshake spec (BUNDLE_SPEC.md v1.0), git fail-safe conflict triage to /tmp/antcrate_conflict.log, and the hook + gh-pipeline roadmaps. Use when the user mentions "AntCrate", "antcrate", filenames of form name.domain.action.#meta#, "the Wrapper", "the Pipe", "registry.json" under ~/.antcrate/, "research-bundles", "bundle ingest", "Gateway Law", "BUNDLE_SPEC", "HOOK_PLAN", "GH_PIPELINE_PLAN", any antcrate flag, or wants to log a decision, run bats tests, audit the codebase, or work in ~/projects/.
 ---
 
 # AntCrate
@@ -42,6 +42,9 @@ Designed to be the **single controllable surface** for solo-developer ops — ev
   - `devops.sh` — `--map`, `--rename`, `--archive`, `--unarchive`, `--remove`, `--touch`, `--mkdir`, `--logs`, `--diff`, `--selfsrc`/`--selfinstall`/`--selftest`/`--selfedit`, `--ci`
   - `diagrams.sh` — Mermaid registry + tree generation, `ac_diagrams_auto_regen` (silent, opt-out via `ANTCRATE_AUTO_DIAGRAMS=0`)
   - `hooks.sh` — `--hooks` (read-only listing) + `--hook-log` (debug blocked commits)
+  - `events.sh` — append-only activity stream (`~/.antcrate/events/<project>.jsonl`); `--emit-activity` writes
+  - `watch.sh` — colored tree renderer over the active event overlay; `--watch` loops, `--once` for scripts
+  - `cleanup.sh` — classifier + apply for test-tmp / empty-dir candidates; `--cleanup <project> [--apply <id>...]`
   - `propose.sh` — `--propose` / `--proposals` (escape valve when no flag fits)
   - `log.sh` — leveled logging (logfile only, stderr only for warn/error)
   - `lock.sh` — flock + pause-flag helpers

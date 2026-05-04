@@ -5,10 +5,21 @@
 # Validate-before-write per BUNDLE_SPEC §4: any failure aborts ingest with
 # no on-disk side effects beyond the STATUS file (set to "failed: <reason>").
 #
-# Public API:
-#   ac_ingest <bundle_dir>                    — top-level orchestrator
-#   ac_ingest_validate <bundle_dir>           — §4 checks only, no disk writes
-#   ac_ingest_status_set <bundle_dir> <state> [reason]
+# Public API (callable from the wrapper):
+#   ac_ingest <bundle_dir>                              — full orchestrator
+#   ac_ingest_validate <bundle_dir>                     — §4 checks, no writes
+#   ac_ingest_status_set <bundle_dir> <state> [reason]  — atomic STATUS update
+#
+# Internal (do not call from outside this file):
+#   ac_ingest_load_manifest, ac_ingest_validate_*,
+#   ac_ingest_check_git_reachable, ac_ingest_check_archive_reachable,
+#   ac_ingest_materialize_source, ac_ingest_source_*,
+#   ac_ingest_copy_opaque, ac_ingest_handle_relationships_pre,
+#   ac_ingest_status_get
+# Reason: validators expect the AC_INGEST_* globals populated by
+# ac_ingest_load_manifest; materializers and relationship handlers
+# write to disk and bypass the §4 ordering when called directly.
+# Always enter through ac_ingest or ac_ingest_validate.
 #
 # Globals set by ac_ingest_load_manifest (consumed by validators / orchestrator):
 #   AC_INGEST_NAME, AC_INGEST_DOMAIN, AC_INGEST_OBJECTIVE, AC_INGEST_SPEC_VERSION,

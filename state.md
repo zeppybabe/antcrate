@@ -4,6 +4,49 @@ _Last updated: 2026-05-04_
 
 ## Top of mind
 
+**`--cleanup` + `--watch` + activity event stream landed (2026-05-04, twelfth pass):**
+- New `lib/events.sh`: append-only JSONL per project at
+  `~/.antcrate/events/<project>.jsonl`. Schema: `{ts, ts_ms, kind, path,
+  agent, ttl_ms, label?}`. Five kinds (modify/read/think/delegate/delete)
+  with kind-specific default TTLs. `ac_events_active` filters expired
+  events. Atomic append; tolerates malformed lines on read.
+- New `lib/watch.sh`: pure-bash + ANSI colored tree renderer. Walks the
+  project tree, paints each path according to active events; intermediate
+  directories propagate the highest-severity descendant kind. Color map:
+  delete (sev 5) = bright red strikethrough, modify (4) = yellow,
+  delegate (3) = green, think (2) = magenta, read (1) = cyan.
+  `--watch <project>` loops with clear-and-redraw at
+  `ANTCRATE_WATCH_INTERVAL_MS` (default 200ms); `--once` prints a single
+  frame for testability + scripting.
+- New `lib/cleanup.sh`: classifier + apply. `--cleanup <project>` walks
+  the tree and lists test-tmp candidates (exact-name match for
+  `__pycache__`, `.pytest_cache`, `.mypy_cache`, `.tox`, `.cache`,
+  `.turbo`, `.nyc_output`, `coverage`; glob match for `*.test.tmp`,
+  `*.pyc`, `*.bats.log`) plus empty directories. `--cleanup <project>
+  --apply <id>[,<id>...]` removes per ID through
+  `ac_safety_guard_destructive` (rule #1 backup + approval), emits a
+  `delete` event with category as label so the watch view paints a 1s
+  tombstone, and appends to `projects.<n>.recent_removals` (capped at 50
+  via the new `ANTCRATE_CLEANUP_RECENT_CAP` env). Skip-prune list
+  excludes `.git`, `.github`, `.githooks`, `node_modules` at any depth.
+- `lib/backup.sh` widened: `ac_backup_create` now accepts files, not
+  just dirs (tar handles both uniformly). Closes the gap that prevented
+  `ac_safety_guard_destructive` from gating single-file removals — every
+  destructive op now has a uniform backup floor.
+- Wrapper flags: `--emit-activity <project> <kind> <relpath>
+  [--ttl-ms N] [--label X] [--agent A]`, `--watch <project> [--once]
+  [--interval-ms N] [--no-color] [--depth N]`, `--cleanup <project>
+  [--apply <id>...]`.
+- **Lib header convention codified.** New libs (events, watch, cleanup,
+  ingest) carry a "Public API" + "Internal" header that lists which
+  functions are entry points and which bypass invariants if called
+  directly (e.g. cleanup's internal scanners produce raw rows that
+  `classify` dedupes/numbers; calling them out-of-order would skip the
+  contract). Propagation to the existing 17 libs is queued as task #69
+  — separate focused pass so this commit stays cohesive.
+- 27 new bats tests across `tests/{events,watch,cleanup}.bats`; with
+  ingest still green, **162/162 passing** (was 135), shellcheck clean.
+
 **`--ingest` consumer landed (2026-05-04, eleventh pass):**
 - New `lib/ingest.sh` (~400 lines): validate-before-write per BUNDLE_SPEC §4
   (manifest parse, spec_version major check, required fields, name rules,

@@ -9,9 +9,11 @@
 : "${ANTCRATE_BACKUP_RETENTION:=20}"   # keep last N backups per project
 
 # ac_backup_create <project> <path>  — tar.gz of <path>; prints backup file path on stdout
+# Accepts either a directory or a single file. Both wrap as tar.gz so the
+# backup format stays uniform for ac_safety_guard_destructive callers.
 ac_backup_create() {
     local project="$1" path="$2"
-    [[ -d "$path" ]] || { ac_error "backup: source dir missing: $path"; return 1; }
+    [[ -e "$path" ]] || { ac_error "backup: source missing: $path"; return 1; }
 
     local proj_dir="$ANTCRATE_BACKUP_DIR/$project"
     mkdir -p "$proj_dir"
