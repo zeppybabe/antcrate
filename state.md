@@ -1,8 +1,46 @@
 # AntCrate — Current State
 
-_Last updated: 2026-05-01_
+_Last updated: 2026-05-04_
 
 ## Top of mind
+
+**`--ingest` consumer landed (2026-05-04, eleventh pass):**
+- New `lib/ingest.sh` (~400 lines): validate-before-write per BUNDLE_SPEC §4
+  (manifest parse, spec_version major check, required fields, name rules,
+  domain shape, source.type sub-fields, registry-collision unless
+  supersedes/extends declared, reachability per source type).
+- All four `source.type` variants implemented:
+  `none` (empty scaffold), `git` (clone + optional commit checkout),
+  `archive` (download or local copy + optional sha256 verify + tar/zip
+  extract), `composite` (each sub-source materialized in declaration
+  order; `cp -rn` no-clobber merge — first source wins).
+- Relationships: `supersedes` runs `ac_safety_guard_destructive` against
+  the existing project tree (rule #1 — backup + approval), and also
+  backs up the existing per-project skill, before re-materializing under
+  the same name; `extends` merges research/skill/diagrams into the
+  existing tree without re-cloning; `duplicate_of` and `depends_on`
+  emit warnings only.
+- STATUS lifecycle: `ready → claimed → ingested` on success;
+  `failed: <reason>` on any failure with no partial registry/disk state.
+  Atomic temp-file write per AGENTS.md guidance.
+- Opaque file copy: `research.md → docs/`, `claude.md → CLAUDE.md`,
+  `skill/ → ~/.claude/skills/<skill_name>/` (overrideable via
+  `claude.skill_name`), `diagrams/* → docs/diagrams/`,
+  `attachments/* → docs/attachments/`.
+- Wrapper wired: `antcrate --ingest <bundle-path>`. Auto-regen runs
+  inside the lock so `AC_INGEST_NAME` stays in scope (the wrapper-level
+  call would have hit `set -u` after the lock subshell exits).
+- Test envs added: `ANTCRATE_INGEST_OFFLINE=1` (skip reachability),
+  `ANTCRATE_INGEST_SKIP_FETCH=1` (skip clone/download — validation-only
+  pass).
+- 22 new bats tests in `tests/ingest.bats` covering: §4 validators
+  (good + every failure path), all four source.types, supersedes
+  backup-and-replace, extends merge, composite first-wins, opaque file
+  copy, skill_name override, sha256 mismatch, depends_on warning.
+  **135/135 bats passing** (was 113), shellcheck clean.
+- Smoke-tested end-to-end against `assets/docs/examples/bundles/theoretical/`
+  — STATUS transitions, registry entry created with `objective` field,
+  research.md copied, auto-regen fires.
 
 **Skill polish + DIAGRAM_PLAN.md (2026-05-01, tenth pass):**
 - `SKILL.md` rewritten: trimmed stale orientation list, added explicit AGENTS.md rule numbers (#1, #10, #11, #12 Gateway Law, #13 config-human-only) to "Read first", listed all current `lib/*.sh` modules, all current docs (BUNDLE_SPEC, HOOK_PLAN, GH_PIPELINE_PLAN, DIAGRAM_PLAN, POST_DEV_BACKLOG), pointed at the GitHub repo, codified the maintenance protocol with the actual antcrate flags (no longer references nonexistent `project-forge` skill).
@@ -115,7 +153,7 @@ None for v0 codebase. Real-machine validation needed for `inotifywait` debounce 
 
 Now (consumer side, this machine):
 
-1. **`antcrate --ingest <bundle-path>`** — implement the consumer end-to-end against the four reference bundles in `assets/docs/examples/bundles/`. Start with local-path bundles only (no GitHub queue yet). Validation must run before any disk write per BUNDLE_SPEC §4. Bats coverage for each `source.type` variant + the `supersedes` rule-#1 path.
+1. ~~`antcrate --ingest <bundle-path>`~~ **shipped 2026-05-04.** All four `source.type` variants + relationships (supersedes/extends/duplicate_of/depends_on) covered with bats.
 
 Soon (queue + producer):
 

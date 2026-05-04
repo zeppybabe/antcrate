@@ -4,6 +4,42 @@ Append-only log. Newest entries on top. ISO-8601 dates. Never delete.
 
 ---
 
+## 2026-05-04 — `--ingest` consumer ships (BUNDLE_SPEC v1.0 end-to-end on this machine)
+
+The bundle pipeline now has a working consumer end. With BUNDLE_SPEC v1.0 spec'd back on 2026-04-28 and four reference bundles already on disk, this pass closes the consumer loop: `antcrate --ingest <bundle-path>` validates, materializes, registers, and surfaces a registered project ready for development.
+
+**`lib/ingest.sh` (~400 lines).** Organized into five sections: validation, source materialization, opaque-file copy, relationship handling, top-level orchestrator. Validation runs §4 in declared order (manifest existence → JSON parse → spec_version major → required fields → name rules → domain shape → source.type sub-fields → registry collision → reachability), and any failure short-circuits before any disk write outside tmp. The orchestrator (`ac_ingest`) writes `STATUS=claimed` only after validation passes; transitions to `ingested` on success or `failed: <reason>` on any later failure.
+
+**All four `source.type` variants implemented.**
+- `none`: empty scaffold, just `mkdir -p target`. Used by theoretical bundles.
+- `git`: `git clone -q [--branch <b>] <url> <target>` then optional `git checkout -q <commit>` for reproducibility. Local paths and `file://` URLs supported (test-friendly).
+- `archive`: download via curl/wget OR copy local file/`file://`, optional sha256 verify, extract via `tar -xzf` (with `--strip-components=1` heuristic) or `unzip` fallback.
+- `composite`: each sub-source materialized into a private staging dir, then `cp -rn` (no-clobber) merged into target in declaration order — first source wins on path conflicts. Matches BUNDLE_SPEC §2.2.
+
+**Relationships honored.**
+- `supersedes`: invokes `ac_safety_guard_destructive` against the existing project tree (AGENTS.md rule #1 — backup + approval gate). On approval, removes the existing tree + per-project skill (also backed up) and re-materializes under the same name. Sets `AC_INGEST_MODE=supersedes`.
+- `extends`: refuses if the target project isn't registered; on success, redirects materialization to merge into the existing tree without re-cloning. Sets `AC_INGEST_MODE=extends`.
+- `duplicate_of`: warning only, ingest proceeds.
+- `depends_on`: warns if dep not registered, ingest proceeds.
+
+**Opaque file copy** (per BUNDLE_SPEC §1, §5). `research.md → docs/`, `claude.md → CLAUDE.md`, `skill/ → ~/.claude/skills/<skill_name>/` (defaults to `<name>`, overrideable via `claude.skill_name`), `diagrams/* → docs/diagrams/`, `attachments/* → docs/attachments/`. Bundle contents outside `manifest.json` are never parsed — just routed.
+
+**Wrapper wired** (`bin/antcrate`): `--ingest <bundle-path>` dispatches through `ac_with_lock ac_ingest "$NAME"`. Auto-regen lives inside `ac_ingest` itself rather than at the wrapper case — `AC_INGEST_NAME` doesn't survive the lock subshell, and `set -u` in the outer wrapper would fault on the unbound variable. Cleaner to keep all post-success bookkeeping inside the locked context.
+
+**Test envs added.** `ANTCRATE_INGEST_OFFLINE=1` skips reachability checks (used by every test that doesn't actually want to hit the network). `ANTCRATE_INGEST_SKIP_FETCH=1` skips actual clone/download (validation-only smoke runs).
+
+**22 new bats tests in `tests/ingest.bats`.** Coverage broken down: 13 validation tests (good path + every failure mode in §4), 5 ingest-success tests across source variants (none, git from local repo, archive from local tarball, composite, opaque-file copy), 3 relationship tests (supersedes with rule-#1 backup, extends merge, depends_on warning), 1 sha256 mismatch path. **135/135 bats passing** (was 113), shellcheck clean.
+
+**Smoke test** against `assets/docs/examples/bundles/theoretical/` confirmed end-to-end: STATUS goes `ready → ingested`, registry entry created with `objective` field populated, research.md copied to `docs/research.md`, auto-regen fires (project's tree.mmd appears).
+
+**Why this lands the highest-priority next-step.** state.md "Next steps" had `--ingest` as item #1 with everything else (queue, conclude, GitHub auth model, per-project skill composition, LLM orchestrator hook) explicitly listed as downstream. Without the consumer end, the producer (research-AntCrate, eventually) had nothing to talk to; the spec was authored but unimplemented. With `--ingest` shipped against local-path bundles, the producer side can be developed against a known-good consumer, and the GitHub-backed queue (`--queue` / `--next` / `--conclude`) becomes the next focused pass — adds the bundle source (a remote git-backed bundles repo) on top of an already-working consumer.
+
+**Why test envs matter.** Bats can't reasonably hit github.com from CI, and `git ls-remote` adds non-determinism to the test run. The `ANTCRATE_INGEST_OFFLINE=1` flag was carved out so tests describe the *consumer logic*, not network state. The producer side will need its own offline mode (TBD) when it's spec'd in `QUEUE_SPEC.md`.
+
+**What's queued next** (per state.md): `QUEUE_SPEC.md` (bundles repo + `queue.json` + per-bundle `STATUS` semantics for multi-machine coordination), `--queue` / `--next` / `--conclude` flags, GitHub auth model (fine-grained PAT scoped to `research-bundles`), per-project skill composition pattern (Phase 3 doc), local Ollama producer hook (Phase 4).
+
+---
+
 ## 2026-05-01 — Skill polish + DIAGRAM_PLAN.md captures case-by-case diagram selection
 
 After the hooks pass + GH_PIPELINE_PLAN.md landed, the user requested a session pause to polish the skills themselves. The skill files (`SKILL.md`, `composes.md`, `stack.md`) had drifted significantly from current reality — they were last touched on 2026-04-27, well before the daemon hook, `--commit` wrapper, Gateway Law (rule #12), config-human-only (rule #13), BUNDLE_SPEC v1.0, hook plan, gh-pipeline plan, and POST_DEV_BACKLOG all landed. This pass rewrites the three skill files to match current state and adds `DIAGRAM_PLAN.md` to capture an under-articulated design surface the user flagged: diagrams are first-class AntCrate output, not an external tooling concern.

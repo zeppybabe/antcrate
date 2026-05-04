@@ -54,6 +54,8 @@ LIB_DIR="$SCRIPT_DIR/../lib"
 . "$LIB_DIR/hooks.sh"
 # shellcheck disable=SC1091
 . "$LIB_DIR/commit.sh"
+# shellcheck disable=SC1091
+. "$LIB_DIR/ingest.sh"
 
 : "${ANTCRATE_HOME:=$HOME/.antcrate}"
 : "${ANTCRATE_ROOT:=$HOME/projects}"
@@ -73,6 +75,7 @@ Commands:
                                       stage + commit via the wrapper (secret-pattern guard,
                                       Gateway Law preview, y/N prompt). Replaces bare git add+commit.
   --pp <project> [-y]                 commit (if dirty) and push, with conflict triage
+  --ingest <bundle-path>              consume a research bundle (BUNDLE_SPEC v1.0)
   --resume <parent> --expand <child>  atomic sub-branch / nesting refactor
   --gh-init <project> [--public]      create GitHub repo via HTTPS, push initial commit
   --gh-help                           show GitHub HTTPS onboarding steps
@@ -233,6 +236,7 @@ while (( $# > 0 )); do
         --branch)            ACTION="branch"; NAME="$2"; shift 2 ;;
         --link)              ACTION="link"; NAME="$2"; shift 2 ;;
         --pp)                ACTION="pp"; NAME="$2"; shift 2 ;;
+        --ingest)            ACTION="ingest"; NAME="$2"; shift 2 ;;
         --commit)
             ACTION="commit"; NAME="${2:-}"; shift 2
             while (( $# > 0 )); do
@@ -369,6 +373,9 @@ case "$ACTION" in
         ac_with_lock ac_action_link "$NAME" "_" "rel=$REL"
         ac_diagrams_auto_regen "$NAME" ;;
     pp)        cmd_pp "$NAME" "$AUTO_YES" ;;
+    ingest)
+        [[ -z "$NAME" ]] && { ac_error "--ingest requires <bundle-path>"; exit 2; }
+        ac_with_lock ac_ingest "$NAME" ;;
     commit)    ac_commit_run "$NAME" "$COMMIT_MSG" "$COMMIT_MODE" "${CMD_ARGS[@]}"
                # auto-regen diagrams after commit (registry-only; project tree
                # may have changed too, so pass project)

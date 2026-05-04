@@ -153,13 +153,21 @@ the research machine) and dev-AntCrate (on this machine). Spec lives at
 
 | Intent | Command | Status |
 |---|---|---|
-| Ingest a bundle into a registered project | `antcrate --ingest <bundle-path>` | **planned** — see `state.md` "Next steps" |
+| Ingest a bundle into a registered project | `antcrate --ingest <bundle-path>` | **shipped** (local-path bundles) |
 | Peek the queue of ready bundles | `antcrate --queue` | **planned** |
 | Claim and ingest the next ready bundle | `antcrate --next` | **planned** |
 | Mark a project complete and close its bundle | `antcrate --conclude <project>` | **planned** |
 
-Until those flags ship, bundles can be authored by hand against the spec and
-reviewed locally — the spec is the contract, the wrapper just enforces it.
+`--ingest` validates `manifest.json` per BUNDLE_SPEC §4 before any disk
+write; on failure, sets `STATUS=failed: <reason>` and aborts with no
+partial state. Source materializers cover all four `source.type`
+variants (`none` / `git` / `archive` / `composite`). Relationships
+honored: `supersedes` invokes AGENTS.md rule #1 (backup + approval
+before overwrite); `extends` merges the bundle's research/skill into an
+existing project without re-cloning; `duplicate_of` and `depends_on`
+are informational warnings. Set `ANTCRATE_INGEST_OFFLINE=1` to skip
+reachability network checks (used by tests). Queue/next/conclude
+remain planned.
 
 ## Proposing new patterns (the escape valve)
 
