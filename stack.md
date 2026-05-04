@@ -2,52 +2,144 @@
 
 ## Languages & runtimes
 
-- **Bash 5.0+** (associative arrays, `mapfile`, `${var,,}`)
-- **POSIX coreutils** (mv, mkdir, cp, rm, find, stat)
+- **Bash 5.0+** (associative arrays, `mapfile`, `${var,,}`,
+  `${var,,Pattern}`, namerefs)
+- **POSIX coreutils** (mv, mkdir, cp, rm, find, stat, sort, sed, grep,
+  date, tar, sha256sum)
 
 ## Required deps
 
 | Tool | Purpose | Install (Debian/Ubuntu) |
 |---|---|---|
-| `jq` | registry.json read/write | `sudo apt install jq` |
-| `inotify-tools` | daemon filesystem watch | `sudo apt install inotify-tools` |
+| `jq` | registry.json read/write — atomic temp-file replacement | `sudo apt install jq` |
+| `inotify-tools` | daemon filesystem watch (`inotifywait`) | `sudo apt install inotify-tools` |
 | `git` | version control automation | `sudo apt install git` |
-| `mailx` _or_ `sendmail` | conflict triage dispatch | `sudo apt install bsd-mailx` |
-| `flock` | wrapper/daemon lock coord | (in `util-linux`, ships everywhere) |
+| `flock` | wrapper/daemon lock coord (in `util-linux`, ships everywhere) | (preinstalled) |
+| `mailx` _or_ `sendmail` | conflict triage dispatch on `--pp` rejection | `sudo apt install bsd-mailx` |
+| `gh` | `--gh-init` (HTTPS auth, no plaintext PATs) + the queued gh-pipeline flags | `sudo apt install gh` |
+
+## Required for `antcrate --ci`
+
+`--ci` is the canonical pre-change check; both the local pre-commit
+hook and `.github/workflows/ci.yml` invoke it.
+
+| Tool | Pinned version (last green) | Install |
+|---|---|---|
+| `bats-core` | 1.13.0 | `git clone --depth 1 https://github.com/bats-core/bats-core /tmp/bats && /tmp/bats/install.sh ~/.local` |
+| `shellcheck` | 0.10.0 | static binary in `~/.local/bin/shellcheck`, or `apt install shellcheck` |
 
 ## Optional deps
 
-- `bats-core` — for running the unit test suite (`sudo apt install bats`)
-- `systemd` (user mode) — for daemon supervision via `antcrated.service`
-- `shellcheck` — pre-commit linting of all `.sh` files
+- **Diagram renderers** — text-of-truth files render inline on GitHub
+  without these; SVG promotion is a bonus when present:
+  - `mmdc` (`@mermaid-js/mermaid-cli`) — Mermaid → SVG
+  - `plantuml` — PlantUML → SVG
+  - `d2` — D2 → SVG
+  - `schemaspy` — DB → ERD (queued; see `DIAGRAM_PLAN.md`)
+- `systemd` (user mode) — for daemon supervision via
+  `~/.config/systemd/user/antcrated.service`. AntCrate degrades
+  gracefully if absent.
 
 ## Paths
 
+### Project & state
+
 - `$HOME/projects/` — default `ANTCRATE_ROOT` (overridable)
+- `$HOME/projects/.archive/` — destination for `--archive` (registered
+  with `parent=_archived`)
 - `$HOME/.antcrate/` — state directory:
-  - `registry.json` — single source of truth for project relationships
-  - `config` — user defaults (email, git remote prefix, root path)
-  - `log/` — leveled logs (`wrapper.log`, `daemon.log`)
-  - `daemon.pid` — running daemon PID
-  - `daemon.lock` — flock target for wrapper/daemon coordination
+  - `registry.json` — single source of truth (jq-mutated, atomic)
+  - `registry.mmd` — auto-regenerated Mermaid view of the whole registry
+  - `config` — user defaults; **rule #13: human-only territory**
+  - `proposals.log` — `--propose` append-only log
+  - `backups/<project>/` — verified `.tar.gz` snapshots + `.sha256` manifests
+  - `log/{wrapper,daemon}.log` — leveled logs
+  - `daemon.{pid,lock}` — single-instance + flock coord
+  - `pipe.paused` — pause flag (atomic sub-branching)
 - `/tmp/antcrate_conflict.log` — full git diff on push rejection
 - `~/.config/systemd/user/antcrated.service` — daemon unit (optional)
 
+### Skill source layout
+
+- `assets/code/`
+  - `bin/{antcrate,antcrated}` — wrapper + daemon
+  - `lib/*.sh` — sourced helpers:
+    `registry.sh`, `schema.sh`, `scaffold.sh`, `subbranch.sh`,
+    `safety.sh`, `backup.sh`, `commit.sh`, `git_triage.sh`, `gh.sh`,
+    `address.sh`, `anchor.sh`, `devops.sh`, `diagrams.sh`, `hooks.sh`,
+    `propose.sh`, `log.sh`, `lock.sh`
+  - `templates/<domain>/` — scaffolding per domain (`webapps`,
+    `scripts`, `notes`, `projects`, `_generic`)
+  - `tests/*.bats` — bats coverage; run via `antcrate --ci`
+  - `install.sh` — idempotent installer (PREFIX-aware, default `~/.local`)
+  - `systemd/antcrated.service` — drop-in user unit
+- `assets/docs/` — design docs (PATTERNS, BUNDLE_SPEC, HOOK_PLAN,
+  GH_PIPELINE_PLAN, DIAGRAM_PLAN, POST_DEV_BACKLOG, architecture,
+  DIAGRAM_AUTOMATION_GUIDE, examples/bundles/)
+- `.github/workflows/ci.yml` — GitHub Actions CI
+- `.githooks/pre-commit` — opt-in local hook
+  (`git config core.hooksPath .githooks`)
+
+### Installed layout (after `install.sh`)
+
+- `~/.local/bin/{antcrate,antcrated}` — installed binaries (with
+  `LIB_DIR` rewritten on copy)
+- `~/.local/share/antcrate/lib/*.sh` — installed libs
+- `~/.local/share/antcrate/templates/<domain>/` — installed templates
+
 ## Network / external
 
-- Outbound SMTP via local MTA (`mailx`/`sendmail`) for conflict notifications
-- Outbound HTTPS/SSH to git remote for `--pp` push automation
+- Outbound HTTPS to GitHub for `--pp` push automation, `--gh-init` repo
+  create. Uses `gh` CLI auth (no plaintext PATs).
+- Outbound SMTP via local MTA (`mailx`/`sendmail`) for conflict
+  notifications when `ANTCRATE_EMAIL` is set in `~/.antcrate/config`.
 - No inbound listeners. AntCrate is fully local.
 
 ## Schema constants
 
 - Filename delimiter: `.` (literal period)
 - Meta delimiters: `#` (hash) for CSV-style, `=` for key-value
-- Reserved actions (`$2`): `start`, `branch`, `link`, `rel`
-- Reserved domains seeded by templates: `webapps`, `projects`, `scripts`, `notes` (any other domain is allowed; templates fall back to a generic skeleton)
+- Reserved actions (`$2`): `start`, `branch`, `link`, `rel` —
+  positional schema in filenames
+- Reserved domains seeded by templates: `webapps`, `projects`,
+  `scripts`, `notes`. Any other domain is permitted; templates fall
+  back to `_generic/`.
+- Reserved registry parent value: `_archived` (set by `--archive`,
+  cleared by `--unarchive`)
+- Reserved bypass-flag env vars (rule #13: editable only by human via
+  `~/.antcrate/config`):
+  - `ANTCRATE_REMOVAL_PREAPPROVED=1` — bypass interactive prompt for
+    destructive ops (rule #1 backup still mandatory)
+  - `ANTCRATE_COMMIT_PREAPPROVED=1` — bypass `--commit` y/N prompt
+  - `ANTCRATE_ALLOW_OUTSIDE_ROOT=1` — widen path-zone guard (backup +
+    approval still apply)
+
+## Environment variables (read by wrapper / daemon)
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `ANTCRATE_ROOT` | `$HOME/projects` | Project root |
+| `ANTCRATE_HOME` | `$HOME/.antcrate` | State dir |
+| `ANTCRATE_EMAIL` | (unset) | Conflict triage recipient |
+| `ANTCRATE_LOG_LEVEL` | `info` | `debug` \| `info` \| `warn` \| `error` |
+| `ANTCRATE_DEBOUNCE_MS` | `200` | Schema-dispatch debounce per filename |
+| `ANTCRATE_TREE_DEBOUNCE_MS` | `600` | Tree-regen debounce per project |
+| `ANTCRATE_AUTO_DIAGRAMS` | `1` | Diagram auto-regen on / off |
+| `ANTCRATE_BACKUP_RETENTION` | `20` | Backups kept per project |
+| `ANTCRATE_SELFSRC` | (set by installer) | Path to skill source root for `--selfsrc` / `--selftest` / `--selfedit` |
+| `ANTCRATE_ADDR_INCLUDE_HIDDEN` | `0` | Address resolver — include hidden files |
 
 ## Known-good configs
 
-- `assets/code/templates/_generic/` — fallback when no domain template exists
+- `assets/code/templates/_generic/` — fallback when no domain template
+  exists; ships an `architecture.mmd` Mermaid seed
 - `assets/code/systemd/antcrated.service` — drop-in user unit
 - `assets/code/install.sh` — idempotent first-run installer
+- `assets/code/AGENTS.md` — 13 hard rules; #1, #10, #11, #12, #13 are
+  the most-cited at runtime
+
+## Self-host
+
+The skill source is itself a registered AntCrate project under domain
+`claude-skills`. Repo: `https://github.com/zeppybabe/antcrate`
+(private). Push via `antcrate --pp antcrate`. CI fires on every push.

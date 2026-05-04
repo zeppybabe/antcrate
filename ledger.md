@@ -4,6 +4,52 @@ Append-only log. Newest entries on top. ISO-8601 dates. Never delete.
 
 ---
 
+## 2026-05-01 — Skill polish + DIAGRAM_PLAN.md captures case-by-case diagram selection
+
+After the hooks pass + GH_PIPELINE_PLAN.md landed, the user requested a session pause to polish the skills themselves. The skill files (`SKILL.md`, `composes.md`, `stack.md`) had drifted significantly from current reality — they were last touched on 2026-04-27, well before the daemon hook, `--commit` wrapper, Gateway Law (rule #12), config-human-only (rule #13), BUNDLE_SPEC v1.0, hook plan, gh-pipeline plan, and POST_DEV_BACKLOG all landed. This pass rewrites the three skill files to match current state and adds `DIAGRAM_PLAN.md` to capture an under-articulated design surface the user flagged: diagrams are first-class AntCrate output, not an external tooling concern.
+
+**`SKILL.md` rewritten.** The old version pointed at a `project-forge` skill that doesn't exist on this machine and at `/mnt/skills/...` paths from a different setup. The new version:
+- Trims the orientation list to the four files an agent should genuinely read first: `assets/docs/PATTERNS.md` (flag-by-intent index), `state.md` (truth-of-now), `assets/code/AGENTS.md` (with rules #1, #10, #11, #12, #13 named explicitly), and the top of `ledger.md`.
+- Lists every current `lib/*.sh` module with a one-line purpose so an agent doesn't have to grep to learn the surface.
+- Lists every current `assets/docs/` design doc with status (shipped / queued).
+- Names the GitHub repo URL.
+- Codifies the maintenance protocol with actual antcrate flags (`--ci`, `--commit`, `--pp`) instead of the now-defunct "activate project-forge" handoff.
+- Expands trigger phrases to include the new surfaces (Gateway Law, BUNDLE_SPEC, research-bundles, HOOK_PLAN, GH_PIPELINE_PLAN, live-tree auto-regen, secret-pattern guard, sub-branching, addressing).
+
+**`composes.md` rewritten.** The old version referenced six skills (`project-forge`, `research-recon`, `research-swarm`, `docx`, `pdf`, `pdf-reading`, `frontend-design`) that don't exist for this user, plus an "activation protocol" referencing `/mnt/skills/user/<n>/SKILL.md` paths from a different filesystem layout. The honest replacement covers:
+- **What's auto-loaded every session**: the memory files at `~/.claude/projects/-home-twntydotsix/memory/` (with MEMORY.md as the index — three feedback memories named explicitly), and `~/CLAUDE.md` (the home-directory orchestration layer).
+- **Available harness skills**: the actual list (`update-config`, `schedule`, `loop`, `fewer-permission-prompts`, `claude-api`, `security-review`, `review`, plus tangentials). Reframed as "AntCrate cooperates with these on demand" rather than "AntCrate depends on these."
+- **Future per-project skill composition**: when `--ingest` ships, the runtime composition becomes `antcrate skill (orchestration) + <project> skill (knowledge) + <project>/CLAUDE.md (conventions)`. Captured as the Phase-3 design target.
+
+**`stack.md` updated.** Added: pinned `bats-core` 1.13.0 + `shellcheck` 0.10.0 (the actual versions used in `--ci` today), `gh` as a required dep (was missing — needed for `--gh-init` and the queued gh-pipeline flags), the full current `lib/*.sh` enumeration (was a 4-module summary, now lists all 17), the `.github/workflows/` and `.githooks/` directories, the installed-layout section (`~/.local/bin`, `~/.local/share/antcrate/`), the reserved `_archived` registry parent value, the bypass env vars (`ANTCRATE_REMOVAL_PREAPPROVED`, `ANTCRATE_COMMIT_PREAPPROVED`, `ANTCRATE_ALLOW_OUTSIDE_ROOT`) with rule #13 callout, the auto-regen / debounce env vars (`ANTCRATE_AUTO_DIAGRAMS`, `ANTCRATE_TREE_DEBOUNCE_MS`), `ANTCRATE_SELFSRC` (set by installer for `--selfsrc`/`--selftest`/`--selfedit`), and AGENTS.md rule numbers most cited at runtime.
+
+**Why I dropped `project-forge` specifically.** The user asked the rationale explicitly. Three reasons: (a) the skill doesn't exist on this machine — the actually-available skills are `update-config`, `keybindings-help`, `simplify`, `fewer-permission-prompts`, `loop`, `schedule`, `claude-api`, `antcrate`, `init`, `review`, `security-review`. Pointing at a non-existent skill is a footgun: a future agent either tries to invoke it and fails, or skips the maintenance step entirely. (b) What `project-forge` was supposed to do — append to `ledger.md`, update `state.md`, persist cross-session learnings — is now done directly by Claude Code with `Edit`/`Write`, plus the memory system handles the durable cross-session piece. The middle layer collapsed. (c) The pattern matches AntCrate's design philosophy: if a workflow can be expressed entirely in antcrate flags + native edits, don't insert a third party.
+
+**`DIAGRAM_PLAN.md` added.** The user pushed back on my framing of diagram tooling as "graceful-degradation external dependency" in `composes.md` and asked for diagrams to be treated as a first-class AntCrate feature with case-by-case tool selection per project type. The new plan captures:
+- **What's shipped today**: universal pair (`~/.antcrate/registry.mmd` + `<project>/docs/diagrams/tree.mmd`) auto-regenerated everywhere — wrapper-side on every mutating action AND daemon-side on every direct filesystem event under a registered project. Architecture seed dropped on `--start`. `--diagrams` bulk-renders to SVG when tools present.
+- **Selection inputs (queued)**: bundle manifest hints (`manifest.stack`), project domain, file extensions present, explicit user `--diagram-preset` choice. Priority order codified.
+- **Preset library (queued)**: ten presets covering the common cases — `bash` (call graph from shell function defs), `node`/`js` (Madge dep graph), `svelte` (`node` + request-flow sequence via PlantUML), `python` (pyreverse class/package), `rust` (cargo-depgraph), `go` (godepgraph), `terraform`/`iac` (Inframap), `k8s` (k8sviz), `db` (SchemaSpy live or DBML text), `cloud-arch` (mingrammer/diagrams Python DSL).
+- **Wrapper flags (queued)**: `--diagram-preset <project> [<preset>]`, `--diagram-detect <project>`, `--diagrams <project> --refresh-all`, `--start --diagrams <preset>` for auto-install on scaffold.
+- **Registry schema extension**: `projects.<name>.diagrams = { preset, active, last_regen }`. Backward-compatible (missing field → preset defaults to `auto`).
+- **Surface boundaries**: won't fabricate structure, won't auto-publish to external services, won't regenerate on every keystroke (debounced), won't require renderers (Mermaid renders inline on GitHub).
+- **Order of implementation**: 7-step sequence starting from preset infrastructure → first non-trivial preset (`bash`, dogfooded against `lib/registry.sh`) → auto-detection → `--start` integration → stack-specific presets in priority order → bundle-driven selection (depends on `--ingest`) → `--refresh-all`.
+
+`DIAGRAM_AUTOMATION_GUIDE.md` is reframed as the underlying *tool catalog* (Quick Picker, the seven core tools, source-of-truth-by-type sections); `DIAGRAM_PLAN.md` is the AntCrate-specific *selection logic* on top.
+
+**Why this matters for the bigger arc.** The skill files are what loads into a future agent's context first. If they're stale, every subsequent decision compounds the drift. After this pass, an agent landing on antcrate cold will see: (a) accurate orientation pointing at the right files, (b) the AGENTS.md rules named explicitly, (c) every current surface enumerated with status, (d) the maintenance protocol matching what actually works today. The DIAGRAM_PLAN piece in particular closes a roadmap gap: previously the "what's next for diagrams beyond registry/tree" question was implicit; now it's a captured spec the next focused implementation pass can pick up cleanly.
+
+**Files touched:**
+- `SKILL.md` (rewritten, was 47 lines / 5KB → ~110 lines / 7KB)
+- `composes.md` (rewritten)
+- `stack.md` (rewritten)
+- `assets/docs/DIAGRAM_PLAN.md` (new, ~210 lines)
+- `state.md` (tenth pass entry)
+- `ledger.md` (this entry)
+
+`antcrate --ci`: shellcheck **clean**, bats **109/109 passing** (no test changes; this pass is docs-only).
+
+---
+
 ## 2026-05-01 — Hooks: CI workflow + opt-in local pre-commit + read-only inspection (`--hooks` / `--hook-log`)
 
 Closed the "no enforcement layer" gap before the antcrate skill repo's first batch of substantial commits ships to GitHub. Until now, every CI signal came from the human running `antcrate --ci` by hand. With this pass, both ends are covered: a GitHub Actions workflow runs the same checks server-side on every push/PR, and an opt-in local pre-commit hook (versioned with the repo, enabled per-clone) catches issues before the commit even completes.
