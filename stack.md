@@ -70,7 +70,7 @@ hook and `.github/workflows/ci.yml` invoke it.
     `safety.sh`, `backup.sh`, `commit.sh`, `git_triage.sh`, `gh.sh`,
     `address.sh`, `anchor.sh`, `devops.sh`, `diagrams.sh`, `hooks.sh`,
     `propose.sh`, `log.sh`, `lock.sh`, `ingest.sh`, `events.sh`,
-    `watch.sh`, `cleanup.sh`
+    `watch.sh`, `cleanup.sh`, `git_init.sh`, `bootstrap.sh`
   - `templates/<domain>/` — scaffolding per domain (`webapps`,
     `scripts`, `notes`, `projects`, `_generic`)
   - `tests/*.bats` — bats coverage; run via `antcrate --ci`

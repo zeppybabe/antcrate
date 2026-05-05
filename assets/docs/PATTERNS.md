@@ -19,6 +19,8 @@ Goal of this file: Claude Code (or any agent) reads this **before** reaching for
 | List projects in detail | `antcrate --list` | Tab-separated. |
 | Create a new project | `antcrate --start <name> --domain <domain> [--meta "csv"]` | Domain ∈ {webapps, scripts, notes, projects, _generic}. Auto-scaffolds `docs/diagrams/architecture.mmd`. |
 | Register an existing tree (no scaffold) | `antcrate --register <name> <existing-path> [--domain <d>]` | Adds a registry entry for a tree that's already on disk. Domain defaults to parent dir name. |
+| Bootstrap git tracking on a registered project (one-liner) | `antcrate --bootstrap <project> [-m "<msg>"] [--with-remote --public/--private]` | Idempotent: runs `--git-init`, writes a default `.gitignore` (rule #13 secret-pattern denylist + cleanup-prune giants), commits everything. `--with-remote` chains `--gh-init` (private default per AGENTS.md #15). Re-runs on a clean tree are no-ops. Replaces the post-`--register` first-commit dance. |
+| Local git init only (no commit, no .gitignore) | `antcrate --git-init <project>` | Idempotent. Wires `core.hooksPath .githooks` if the project ships a `.githooks/` dir. Counterpart to `--gh-init` for the local-only case. |
 | Branch from an existing project | `antcrate --branch <name> --domain <domain> [--meta "from=<base>"]` | Inherits structure of `<base>`. |
 | Bidirectionally link two projects | `antcrate --link <a> --rel <b>` | Stored under `linked_nodes`. |
 | Sub-branch / nest under a new parent | `antcrate --resume <new_parent> --expand <child>` | Atomic; backup-protected. |

@@ -62,6 +62,10 @@ LIB_DIR="$SCRIPT_DIR/../lib"
 . "$LIB_DIR/watch.sh"
 # shellcheck disable=SC1091
 . "$LIB_DIR/cleanup.sh"
+# shellcheck disable=SC1091
+. "$LIB_DIR/git_init.sh"
+# shellcheck disable=SC1091
+. "$LIB_DIR/bootstrap.sh"
 
 : "${ANTCRATE_HOME:=$HOME/.antcrate}"
 : "${ANTCRATE_ROOT:=$HOME/projects}"
@@ -94,6 +98,11 @@ Commands:
   --resume <parent> --expand <child>  atomic sub-branch / nesting refactor
   --gh-init <project> [--public]      create GitHub repo via HTTPS, push initial commit
   --gh-help                           show GitHub HTTPS onboarding steps
+  --git-init <project>                local-only: idempotent git init + core.hooksPath wire
+                                      (no remote; counterpart to --gh-init)
+  --bootstrap <project> [-m "<msg>"] [--with-remote [--public|--private]]
+                                      one-liner: --git-init + default .gitignore + first commit;
+                                      --with-remote chains --gh-init (private default)
   --backup <project>                  create on-demand backup (tar.gz under ~/.antcrate/backups/)
   --backups <project>                 list backups for a project
   --restore <project> [--at <ts>]     restore project from backup (latest if --at omitted)
@@ -238,6 +247,7 @@ COMMIT_MSG="" COMMIT_MODE=""
 EVENT_KIND="" EVENT_TTL="" EVENT_LABEL="" EVENT_AGENT=""
 WATCH_ONCE="" WATCH_INTERVAL="" WATCH_NOCOLOR="" WATCH_DEPTH=""
 CLEANUP_IDS=()
+BOOTSTRAP_WITH_REMOTE=""
 ACTION=""
 while (( $# > 0 )); do
     case "$1" in
@@ -285,6 +295,18 @@ while (( $# > 0 )); do
         --expand)            EXPAND="$2"; shift 2 ;;
         --gh-init)           ACTION="gh-init"; NAME="$2"; shift 2 ;;
         --gh-help)           ACTION="gh-help"; shift ;;
+        --git-init)          ACTION="git-init"; NAME="$2"; shift 2 ;;
+        --bootstrap)
+            ACTION="bootstrap"; NAME="${2:-}"; shift 2
+            while (( $# > 0 )); do
+                case "${1:-}" in
+                    -m)             COMMIT_MSG="${2:-}"; shift 2 ;;
+                    --with-remote)  BOOTSTRAP_WITH_REMOTE=1; shift ;;
+                    --public)       GH_VIS="public"; shift ;;
+                    --private)      GH_VIS="private"; shift ;;
+                    *)              break ;;
+                esac
+            done ;;
         --backup)            ACTION="backup"; NAME="$2"; shift 2 ;;
         --backups)           ACTION="backups"; NAME="$2"; shift 2 ;;
         --restore)           ACTION="restore"; NAME="$2"; shift 2 ;;
@@ -445,6 +467,13 @@ case "$ACTION" in
         [[ -z "$NAME" ]] && { ac_error "--gh-init requires <project>"; exit 2; }
         ac_with_lock ac_gh_init_repo "$NAME" "$GH_VIS" ;;
     gh-help)   ac_gh_login_hint ;;
+    git-init)
+        [[ -z "$NAME" ]] && { ac_error "--git-init requires <project>"; exit 2; }
+        ac_with_lock ac_git_init "$NAME" ;;
+    bootstrap)
+        [[ -z "$NAME" ]] && { ac_error "--bootstrap requires <project>"; exit 2; }
+        ac_with_lock ac_bootstrap "$NAME" "$COMMIT_MSG" "$BOOTSTRAP_WITH_REMOTE" "$GH_VIS"
+        ac_diagrams_auto_regen "$NAME" >/dev/null 2>&1 || true ;;
     backup)
         [[ -z "$NAME" ]] && { ac_error "--backup requires <project>"; exit 2; }
         ac_registry_has "$NAME" || { ac_error "unknown project: $NAME"; exit 1; }

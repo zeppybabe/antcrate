@@ -4,6 +4,57 @@ Append-only log. Newest entries on top. ISO-8601 dates. Never delete.
 
 ---
 
+## 2026-05-05 — `--git-init` (#77) + `--bootstrap` (#80) one-liner ship
+
+The friendly_cars onboarding pass on 2026-05-04 ran a manual sequence: `git init` → `git config core.hooksPath` → write `.gitignore` → `ANTCRATE_COMMIT_PREAPPROVED=1 antcrate --commit ... --all-tracked`. Asked to fold that into a single flag. Two new libs cover the surface:
+
+**`lib/git_init.sh` — `ac_git_init <project>`**
+
+Local-only counterpart to `lib/gh.sh`'s `--gh-init`. Idempotent: if `.git` already exists, log + return 0. Otherwise `git init -q` plus `git config core.hooksPath .githooks` when `.githooks/` is present. Errors on unregistered project / missing path on disk. Five exit paths, all tested in `tests/git_init.bats` (7 tests, all green).
+
+**`lib/bootstrap.sh` — `ac_bootstrap <project> [<msg>] [<with_remote>] [<visibility>]`**
+
+Composes:
+1. `ac_git_init` (idempotent)
+2. Default `.gitignore` (never overwrites existing) — patterns mirror `ac_commit_secret_match` (`.env`, `*.pem`, `*.key`, `id_*`, `*.p12`, `*.pfx`, `secrets.y*ml`, `*.credentials`, `credentials.json`, `.netrc`) plus the `lib/cleanup.sh` skip-prune giants (`node_modules/`, `__pycache__/`, `.venv/`, `venv/`, `.tox/`, `.pytest_cache/`, `.mypy_cache/`, `.cache/`, `.turbo/`, `.nyc_output/`, `coverage/`, `dist/`, `build/`, `.next/`, `target/`). The two lists agree by construction so the gitignore and cleanup logic don't drift.
+3. **Pre-stage** `ac_diagrams_auto_regen` — twice. The first regen creates `docs/diagrams/tree.mmd`; the second regen sees it and converges. Without the double-call, the staged tree.mmd is one node short and a second `--bootstrap` call would commit a "+tree.mmd self-reference" diff, breaking idempotency. Bug #81's skip-write-when-stable then makes the post-commit regen a no-op for free.
+4. `ac_commit_run` with mode `"all"` — auto-message `feat(init): bootstrap <project> via antcrate` if `-m` omitted, custom message if given. Uses `ANTCRATE_COMMIT_PREAPPROVED=1` inline (rule #13 sanctioned, env-var bypass for non-TTY). Once #83 lands, this becomes a `-y` passthrough.
+5. Optional `--with-remote` chains `ac_gh_init_repo` with `private` default (per memory + queued rule #15). `--public` is opt-in.
+
+All five steps idempotent. Re-running on a clean tree commits nothing and returns 0. Verified via bats test #2 (idempotency: SHA stable across two calls) and live smoke test against a temp project (`mktemp -d` + register + bootstrap + bootstrap → 1 commit total).
+
+**Wrapper wiring (`bin/antcrate`):**
+- Sourced both libs after `cleanup.sh`
+- Help text (lines ~99–104) shows both flags with the inheritance arrow
+- Inner-loop parser for `--bootstrap` accepts `-m "<msg>" --with-remote --public --private`, mirrors the `--commit` pattern
+- Dispatch wraps `ac_bootstrap` in `ac_with_lock` (commit needs the lock; bootstrap composes commit) and runs `ac_diagrams_auto_regen` post-call as belt-and-suspenders (no-op given the in-function pre-stage regen + #81)
+- New variable: `BOOTSTRAP_WITH_REMOTE=""`
+
+**Tests landed (16 new, 182 → 199 total):**
+- `tests/git_init.bats` — 7 tests covering all exit paths
+- `tests/bootstrap.bats` — 10 tests:
+  - happy path (creates .git + .gitignore + commit)
+  - idempotent on second call (SHA stable)
+  - **leaves working tree clean after first commit (no tree.mmd loop)**
+  - respects existing .gitignore (no overwrite)
+  - `-m` custom message
+  - auto-message when `-m` omitted
+  - errors when unregistered
+  - errors when name missing
+  - secret-pattern guard catches `.env` not gitignored (refuses to commit)
+  - works on a tree with one file
+
+Shellcheck clean. Live smoke test passed end-to-end with isolated `ANTCRATE_HOME` + `ANTCRATE_ROOT` so the real registry stayed untouched.
+
+**What this unblocks.** The friendly_cars onboarding sequence now collapses to:
+```bash
+antcrate --register friendly_cars ~/projects/friendly_cars --domain projects
+antcrate --bootstrap friendly_cars
+```
+Plus future `--init` (#84) which would orchestrate `--start || --register` + scaffold `CLAUDE.md` + `--bootstrap` in one call. The composition cascade keeps each layer testable in isolation.
+
+---
+
 ## 2026-05-05 — Bug #81: tree.mmd timestamp non-idempotency fixed
 
 `ac_diagrams_auto_regen` was rewriting `docs/diagrams/tree.mmd` on every invocation because the file's first line is a `%% <project> tree — generated <ISO-8601>` header. Fresh timestamp every regen = file always "modified" by git's eyes. Symptom: every `antcrate --commit <project>` triggered a post-commit auto-regen, which dirtied tree.mmd, which appeared in the next `git status`, prompting another commit. Infinite loop.

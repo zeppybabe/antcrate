@@ -4,7 +4,14 @@ _Last updated: 2026-05-05_
 
 ## Top of mind
 
-**Bug #81 fixed (2026-05-05): tree.mmd timestamp non-idempotency.** `lib/diagrams.sh` now skips the write when only the timestamp header would change. Verified live on friendly_cars — `--backup` no longer leaves `M docs/diagrams/tree.mmd` in git status. Test count 162 → 166. Unblocks `--bootstrap` (#80) since the one-liner UX would have shipped a dirty tree on first commit.
+**`--git-init` (#77) + `--bootstrap` (#80) shipped (2026-05-05, fourteenth pass):**
+- `lib/git_init.sh` — local-only `git init` counterpart to `--gh-init`. Idempotent. Wires `core.hooksPath .githooks` when `.githooks/` present.
+- `lib/bootstrap.sh` — composes `--git-init` + default `.gitignore` (rule #13 secret denylist + cleanup-prune giants, agreement-by-construction with `ac_commit_secret_match` + `lib/cleanup.sh`) + first commit. Pre-stage diagram regen called twice for tree.mmd convergence. `--with-remote` chains `--gh-init` with private default per AGENTS.md #15 (queued).
+- 16 new bats tests (182 → 199 total). Live smoke test against an isolated `ANTCRATE_HOME` / `ANTCRATE_ROOT` confirmed end-to-end: register → bootstrap → bootstrap = 1 commit, clean tree.
+- Help text + dispatch wired in `bin/antcrate`. Inner-loop parser for `--bootstrap` accepts `-m`, `--with-remote`, `--public`, `--private`.
+- Once `--init` (#84) lands, the full onboarding cascade becomes one flag: `antcrate --init <project>` → `--start | --register` + scaffold CLAUDE.md + `--bootstrap`.
+
+**Bug #81 fixed (2026-05-05): tree.mmd timestamp non-idempotency.** `lib/diagrams.sh` now skips the write when only the timestamp header would change. Verified live on friendly_cars — `--backup` no longer leaves `M docs/diagrams/tree.mmd` in git status. Test count 162 → 166. Unblocked `--bootstrap` (#80) — without it, the one-liner UX would have shipped a dirty tree on first commit.
 
 **friendly_cars onboarded (2026-05-04, externally — not antcrate-side):** The home-orchestration's first non-self project. Registered, backed up, SQL patched (idx_sale_status + Q3 LEFT JOIN form), CLAUDE.md expanded with O(n) execution plan + Test Bench Protocol. See `~/projects/friendly_cars/friendly-cars-dealership/ledger.md`. Onboarding revealed bug #81 + a queue of dogfood proposals (#76 `--mirror`, #77 `--git-init`, #80 `--bootstrap`, #82 `--info`, #83 `-y`, #84 `--init`, #85 `--env-setup`).
 
