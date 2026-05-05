@@ -1,4 +1,4 @@
-%% antcrate tree — generated 2026-05-04T07:54:11Z
+%% antcrate tree — generated 2026-05-05T07:44:16Z
 graph TD
   root(["antcrate"])
   1["README.md"]
@@ -31,42 +31,46 @@ graph TD
   3a6 --> 3a6b
   3a6c["backup.sh"]
   3a6 --> 3a6c
-  3a6d["cleanup.sh"]
+  3a6d["bootstrap.sh"]
   3a6 --> 3a6d
-  3a6e["commit.sh"]
+  3a6e["cleanup.sh"]
   3a6 --> 3a6e
-  3a6f["devops.sh"]
+  3a6f["commit.sh"]
   3a6 --> 3a6f
-  3a6g["diagrams.sh"]
+  3a6g["devops.sh"]
   3a6 --> 3a6g
-  3a6h["events.sh"]
+  3a6h["diagrams.sh"]
   3a6 --> 3a6h
-  3a6i["gh.sh"]
+  3a6i["events.sh"]
   3a6 --> 3a6i
-  3a6j["git_triage.sh"]
+  3a6j["gh.sh"]
   3a6 --> 3a6j
-  3a6k["hooks.sh"]
+  3a6k["git_init.sh"]
   3a6 --> 3a6k
-  3a6l["ingest.sh"]
+  3a6l["git_triage.sh"]
   3a6 --> 3a6l
-  3a6m["lock.sh"]
+  3a6m["hooks.sh"]
   3a6 --> 3a6m
-  3a6n["log.sh"]
+  3a6n["ingest.sh"]
   3a6 --> 3a6n
-  3a6o["propose.sh"]
+  3a6o["lock.sh"]
   3a6 --> 3a6o
-  3a6p["registry.sh"]
+  3a6p["log.sh"]
   3a6 --> 3a6p
-  3a6q["safety.sh"]
+  3a6q["propose.sh"]
   3a6 --> 3a6q
-  3a6r["scaffold.sh"]
+  3a6r["registry.sh"]
   3a6 --> 3a6r
-  3a6s["schema.sh"]
+  3a6s["safety.sh"]
   3a6 --> 3a6s
-  3a6t["subbranch.sh"]
+  3a6t["scaffold.sh"]
   3a6 --> 3a6t
-  3a6u["watch.sh"]
+  3a6u["schema.sh"]
   3a6 --> 3a6u
+  3a6v["subbranch.sh"]
+  3a6 --> 3a6v
+  3a6w["watch.sh"]
+  3a6 --> 3a6w
   3a7[/systemd/]
   3a --> 3a7
   3a7a["antcrated.service"]
@@ -115,32 +119,36 @@ graph TD
   3a9 --> 3a9b
   3a9c["backup.bats"]
   3a9 --> 3a9c
-  3a9d["cleanup.bats"]
+  3a9d["bootstrap.bats"]
   3a9 --> 3a9d
-  3a9e["commit.bats"]
+  3a9e["cleanup.bats"]
   3a9 --> 3a9e
-  3a9f["diagrams.bats"]
+  3a9f["commit.bats"]
   3a9 --> 3a9f
-  3a9g["events.bats"]
+  3a9g["diagrams.bats"]
   3a9 --> 3a9g
-  3a9h["git_triage.bats"]
+  3a9h["events.bats"]
   3a9 --> 3a9h
-  3a9i["hooks.bats"]
+  3a9i["git_init.bats"]
   3a9 --> 3a9i
-  3a9j["ingest.bats"]
+  3a9j["git_triage.bats"]
   3a9 --> 3a9j
-  3a9k["propose.bats"]
+  3a9k["hooks.bats"]
   3a9 --> 3a9k
-  3a9l["register.bats"]
+  3a9l["ingest.bats"]
   3a9 --> 3a9l
-  3a9m["registry.bats"]
+  3a9m["propose.bats"]
   3a9 --> 3a9m
-  3a9n["scaffold.bats"]
+  3a9n["register.bats"]
   3a9 --> 3a9n
-  3a9o["schema.bats"]
+  3a9o["registry.bats"]
   3a9 --> 3a9o
-  3a9p["watch.bats"]
+  3a9p["scaffold.bats"]
   3a9 --> 3a9p
+  3a9q["schema.bats"]
+  3a9 --> 3a9q
+  3a9r["watch.bats"]
+  3a9 --> 3a9r
   3b[/docs/]
   3 --> 3b
   3b1["AntCrate_blueprint_v0.pdf"]
