@@ -4,6 +4,46 @@ Append-only log. Newest entries on top. ISO-8601 dates. Never delete.
 
 ---
 
+## 2026-05-05 — Bug #81: tree.mmd timestamp non-idempotency fixed
+
+`ac_diagrams_auto_regen` was rewriting `docs/diagrams/tree.mmd` on every invocation because the file's first line is a `%% <project> tree — generated <ISO-8601>` header. Fresh timestamp every regen = file always "modified" by git's eyes. Symptom: every `antcrate --commit <project>` triggered a post-commit auto-regen, which dirtied tree.mmd, which appeared in the next `git status`, prompting another commit. Infinite loop.
+
+Surfaced concretely during the friendly_cars init pass on 2026-05-04: after the initial commit landed, `git status --short` showed `M docs/diagrams/tree.mmd`. Diff between commit-time and post-commit content was a single line — the timestamp. The same loop is masked in antcrate's own repo only because the user accepted the auto-commit as a one-shot.
+
+**Fix shape: skip-write-when-stable, not strip-the-timestamp.**
+
+Considered three approaches:
+- *Drop the timestamp from the header* — simplest, but the timestamp is genuinely useful "last regen at" metadata users want.
+- *Replace timestamp with content hash* — also stable, but the hash is only meaningful relative to the file you're computing it from; not human-readable.
+- *Compare new content modulo line 1, write only if differs.* This preserves the timestamp value when it's earned (content actually changed) and skips the write entirely when nothing semantic changed.
+
+Picked door #3. New helper `ac_diagrams_write_if_changed` in `lib/diagrams.sh`:
+- Reads stdin into a temp file
+- If destination exists and `tail -n +2` of both files matches via `diff -q`, removes the temp and returns success — *no write, no mtime bump, working tree stays clean*
+- Otherwise `mv` the temp to destination
+
+`ac_diagrams_auto_regen` now pipes both writes through the helper:
+```bash
+ac_diagrams_registry_to_mermaid 2>/dev/null | ac_diagrams_write_if_changed "$out"
+ac_diagrams_tree_to_mermaid "$project" 2>/dev/null | ac_diagrams_write_if_changed "$tree_out" || true
+```
+
+Four new bats tests:
+- `write_if_changed: creates file on first write`
+- `write_if_changed: skips write when only the header (line 1) differs`
+- `write_if_changed: writes when body differs (header may also differ)`
+- `auto_regen: tree.mmd is stable across consecutive regens (no timestamp loop)` — uses two warm-up regens to settle (the first regen creates `tree.mmd`, which the second sees as a new tree node) before the stability check.
+
+Verified live on friendly_cars: after installing the patched lib via `--selfinstall`, `antcrate --backup friendly_cars` triggered auto-regen but `git status --short` came back empty. Loop confirmed broken.
+
+**Why the helper is internal.** It bypasses the contract that "every auto-regen produces a fresh file." The Reason: line in its header documents that the bypass is the whole point — the contract was the bug. Future libs that reach for "compare-then-skip" semantics should consult this pattern.
+
+Test count: 162 → 166. Shellcheck clean. Files changed: `lib/diagrams.sh`, `tests/diagrams.bats`. No public-API change.
+
+Pairs with task #80 (`--bootstrap`): without this fix, every `--bootstrap` first-commit would leave the tree dirty, defeating the "one-liner" UX goal.
+
+---
+
 ## 2026-05-04 — `--cleanup` + `--watch` + activity event stream ship (file-bus first, ztcp queued)
 
 After `--ingest` landed earlier today, the user pointed back at the live-watch + cleanup conversation we'd had: cleanup protocol per-project, agents emit kind-tagged events, registry tracks recent removals, watch view shows colored tree with 1s deletion afterglow. This pass implements that whole arc — minus the optional ztcp fast-path, which stays queued behind the file bus per the design wager. Single user request: "go top to bottom; --ingest first." Ingest is in; this is the next layer.

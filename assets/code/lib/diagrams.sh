@@ -34,6 +34,32 @@ MERMAID
     fi
 }
 
+# ---------- write helpers ----------
+
+# ac_diagrams_write_if_changed <out_path>
+# Reads new content from stdin into a temp file, then writes it to <out_path>
+# only if the new content differs from the existing file in any line beyond
+# the first (which is the "%% ... generated <ts>" timestamp header).
+#
+# Reason: ac_diagrams_auto_regen is called after every mutating wrapper
+# action AND on every filesystem event reaching the daemon. Each regen
+# stamps a fresh ISO-8601 timestamp into the header. Without this guard
+# every commit would leave docs/diagrams/tree.mmd "modified" — the post-
+# commit auto-regen rewrites the timestamp, the next git status flags
+# the file, prompting another commit, ad infinitum. By skipping the write
+# when only the timestamp would change, the working tree converges.
+ac_diagrams_write_if_changed() {
+    local out="$1"
+    local new_tmp; new_tmp=$(mktemp)
+    cat > "$new_tmp"
+    if [[ -f "$out" ]] \
+       && diff -q <(tail -n +2 "$out") <(tail -n +2 "$new_tmp") >/dev/null 2>&1; then
+        rm -f "$new_tmp"
+        return 0
+    fi
+    mv "$new_tmp" "$out"
+}
+
 # ---------- registry-as-graph ----------
 
 # ac_diagrams_registry_to_mermaid — emits a Mermaid graph of the registry.
@@ -212,7 +238,7 @@ ac_diagrams_auto_regen() {
     {
         local out="$ANTCRATE_HOME/registry.mmd"
         mkdir -p "$(dirname "$out")" 2>/dev/null || true
-        ac_diagrams_registry_to_mermaid > "$out" 2>/dev/null
+        ac_diagrams_registry_to_mermaid 2>/dev/null | ac_diagrams_write_if_changed "$out"
     } >/dev/null 2>&1 || true
 
     # project-level — only if project still resolvable on disk
@@ -222,7 +248,7 @@ ac_diagrams_auto_regen() {
         if [[ -n "$proj_path" && -d "$proj_path" ]]; then
             local tree_out="$proj_path/$ANTCRATE_DIAGRAMS_DIR/tree.mmd"
             mkdir -p "$(dirname "$tree_out")" 2>/dev/null || true
-            ac_diagrams_tree_to_mermaid "$project" > "$tree_out" 2>/dev/null || true
+            ac_diagrams_tree_to_mermaid "$project" 2>/dev/null | ac_diagrams_write_if_changed "$tree_out" || true
         fi
     fi
     return 0

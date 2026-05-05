@@ -1,8 +1,12 @@
 # AntCrate — Current State
 
-_Last updated: 2026-05-04_
+_Last updated: 2026-05-05_
 
 ## Top of mind
+
+**Bug #81 fixed (2026-05-05): tree.mmd timestamp non-idempotency.** `lib/diagrams.sh` now skips the write when only the timestamp header would change. Verified live on friendly_cars — `--backup` no longer leaves `M docs/diagrams/tree.mmd` in git status. Test count 162 → 166. Unblocks `--bootstrap` (#80) since the one-liner UX would have shipped a dirty tree on first commit.
+
+**friendly_cars onboarded (2026-05-04, externally — not antcrate-side):** The home-orchestration's first non-self project. Registered, backed up, SQL patched (idx_sale_status + Q3 LEFT JOIN form), CLAUDE.md expanded with O(n) execution plan + Test Bench Protocol. See `~/projects/friendly_cars/friendly-cars-dealership/ledger.md`. Onboarding revealed bug #81 + a queue of dogfood proposals (#76 `--mirror`, #77 `--git-init`, #80 `--bootstrap`, #82 `--info`, #83 `-y`, #84 `--init`, #85 `--env-setup`).
 
 **`--cleanup` + `--watch` + activity event stream landed (2026-05-04, twelfth pass):**
 - New `lib/events.sh`: append-only JSONL per project at

@@ -176,3 +176,54 @@ src() {
     run src "ac_diagrams_resolve_project_for_path ''"
     [ "$status" -ne 0 ]
 }
+
+@test "write_if_changed: creates file on first write" {
+    out="$R/docs/diagrams/tree.mmd"
+    mkdir -p "$(dirname "$out")"
+    run src "printf '%%%% header line A\nbody\n' | ac_diagrams_write_if_changed '$out'"
+    [ "$status" -eq 0 ]
+    [ -f "$out" ]
+    grep -q '^body$' "$out"
+}
+
+@test "write_if_changed: skips write when only the header (line 1) differs" {
+    out="$R/docs/diagrams/tree.mmd"
+    mkdir -p "$(dirname "$out")"
+    printf '%%%% header line A\nstable body\n' > "$out"
+    initial_mtime=$(stat -c %Y "$out")
+    sleep 1.1
+    run src "printf '%%%% header line B\nstable body\n' | ac_diagrams_write_if_changed '$out'"
+    [ "$status" -eq 0 ]
+    final_mtime=$(stat -c %Y "$out")
+    [ "$initial_mtime" = "$final_mtime" ]   # no write happened
+    grep -q '^%% header line A$' "$out"     # original header preserved
+}
+
+@test "write_if_changed: writes when body differs (header may also differ)" {
+    out="$R/docs/diagrams/tree.mmd"
+    mkdir -p "$(dirname "$out")"
+    printf '%%%% header A\nold body\n' > "$out"
+    run src "printf '%%%% header B\nnew body\n' | ac_diagrams_write_if_changed '$out'"
+    [ "$status" -eq 0 ]
+    grep -q '^new body$' "$out"
+    grep -q '^%% header B$' "$out"
+}
+
+@test "auto_regen: tree.mmd is stable across consecutive regens (no timestamp loop)" {
+    # Two warm-up regens to settle: regen #1 creates docs/diagrams/tree.mmd
+    # itself, which regen #2 then sees as a new tree node and incorporates.
+    # By regen #3, the tree is converged. The bug we're guarding against is
+    # the timestamp making *every* subsequent regen rewrite the file.
+    src "ac_registry_upsert proj '$R' scripts ''
+         ac_diagrams_auto_regen proj
+         ac_diagrams_auto_regen proj"
+    first=$(cat "$R/docs/diagrams/tree.mmd")
+    initial_mtime=$(stat -c %Y "$R/docs/diagrams/tree.mmd")
+    sleep 1.1
+    src "ac_diagrams_auto_regen proj"
+    second=$(cat "$R/docs/diagrams/tree.mmd")
+    final_mtime=$(stat -c %Y "$R/docs/diagrams/tree.mmd")
+    # Bytes identical, mtime unchanged — the post-convergence regen did NOT rewrite.
+    [ "$first" = "$second" ]
+    [ "$initial_mtime" = "$final_mtime" ]
+}
