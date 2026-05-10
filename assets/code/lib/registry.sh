@@ -118,3 +118,60 @@ ac_registry_dump() {
     ac_registry_init
     jq '.' "$ANTCRATE_REGISTRY"
 }
+
+# ac_registry_info <project> — formatted single-project record for human eyes.
+# Replaces the `jq '.projects.<name>' ~/.antcrate/registry.json` muscle-memory
+# pattern. Reads registry + project on-disk state + git status if .git present.
+# Read-only; never mutates.
+ac_registry_info() {
+    local project="${1:-}"
+    [[ -n "$project" ]] || { ac_error "info: missing project name"; return 1; }
+    ac_registry_init
+    if ! ac_registry_has "$project"; then
+        ac_error "info: unknown project '$project'"
+        return 1
+    fi
+
+    printf 'project    : %s\n' "$project"
+
+    jq -r --arg n "$project" '
+        .projects[$n] |
+        "path       : " + .path,
+        "domain     : " + (.parent // "(none)"),
+        "git_remote : " + (if (.git_remote // "") == "" then "(none)" else .git_remote end),
+        "linked     : " + ((.linked_nodes // []) | if length == 0 then "(none)" else join(", ") end),
+        (if has("previous_parent") and .previous_parent != null
+            then "previous_parent: " + .previous_parent
+            else empty end),
+        "removals   : " + (((.recent_removals // []) | length) | tostring) + " tracked"
+    ' "$ANTCRATE_REGISTRY"
+
+    local backup_dir="$ANTCRATE_HOME/backups/$project"
+    local backup_count=0
+    if [[ -d "$backup_dir" ]]; then
+        backup_count=$(find "$backup_dir" -maxdepth 1 -name "*.tar.gz" 2>/dev/null | wc -l)
+    fi
+    printf 'backups    : %d\n' "$backup_count"
+
+    local proj_path
+    proj_path=$(ac_registry_get "$project" path 2>/dev/null)
+    if [[ -n "$proj_path" && -d "$proj_path/.git" ]]; then
+        local last_commit
+        last_commit=$(git -C "$proj_path" log -1 --pretty='%h %s' 2>/dev/null || echo '(no commits)')
+        printf 'last_commit: %s\n' "$last_commit"
+        local branch
+        branch=$(git -C "$proj_path" rev-parse --abbrev-ref HEAD 2>/dev/null || echo '(detached)')
+        printf 'branch     : %s\n' "$branch"
+        local dirty_count
+        dirty_count=$(git -C "$proj_path" status --porcelain 2>/dev/null | wc -l)
+        if (( dirty_count > 0 )); then
+            printf 'working    : dirty (%d entries)\n' "$dirty_count"
+        else
+            printf 'working    : clean\n'
+        fi
+    else
+        printf 'git        : not a git repo (use --git-init or --bootstrap)\n'
+    fi
+
+    return 0
+}

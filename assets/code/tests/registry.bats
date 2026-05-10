@@ -72,3 +72,54 @@ run_lib() {
         ac_registry_get a path'
     [[ "$output" == *"/new"* ]]
 }
+
+@test "info: prints formatted record for registered project" {
+    R="$BATS_TEST_TMPDIR/proj"
+    mkdir -p "$R"
+    run run_lib "
+        ac_registry_upsert proj '$R' webapps git@example.com:proj.git
+        ac_registry_info proj"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"project    : proj"* ]]
+    [[ "$output" == *"path       : $R"* ]]
+    [[ "$output" == *"domain     : webapps"* ]]
+    [[ "$output" == *"git_remote : git@example.com:proj.git"* ]]
+    [[ "$output" == *"git        : not a git repo"* ]]
+}
+
+@test "info: errors on unregistered project" {
+    run run_lib 'ac_registry_info ghost'
+    [ "$status" -ne 0 ]
+}
+
+@test "info: errors when name missing" {
+    run run_lib 'ac_registry_info'
+    [ "$status" -ne 0 ]
+}
+
+@test "info: shows git status when project is a repo" {
+    R="$BATS_TEST_TMPDIR/proj"
+    mkdir -p "$R"
+    git -C "$R" init -q
+    git -C "$R" -c user.email=t@e.x -c user.name=t commit --allow-empty -q -m "init"
+    run run_lib "
+        ac_registry_upsert proj '$R' webapps ''
+        ac_registry_info proj"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"last_commit:"* ]]
+    [[ "$output" == *"branch     :"* ]]
+    [[ "$output" == *"working    : clean"* ]]
+}
+
+@test "info: reports dirty working tree when files modified" {
+    R="$BATS_TEST_TMPDIR/proj"
+    mkdir -p "$R"
+    git -C "$R" init -q
+    git -C "$R" -c user.email=t@e.x -c user.name=t commit --allow-empty -q -m "init"
+    echo "x" > "$R/new.txt"
+    run run_lib "
+        ac_registry_upsert proj '$R' webapps ''
+        ac_registry_info proj"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"working    : dirty"* ]]
+}

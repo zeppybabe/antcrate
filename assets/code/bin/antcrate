@@ -81,9 +81,11 @@ Commands:
                                       add a registry entry for an existing tree (no scaffold)
   --branch <n> --domain <d>        new project, optionally --meta "from=<base>"
   --link <a> --rel <b>                bidirectional link between two projects
-  --commit <project> -m "<msg>" [--all-tracked | -- <files...>]
+  --commit <project> -m "<msg>" [--all-tracked | -- <files...>] [-y]
                                       stage + commit via the wrapper (secret-pattern guard,
-                                      Gateway Law preview, y/N prompt). Replaces bare git add+commit.
+                                      Gateway Law preview, y/N prompt). -y bypasses prompt
+                                      (sanctioned for non-TTY automation). Replaces bare
+                                      git add+commit.
   --pp <project> [-y]                 commit (if dirty) and push, with conflict triage
   --ingest <bundle-path>              consume a research bundle (BUNDLE_SPEC v1.0)
   --emit-activity <project> <kind> <relpath> [--ttl-ms N] [--label X] [--agent A]
@@ -134,6 +136,8 @@ Commands:
   --pipe-file <basename>              decode a Positional filename and dispatch
   --status                            show daemon + registry summary
   --list                              list registered projects
+  --info <project>                    formatted record: path, domain, git_remote,
+                                      linked, backups, branch + last_commit + working state
   --help                              this message
 
 Env:
@@ -255,6 +259,7 @@ while (( $# > 0 )); do
         --init)              ACTION="init"; shift ;;
         --status)            ACTION="status"; shift ;;
         --list)              ACTION="list"; shift ;;
+        --info)              ACTION="info"; NAME="${2:-}"; shift 2 ;;
         --start)             ACTION="start"; NAME="$2"; shift 2 ;;
         --register)
             ACTION="register"; NAME="${2:-}"; REG_PATH="${3:-}"
@@ -287,6 +292,7 @@ while (( $# > 0 )); do
                 case "${1:-}" in
                     -m)            COMMIT_MSG="${2:-}"; shift 2 ;;
                     --all-tracked) COMMIT_MODE="all"; shift ;;
+                    -y)            AUTO_YES="-y"; shift ;;
                     --)            shift; COMMIT_MODE="${COMMIT_MODE:-explicit}"; CMD_ARGS=( "$@" ); set -- ;;
                     *)             break ;;
                 esac
@@ -407,6 +413,9 @@ case "$ACTION" in
     init)      cmd_init ;;
     status)    cmd_status ;;
     list)      cmd_list ;;
+    info)
+        [[ -z "$NAME" ]] && { ac_error "--info requires <project>"; exit 2; }
+        ac_registry_info "$NAME" ;;
     start)
         [[ -z "$DOMAIN" ]] && { ac_error "--start requires --domain"; exit 2; }
         ac_with_lock ac_action_start "$NAME" "$DOMAIN" "${META_VALUES[@]}"
@@ -459,10 +468,15 @@ case "$ACTION" in
             ac_with_lock ac_cleanup_apply "$NAME" "${CLEANUP_IDS[@]}"
             ac_diagrams_auto_regen "$NAME" >/dev/null 2>&1 || true
         fi ;;
-    commit)    ac_commit_run "$NAME" "$COMMIT_MSG" "$COMMIT_MODE" "${CMD_ARGS[@]}"
-               # auto-regen diagrams after commit (registry-only; project tree
-               # may have changed too, so pass project)
-               ac_diagrams_auto_regen "$NAME" >/dev/null 2>&1 || true ;;
+    commit)
+        if [[ -n "$AUTO_YES" ]]; then
+            ANTCRATE_COMMIT_PREAPPROVED=1 ac_commit_run "$NAME" "$COMMIT_MSG" "$COMMIT_MODE" "${CMD_ARGS[@]}"
+        else
+            ac_commit_run "$NAME" "$COMMIT_MSG" "$COMMIT_MODE" "${CMD_ARGS[@]}"
+        fi
+        # auto-regen diagrams after commit (registry-only; project tree
+        # may have changed too, so pass project)
+        ac_diagrams_auto_regen "$NAME" >/dev/null 2>&1 || true ;;
     gh-init)
         [[ -z "$NAME" ]] && { ac_error "--gh-init requires <project>"; exit 2; }
         ac_with_lock ac_gh_init_repo "$NAME" "$GH_VIS" ;;

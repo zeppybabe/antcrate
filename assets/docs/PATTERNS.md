@@ -17,6 +17,7 @@ Goal of this file: Claude Code (or any agent) reads this **before** reaching for
 |---|---|---|
 | See what's registered | `antcrate --status` | Always first. Shows daemon state + project count. |
 | List projects in detail | `antcrate --list` | Tab-separated. |
+| Show one project's full record | `antcrate --info <project>` | Path, domain, git_remote, linked, backups, branch, last commit, working state. Replaces `jq '.projects.<n>'`. |
 | Create a new project | `antcrate --start <name> --domain <domain> [--meta "csv"]` | Domain ∈ {webapps, scripts, notes, projects, _generic}. Auto-scaffolds `docs/diagrams/architecture.mmd`. |
 | Register an existing tree (no scaffold) | `antcrate --register <name> <existing-path> [--domain <d>]` | Adds a registry entry for a tree that's already on disk. Domain defaults to parent dir name. |
 | Bootstrap git tracking on a registered project (one-liner) | `antcrate --bootstrap <project> [-m "<msg>"] [--with-remote --public/--private]` | Idempotent: runs `--git-init`, writes a default `.gitignore` (rule #13 secret-pattern denylist + cleanup-prune giants), commits everything. `--with-remote` chains `--gh-init` (private default per AGENTS.md #15). Re-runs on a clean tree are no-ops. Replaces the post-`--register` first-commit dance. |
@@ -65,8 +66,9 @@ Every entry forces a backup tarball + human approval before touching disk. Never
 
 | Intent | Command | Notes |
 |---|---|---|
-| Commit + push with conflict triage | `antcrate --pp <project>` | On rejection: emails truncated diff, full log at `/tmp/antcrate_conflict.log`. Never bare `git push`. |
+| Commit + push with conflict triage | `antcrate --pp <project>` | On rejection: emails truncated diff, full log at `/tmp/antcrate_conflict.log`. Never bare `git push`. Successful pushes print `verify: <upstream> in sync at <SHA>` (proposal #87 Shape B). |
 | Skip the commit y/N prompt | `antcrate --pp <project> -y` | Unattended only. |
+| Commit only (no push), unattended | `antcrate --commit <project> -m "<msg>" --all-tracked -y` | `-y` skips the y/N prompt for non-TTY use (proposal #83). |
 | `git status` + `git diff` (no cd) | `antcrate --diff <project>` | Uses `git -C`. |
 | Initialize GitHub repo (HTTPS) | `antcrate --gh-init <project> [--public]` | Defaults to private. Requires `gh` authed. |
 | GitHub onboarding hint | `antcrate --gh-help` | Prints HTTPS onboarding steps. |

@@ -48,6 +48,15 @@ ad-hoc is a candidate for absorption. The `gh` CLI is dual-use:
 | `gh run list --repo <repo> --limit 3` | List recent CI runs for a project | no | `antcrate --runs <project> [N]` |
 | `gh run watch <id> --repo <repo> --exit-status` | Block until a CI run finishes | no | `antcrate --watch-run <project> [<id>]` (default: latest run for the project's master/main) |
 
+### Session: 2026-05-08 (public-mirror test — friendly_cars → friendly-cars-dealership)
+
+| Command | Purpose | Wrapped? | Proposed flag |
+|---|---|---|---|
+| `gh repo view zeppybabe/friendly-cars-dealership` | Pre-flight: confirm dest name does NOT already exist remotely (collision check before --gh-init) | no | `antcrate --gh-name-free <name>` — exit 0 if free, exit 12 if taken (matches `--mirror` exit code 12 = remote-collision per proposal `mirror-fresh-history`) |
+| `gh repo create ... --public --push --source=.` | Create public mirror repo + push initial commit | **yes** — `antcrate --gh-init <project> --public` | (already shipped) |
+
+**Pattern observed:** the `--gh-name-free` precheck is a natural building block of `--mirror` (#76) and would also be useful as a standalone flag. When `--mirror` ships it should call this internally before `--gh-init`. Alternative: fold the precheck into `--gh-init` itself with a clear exit 12.
+
 ---
 
 ## Proposed flag set (first implementation pass)

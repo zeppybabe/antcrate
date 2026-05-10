@@ -63,6 +63,24 @@ ac_git_push() {
     if (( rc == 0 )); then
         rm -f "$stderr_file"
         ac_info "push ok ($project)"
+        # Post-push remote-sync verification (proposal #87, Shape B).
+        # Compare local HEAD to the remote-tracking ref. Mismatch here is
+        # rare (push succeeded, ref-update should be atomic) but possible
+        # if a force-push from another client lands between our push and
+        # this check, or if something weird happens with shallow clones.
+        # One extra ref read; no extra network beyond what `git push`
+        # already updated locally.
+        local local_head remote_head upstream
+        local_head=$(git rev-parse HEAD 2>/dev/null || true)
+        upstream=$(git rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null || true)
+        if [[ -n "$upstream" ]]; then
+            remote_head=$(git rev-parse "$upstream" 2>/dev/null || true)
+            if [[ -n "$local_head" && "$local_head" == "$remote_head" ]]; then
+                printf 'verify: %s in sync at %s\n' "$upstream" "${local_head:0:7}"
+            else
+                ac_warn "verify: $upstream divergent (local=${local_head:0:7} remote=${remote_head:0:7})"
+            fi
+        fi
         return 0
     fi
 
