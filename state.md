@@ -1,8 +1,10 @@
 # AntCrate — Current State
 
-_Last updated: 2026-05-08_
+_Last updated: 2026-05-09_
 
 ## Top of mind
+
+**Git history catch-up landed (2026-05-09, seventeenth pass):** three sessions of work (dogfood trio #82/#83/#87, agent layer #88-#92/#109-#111, --delegate #93) were sitting in the working tree from 2026-05-05 onward. Split into 4 commits (`f670f4f` dogfood, `d90aa11` agent-layer, `2a14155` delegate, `5116045` docs catch-up) and pushed via `antcrate --pp antcrate -y`. The new post-push verify from #87 fired on its own first push: `verify: origin/master in sync at 5116045`. CI green at HEAD (269/269 bats, shellcheck clean). Working tree clean. Pick up next session from the resume points below.
 
 **#93 `--delegate` shipped — agent layer is now feature-complete (2026-05-08, sixteenth pass):**
 

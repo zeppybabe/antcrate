@@ -4,6 +4,31 @@ Append-only log. Newest entries on top. ISO-8601 dates. Never delete.
 
 ---
 
+## 2026-05-09 — git history catch-up: dogfood + agent-layer + delegate passes pushed
+
+Three sessions of work were sitting in the working tree uncommitted (HEAD was at `a7638b2` from 2026-05-05 while state.md/ledger.md documented through 2026-05-08). New session opened with `--status` showing 12 modified + 17 untracked files. Surfaced the gap, paused before any new work, split into four logical commits, and pushed.
+
+**Commit grouping** (chosen after diff review surfaced a third pre-staged pass I hadn't previously catalogued):
+
+1. `f670f4f` — `feat(dogfood): --info + -y commit + post-push verify (#82, #83, #87)`. Three small dogfood proposals from the friendly_cars onboarding loop, partially staged on 2026-05-08 and never committed. Folded SKILL.md / PATTERNS.md / GH_PIPELINE_PLAN.md drift in since the doc edits documented these specific flags.
+2. `d90aa11` — `feat(agent-layer): cody scaffold + auto-treatment chain (#88-#92, #109-#111)`. The 2026-05-07 eight-ticket pass: 6 new libs (agent_init, md_scaffold, lifecycle, profile, env_scan, hook_autoinstall), 4 hook templates, 4 internal-md templates, +52 tests. Includes `.gitignore` patch adding `.antcrate/` since antcrate is registered as a self-project and the lifecycle treatment now drops `.antcrate/cody-attempts.json` here.
+3. `2a14155` — `feat(delegate): three-attempt rule at wrapper level (#93)`. The 2026-05-08 pass. +18 tests.
+4. `5116045` — `docs(state,ledger): catch-up for dogfood + agent-layer + delegate passes`. Brought ledger.md and state.md current.
+
+**Non-obvious split detail.** Commits #2 and #3 both touched `bin/antcrate` with interleaved hunks (sources block, help text, globals declaration, parser cases, action dispatches). `git add -p` would still mix the interleaved hunks. Instead used a swap-and-stage approach: backed up the full file to `/tmp/antcrate.full.bak`, used Edit to strip the 5 delegate-related blocks (source line, help text, globals line, parser cases, action dispatches), confirmed with `diff` that exactly the intended lines were removed, shellcheck'd to confirm validity, staged the agent-layer-only state, committed, then `cp` restored the full file. The remaining diff after restore was exactly the delegate hunks, ready to stage for commit #3. No interactive tooling, no hand-crafted patches, fully reproducible.
+
+**Push validation.** `antcrate --pp antcrate -y` succeeded; the post-push verify line from proposal #87 (which was in commit #1 of this same push) printed `verify: origin/master in sync at 5116045`. First end-to-end exercise of the verify line in production — feature confirmed working on its own first push.
+
+**CI status pre + post commit.** 269/269 bats green, shellcheck clean, both before splitting and on final HEAD after all four commits. The interim agent-layer-only state of `bin/antcrate` was not test-run (delegate.sh would have been missing), but shellcheck on that intermediate state confirmed no syntax/sourcing errors.
+
+**Loose ends still open** (carried forward from 2026-05-08 state.md, none introduced by this pass):
+
+- HOOK_PLAN follow-ups: composite pre-commit umbrella template, `--hook-remove`, `--hook-bypass` with audit log, `--hook-debug`.
+- Stale-ticket sweep: #69 lib-header propagation, #76 `--mirror` (now substantially designed across 4 proposals on 2026-05-08), #78 three-tier agent context, #79 AGENTS.md #15 private-by-default, #84 `--init`, #85 `--env-setup`, #86 AGENTS.md #14 AI-action denylist.
+- `dlg_smoke` registry entry remains under `/tmp/`. `--remove` correctly refused per AGENTS.md #1 + standing user memory ("removals require executive Claude+antcrate+user joint decision"). Surface to user before next cleanup.
+
+---
+
 ## 2026-05-08 — `--delegate` (#93): agent layer feature-complete (sixteenth pass)
 
 Closed proposal #93 — the last unfinished piece of the agent layer designed in the 2026-05-07 pass. Clyde now has a deterministic Clyde-to-Cody handoff with a per-key attempt budget enforced at the wrapper level instead of relying on Cody self-policing.
