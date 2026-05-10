@@ -4,6 +4,138 @@ Append-only log. Newest entries on top. ISO-8601 dates. Never delete.
 
 ---
 
+## 2026-05-08 — `--delegate` (#93): agent layer feature-complete (sixteenth pass)
+
+Closed proposal #93 — the last unfinished piece of the agent layer designed in the 2026-05-07 pass. Clyde now has a deterministic Clyde-to-Cody handoff with a per-key attempt budget enforced at the wrapper level instead of relying on Cody self-policing.
+
+**New surface:**
+
+- `antcrate --delegate <project> --key <key> --task "<desc>" [--file <relpath>]`
+  Increments `<project>/.antcrate/cody-attempts.json[$key]`, refuses with exit 3 when the count reaches `ANTCRATE_DELEGATE_THRESHOLD` (default 3), emits a `delegate` activity event (`agent=clyde`, `label=key=<k> attempt=N/T`), prints the copy-pasteable handoff block.
+- `antcrate --delegate-reset <project> [--key <key>]` — zero one key (with `--key`) or replace the whole file with `{}` (without). The reset path exists for legitimate re-delegation after the user has reframed the problem; without it, the threshold trap would be terminal.
+- `antcrate --delegate-status <project>` — list non-zero counters, sorted by count desc.
+
+**New file:** `lib/delegate.sh` (~190 lines). Public API: `ac_delegate_run`, `ac_delegate_reset`, `ac_delegate_status`. Internals (`_ac_delegate_*`) marked do-not-call from outside per the lib-header convention codified in 2026-05-04. Sourced by `bin/antcrate` after `lib/lifecycle.sh`. Depends on `registry.sh`, `events.sh`, `log.sh`.
+
+**Test count: 251 → 269** (18 new in `tests/delegate.bats`). Full `antcrate --ci` PASS — shellcheck clean across all libs + bins, bats 269/269 green.
+
+**Non-obvious decisions:**
+
+- **Pre-increment threshold check** (counter at 0..N-1 → succeed and increment; counter at >= N → refuse). Means three delegations succeed with counter ending at 1, 2, 3, and the fourth call refuses at the read of count==3. Matches cody.md's three-attempt rule cleanly. Considered post-increment-then-refuse but it conflates "did the delegation succeed" with "did the increment win," and the diagnostic at refusal time wants `current >= threshold` to be a clean predicate.
+- **Refusal exit code 3.** Distinct from validation errors (`2`) and operational failures (`1`) so wrappers / shell scripts can branch on `$?` to detect the threshold case specifically — useful when chaining `--delegate || handle_threshold`.
+- **Atomic JSON replacement.** `_ac_delegate_attempts_write` reads new content from stdin, writes to `<file>.tmp.$$`, then `mv -f`. Same shape as `registry.sh` so jq partial writes can't leave the counter file in a torn state. Matters because both `--delegate` and `--delegate-reset` may be invoked from automation or under signal pressure.
+- **Lazy attempts file.** If `cody-attempts.json` is missing (project predates lifecycle wiring or the file was deleted manually), `ac_delegate_run` creates it on demand with `{}`. Tested. Avoids requiring a separate `--agent-init` retrofit pass for older projects.
+- **Event path falls back to key.** When `--file` is omitted and the key isn't a path (e.g. `validateInput`, `bug-1234`), the activity event's `path` field is the raw key string. Watch view will paint a synthetic node for it; documentary, not validated.
+- **Reset has two shapes.** `--delegate-reset proj` clears the entire counter (post-context-shift escape valve); `--delegate-reset proj --key X` clears one entry. Both go through `ac_with_lock` for cross-project mutex consistency with the rest of the lifecycle flags.
+- **Status output shape.** Three-line header (`project`, `threshold`, `attempts`) followed by `<count>  <key>` rows. Sorted desc so the loudest signal is at the top. Empty case prints `attempts  : (none)`. Missing-counter-file case prints `(counter file missing)` rather than `(none)` so a torn-down project is distinguishable from a clean one.
+- **Lock policy.** Mutating paths (`--delegate`, `--delegate-reset`) take `ac_with_lock`; status is read-only and skips it. Cross-project mutex is overkill for per-project writes but matches every other wrapper convention and removes a special case for reasoners.
+
+**Refusal block content** (worth reproducing here because it's the user-facing UX):
+```
+─── REFUSED: --delegate threshold reached ───
+project   : <p>
+key       : <k>
+attempts  : N (>= threshold of T)
+─────────────────────────────────────────────
+<p>-cody has been delegated to N times on this key
+without success. Per cody.md's three-attempt rule, escalate to the
+user instead of delegating again — four shallow attempts cost more
+than one deeper investigation.
+
+To deliberately reset and continue (e.g. after the user reframed the
+problem):
+  antcrate --delegate-reset <p> --key '<k>'
+```
+
+The "four shallow attempts cost more than one deeper investigation" line is lifted verbatim from cody.md so the refusal output reinforces the same heuristic Cody is operating under.
+
+**Smoke-test:**
+
+- Live run against the `antcrate` self-project: first `--delegate` produced attempt 1/3, counter `{"lib/delegate.sh:1": 1}`, event written to `~/.antcrate/events/antcrate.jsonl`. Reset cleared it.
+- Isolated `dlg_smoke` fixture at `/tmp/ac_delegate_smoke`: three successful delegations bumped the counter to 1, 2, 3; the fourth printed the REFUSED block and exited 3. `--delegate-status` showed `3  foo`. `--delegate-reset --key foo` cleared the entry; the next `--delegate` returned to attempt 1/3.
+
+**Known minor:** `dlg_smoke` registry entry remains because the path is in `/tmp/` (outside allowed safety zones) and `--remove` correctly refused per AGENTS.md rule #1. Per the user's standing memory ("removals require executive Claude+antcrate+user joint decision"), I left the entry rather than override the safety guard. Will surface for cleanup at next opportunity.
+
+**Wrapper changes:**
+- `bin/antcrate` — sourced `delegate.sh`; new flags `--delegate`, `--delegate-reset`, `--delegate-status`; new globals `DELEGATE_KEY`, `DELEGATE_TASK`, `DELEGATE_FILE`; usage text expanded; dispatch table extended with three cases.
+- `~/.local/bin/antcrate` updated via `--selfinstall` so the installed wrapper has the new flags. Verified.
+
+**What this unblocks.** The agent layer is now operationally complete for the Clyde→Cody handshake. With `--delegate` enforcing the three-attempt rule at the wrapper level, Clyde's prompt no longer needs to manually track attempt counts inline — the counter file is the source of truth, and the refusal block forces a real escalation to the user. The next focus area is the HOOK_PLAN follow-ups (composite pre-commit umbrella template, `--hook-remove`, `--hook-bypass` with audit log, `--hook-debug` re-run with annotation) — these no longer block the agent layer.
+
+---
+
+## 2026-05-07 — Cody / agent layer + auto-treatment chain (fifteenth pass)
+
+Eight tickets closed in one session. The agent layer is now operational and every project lifecycle event auto-applies the AntCrate treatment.
+
+**Tickets closed:** #88, #89, #90, #91, #92, #109, #110, #111. Test count 199 → 251 (52 new tests). Full `--ci` PASS (shellcheck clean across all libs, all 251 bats tests green).
+
+**New libs / files:**
+
+- `~/.claude/agents/cody.md` — home-level Cody subagent (sonnet, scoped tools: Read/Edit/Write/Bash/Grep/Glob/TodoWrite/Skill). System prompt encodes inheritance from AGENTS.md, the three-attempt rule with failure-report template, `simplify`/`review`/`security-review` skill hookups. Agent-tool-listed types still exclude custom subagents — Cody surfaces via Claude Code's `/agents` after session restart, not the Agent tool.
+- `lib/agent_init.sh` (#89) — drops `<project>/.claude/agents/<project>-cody.md` and initializes `<project>/.antcrate/cody-attempts.json` with `{}`. Idempotent; both files preserved on re-run. 8 tests.
+- `lib/md_scaffold.sh` (#91) + `assets/code/templates/md/{CLAUDE,AGENTS,state,ledger}.md` — internal-md skeletons with `__NAME__` / `__DOMAIN__` / `__DATE__` token substitution (matches existing scaffold.sh convention). Refresh-only by default; `--force` backs up existing files to `<file>.bak.<UTC-ts>`. 9 tests.
+- `assets/code/hooks/templates/` (#90) — first 4 templates per HOOK_PLAN steps 1+2: `pre-commit-secrets` (universal secret-pattern guard, mirrors `lib/commit.sh`'s patterns), `pre-commit-stack-bash` (shellcheck on changed `*.sh`, no-op if shellcheck missing), `pre-commit-ci` (runs `antcrate --ci`), `pre-push-tests` (runs `test_cmd` from registry). Tokens: `__PROJECT_NAME__`, `__ANTCRATE_BIN__`. Header line `antcrate-template-version: 1.0` for staleness tracking.
+- `lib/hooks.sh` extended (#90) with `ac_hook_install <project> <template> [hook-name] [--force]`. Default hook-name resolved from template prefix (`pre-commit-*` → `pre-commit`, etc.). Conflict behavior: identical content = no-op; different content = refuse (default) or backup-then-overwrite (`--force`). 11 new tests added to existing 12 in tests/hooks.bats.
+- `lib/profile.sh` (#109) — read-only project profiler. `ac_profile_raw` emits TAB-separated `<category>\t<key>\t<value>` stream (categories: domain | stack | tooling | env | recommend); `ac_profile` renders human table. Stack signals: package.json, Cargo.toml, go.mod, pyproject.toml, *.sh count, *.sql count, etc. Skips heavy dirs (node_modules, .git, .venv, dist, build, target). 11 tests.
+- `lib/env_scan.sh` (#110) — env-var detector + .gitignore guard. Lists `.env` files (excludes `.env.example`/`.env.sample`), counts env-var references in source via single regex covering JS/TS/Py/Rb/Java/PHP. `--apply` idempotently appends `.env`, `.env.local`, `.env.*.local` to `.gitignore`. Refuses to touch `.env` files (that's #85 territory). 11 tests.
+- `lib/hook_autoinstall.sh` (#111) — orchestrator. Reads `ac_profile_raw`, picks ONE template per git-hook slot (priority order = profile order), calls `ac_hook_install` for each pick, calls `ac_env_scan --apply`. Phase-1 single-slot constraint: git runs only one file per event, so multiple `pre-commit-*` recommendations result in one install + a "skipped" report. `--dry-run` prints plan only. 8 tests.
+- `lib/lifecycle.sh` (#92) — `ac_lifecycle_treatment <project>` fires the chain: `ac_agent_init` → `ac_md_scaffold` → (if `.git` exists) `ac_hook_autoinstall`. Idempotent; individual step failures warn but don't error. 5 tests. Wired into `bin/antcrate` after `start`, `register`, `rename` action handlers.
+
+**Bin wiring:** new flags `--agent-init`, `--md-scaffold`, `--profile [--raw]`, `--env-scan [--apply]`, `--hook-autoinstall [--dry-run]`, `--hook-install <project> <template> [hook-name] [--force]`. Globals `MD_FORCE`, `PROFILE_RAW`, `ENV_APPLY`, `HOOK_AUTO_DRY`, `HOOK_TEMPLATE`/`HOOK_NAME`/`HOOK_FORCE` initialized at top of parser block.
+
+**install.sh:** added missing copy of `assets/code/hooks/` to `$PREFIX/share/antcrate/hooks/` so `lib/hooks.sh`'s `_ac_hook_template_path` finds templates after install. The relative path `../hooks/templates/` from `$LIB_DIR` works in-tree AND post-install thanks to install.sh laying out the same structure.
+
+**Non-obvious decisions:**
+
+- **HOOK_PLAN alignment over invention.** Original ticket #90 was `--hooks-init` (a one-shot bundle). Discovered HOOK_PLAN.md already designed a template-based per-template install pattern (`--hook-install <project> <template>`). Aligned to HOOK_PLAN — the bundle behavior moved into the new `--hook-autoinstall` (#111). The two surfaces compose: `--hook-install` is the granular flag; `--hook-autoinstall` is the user-friendly wrapper that picks templates from profile recommendations.
+- **Phase-1 single-slot for pre-commit.** Git only runs one file per hook event. For `friendly_cars` both `pre-commit-secrets` and `pre-commit-stack-bash` are recommended, but autoinstall picks `pre-commit-secrets` (universal, ranked first) and reports the other as `skipped (single-slot)`. Composite-template approach (one umbrella `pre-commit` that calls multiple checks) is HOOK_PLAN-queued.
+- **Cody discovery requires session restart.** `~/.claude/agents/*.md` is loaded at Claude Code session start, not hot-reloaded. New agents don't appear in `/agents` until the next `/clear` or restart. Documented in the home AGENTS.md is implied; this is a Claude Code harness behavior, not an antcrate constraint.
+- **Registry domain field naming.** Registry stores `parent` (legacy field name from when AntCrate organized projects under domain dirs); CLI flag is `--domain`. `ac_registry_get "$proj" parent` is the correct lookup.
+- **Conflict on existing hook content.** `ac_hook_install` refuses-by-default on existing-but-different content (no `--force`) so accidental overwrites don't happen. `--force` backs up to `<hook>.bak.<UTC-ts>` then overwrites. Autoinstall handles refusal gracefully — surfaces `refused` in the summary, still runs the env-scan apply step.
+- **Empty-string trap on `ac_registry_get`.** Returns empty string (not error code) when a field is missing. New libs use `[[ -z "$x" ]] && x="default"` rather than `||` fallback.
+
+**End-to-end smoke (live):** `antcrate --register lc_test /tmp/lc_test --domain projects` on a freshly-`git init`'d directory produced all five artifacts in one command — Cody pointer, attempt counter, four .md skeletons (token-substituted with `lc_test` / `projects` / `2026-05-07`), executable `pre-commit` hook, and three-line `.gitignore`. No manual flag invocations needed.
+
+**What's left for the agent layer:**
+
+- **#93 `--delegate <project> <task>`** — Clyde-side wrapper that increments the attempt counter, refuses on >=3, emits a delegate event, prints the delegation block. Last piece. Without it, Cody tracks attempts inline only (per the system prompt) — there's no shared file:line counter that Clyde and Cody both honor.
+
+**HOOK_PLAN follow-ups queued (not ticketed yet):** composite pre-commit umbrella template, `--hook-remove`, `--hook-bypass` with audit log + AGENTS.md rule, `--hook-debug` re-run with annotation, `--start --hooks <preset>` auto-install on scaffold.
+
+---
+
+## 2026-05-05 — Trio pass: `--commit -y` (#83) + `--info` (#82) + post-push verify (#87 Shape B)
+
+Three small flags landed together. None large enough to merit its own pass; bundling reduces commit overhead and keeps the dispatch table coherent.
+
+**`--commit -y` (#83).** The `ANTCRATE_COMMIT_PREAPPROVED=1 antcrate --commit ...` muscle-memory pattern was clutter. Added `-y` to the inner-loop parser of `--commit` (mirroring the existing `--pp -y` shape). Dispatch reuses the global `AUTO_YES` variable: when set, the commit case prefixes `ANTCRATE_COMMIT_PREAPPROVED=1` to `ac_commit_run`. No new tests — the env-var path already had coverage; the wrapper-level wiring is integration-tested via the friendly_cars onboarding flow.
+
+**`--info <project>` (#82).** New function `ac_registry_info` in `lib/registry.sh` (kept colocated with the other read-only registry helpers; didn't justify a new file). Output:
+```
+project    : friendly_cars
+path       : /home/twntydotsix/projects/friendly_cars
+domain     : projects
+git_remote : (none)
+linked     : (none)
+removals   : 0 tracked
+backups    : 2
+last_commit: 2ccaaeb chore(tree): stabilize tree.mmd post-#81 fix
+branch     : master
+working    : clean
+```
+Reads the registry record + counts `~/.antcrate/backups/<project>/*.tar.gz` + (if git repo) reports `last_commit`, `branch`, `working clean/dirty`. Replaces the `jq '.projects.<n>' ~/.antcrate/registry.json` pattern that ran twice this session and is the most common project-scoped read. Five new tests in `tests/registry.bats` cover the formatted-output contract, error paths (unregistered, missing name), the git-repo branch (clean), and the dirty-tree branch.
+
+**Post-push verify (#87, Shape B).** Picked Shape B over a new `--ship` flag — smaller surface, every existing `--pp` invocation gets the safety net for free. Added to `lib/git_triage.sh` `ac_git_push` post-success path: read local HEAD, read `@{u}` (upstream tracking ref), compare. Match → print `verify: <upstream> in sync at <SHA>`. Mismatch → `ac_warn` with both SHAs. No extra network call — the upstream ref was just updated by the successful `git push`. Mismatch is rare (push succeeded, ref-update is atomic) but possible if a force-push from another client races; worth knowing.
+
+**Tests landed: 199 → 204** (5 new `--info` tests in `tests/registry.bats`). Shellcheck clean. No regressions in 199 prior tests. Live smoke verified all three: `antcrate --info friendly_cars` printed the formatted record; `antcrate --commit antcrate -m "..." -y` committed without prompt; the `--pp` verify line is exercised on every push (this commit's push will demonstrate it).
+
+**Soft-reset note.** During the smoke test I accidentally committed the trio-pass WIP with the literal message `"smoke (should be no-op)"`. Caught immediately, `git reset --soft HEAD~1` un-committed (changes preserved as staged), redid with the proper message + docs included. No history rewrite past `HEAD~1`; nothing pushed. Filed mentally as a UX note: smoke-testing destructive-by-accident commands against a real repo needs scoping discipline (use a temp tree like the `--bootstrap` smoke test did).
+
+**What this unblocks.** The trivials-first pass clears the easiest leverage points before #76 (`--mirror` + landmarks), which is the next non-trivial. `--info` will be the natural fall-back when reading a project's state, replacing several muscle-memory `jq` patterns. The `verify` line in `--pp` makes "did my push really land?" answerable without a separate `git ls-remote`.
+
+---
+
 ## 2026-05-05 — `--git-init` (#77) + `--bootstrap` (#80) one-liner ship
 
 The friendly_cars onboarding pass on 2026-05-04 ran a manual sequence: `git init` → `git config core.hooksPath` → write `.gitignore` → `ANTCRATE_COMMIT_PREAPPROVED=1 antcrate --commit ... --all-tracked`. Asked to fold that into a single flag. Two new libs cover the surface:

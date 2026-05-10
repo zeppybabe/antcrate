@@ -1,8 +1,66 @@
 # AntCrate — Current State
 
-_Last updated: 2026-05-05_
+_Last updated: 2026-05-08_
 
 ## Top of mind
+
+**#93 `--delegate` shipped — agent layer is now feature-complete (2026-05-08, sixteenth pass):**
+
+Closed proposal #93. Clyde now has a deterministic Clyde-to-Cody handoff with a per-key attempt budget. The full surface:
+
+- `antcrate --delegate <project> --key <key> --task "<desc>" [--file <relpath>]`
+  Increments `<project>/.antcrate/cody-attempts.json[$key]`, refuses with exit 3 when count >= `ANTCRATE_DELEGATE_THRESHOLD` (default 3), emits a `delegate` activity event (`agent=clyde`, `label=key=<k> attempt=N/T`), prints a copy-pasteable handoff block.
+- `antcrate --delegate-reset <project> [--key <key>]` — zero one key (with `--key`) or replace the file with `{}` (without).
+- `antcrate --delegate-status <project>` — list non-zero counters, sorted by count desc.
+
+**End state:** the agent layer is now operationally complete. Every `--register`/`--start`/`--rename` lays the Cody pointer + attempt counter (lifecycle treatment, #92), and `--delegate` enforces the three-attempt rule from cody.md at the wrapper level instead of relying on Cody self-policing. Refusal output instructs the user to escalate or run `--delegate-reset` deliberately.
+
+Test count 251 → 269 (18 new in `tests/delegate.bats`). Full `--ci` PASS (shellcheck clean across all libs incl. delegate.sh; bats 269/269 green). Smoke-tested end-to-end against the live `antcrate` project + an isolated `dlg_smoke` fixture: threshold trip at the 4th attempt, refusal block printed, `--delegate-reset --key foo` cleared the entry, next `--delegate` succeeded at attempt 1/3.
+
+**Non-obvious decisions (full context in 2026-05-08 ledger entry):**
+- **Pre-increment threshold check.** Three delegations succeed (counter ends at 1, 2, 3); the fourth refuses at count==3. Matches cody.md's "three-attempt rule" without off-by-one ambiguity.
+- **Atomic JSON replacement** via `_ac_delegate_attempts_write` (temp+mv). Same shape as registry.sh.
+- **Lazy attempts file** — if `cody-attempts.json` is missing (project predates lifecycle wiring or file was deleted), `ac_delegate_run` recreates it on demand. Tested.
+- **Event path falls back to key.** If `--file` is omitted and the key isn't a path (e.g. function name), the activity event's `path` field is the raw key. Documentary, not validated.
+- **Reset is two-shape.** `--delegate-reset proj` clears all keys (post-context-shift); `--delegate-reset proj --key X` clears one. Listed both in usage + smoke-tested.
+- **Refusal is exit 3.** Distinct from validation errors (2) and operational failures (1) so callers / scripts can branch on intent.
+- **Used `ac_with_lock` for mutating paths.** Cross-project mutex is overkill for per-project file writes, but matches every other lifecycle flag's convention; status path is read-only and skips the lock.
+- **Smoke fixture cleanup.** `dlg_smoke` in `/tmp/ac_delegate_smoke` had its files deleted but the registry entry remains — `--remove` correctly refused (rule #1, path outside allowed zones) and the user-side memory rule says removals are joint decisions, not auto-approved. Will surface to user before next cleanup.
+
+**Resume next session here:**
+- **HOOK_PLAN follow-ups (still queued):** composite pre-commit umbrella template so multiple checks coexist in the single git slot (currently Phase 1 picks one and reports the rest as skipped); `--hook-remove`; `--hook-bypass` with audit log; `--hook-debug` re-run with annotation.
+- **Stale tickets to re-check status on:** #69 lib-header propagation, #76 `--mirror`, #78 three-tier agent context model, #79 AGENTS.md #15 private-by-default, #84 `--init` (folds /init into antcrate), #85 `--env-setup` (human-only env wizard, complements #110), #86 AGENTS.md #14 AI-action denylist.
+- **dlg_smoke registry entry** — surface to user, then either `--remove` with `ANTCRATE_ALLOW_OUTSIDE_ROOT=1` (with explicit approval) or leave it.
+
+---
+
+## Earlier (kept for history)
+
+**Cody / agent layer + auto-treatment chain shipped (2026-05-07, fifteenth pass):**
+
+Eight tickets closed in one session: #88 (Cody scaffold at `~/.claude/agents/cody.md`), #89 (`--agent-init`), #90 (hook template library + `--hook-install` per HOOK_PLAN steps 1+2), #91 (`--md-scaffold`), #92 (lifecycle wiring), #109 (`--profile`), #110 (`--env-scan`), #111 (`--hook-autoinstall`).
+
+End state: every `antcrate --register` / `--start` / `--rename` now auto-fires the AntCrate-treatment chain. A fresh `--register` produces:
+- `<project>/.claude/agents/<project>-cody.md` — project-scoped Cody pointer (sonnet, project tools).
+- `<project>/.antcrate/cody-attempts.json` — `{}` initial state for the attempt counter.
+- `<project>/CLAUDE.md` + `AGENTS.md` + `state.md` + `ledger.md` from token-substituted templates at `assets/code/templates/md/`.
+- `<project>/.git/hooks/pre-commit` (when git repo) — installed from `pre-commit-secrets` template.
+- `<project>/.gitignore` patched with `.env`, `.env.local`, `.env.*.local`.
+
+Test count 199 → 251 (52 new tests), full `--ci` PASS (shellcheck + bats). Smoke-tested end-to-end on `friendly_cars` and a fresh `lc_test` project.
+
+**HOOK_PLAN follow-ups:** composite pre-commit template so multiple checks coexist in the single git slot (currently Phase 1 picks one and reports the rest as skipped); `--hook-remove`; `--hook-bypass` with audit log; `--hook-debug` re-run with annotation.
+
+**Non-obvious decisions worth remembering** (full context in 2026-05-07 ledger entry):
+- Aligned with existing `HOOK_PLAN.md` instead of inventing a parallel `--hooks-init` flag. Templates live at `assets/code/hooks/templates/`; `lib/hooks.sh` extended with `ac_hook_install`.
+- Phase-1 single-slot constraint on pre-commit: git runs only one file per event, so `--hook-autoinstall` picks priority order (secrets > stack-bash > ci) and surfaces what was skipped.
+- `~/.claude/agents/` files require Claude Code session restart to appear in `/agents` — loaded at session start, not hot-reloaded.
+- Registry stores domain as `parent` (legacy field name); CLI flag is `--domain`. New libs use `ac_registry_get "$proj" parent`.
+- `install.sh` was missing a copy step for `assets/code/hooks/`; fixed so post-install lib resolves templates correctly via `../hooks/templates/` relative path.
+
+---
+
+## Earlier (kept for history)
 
 **`--git-init` (#77) + `--bootstrap` (#80) shipped (2026-05-05, fourteenth pass):**
 - `lib/git_init.sh` — local-only `git init` counterpart to `--gh-init`. Idempotent. Wires `core.hooksPath .githooks` when `.githooks/` present.
