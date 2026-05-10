@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+# antcrate-template: pre-push-tests
+# antcrate-template-version: 1.0
+# Project: __PROJECT_NAME__
+#
+# Runs the project's test command before push. Reads the test command
+# from the registry's test_cmd field via `__ANTCRATE_BIN__ --info`. If
+# no test_cmd is set, the hook is a no-op (with a one-line log note).
+# This is the per-project pre-push gate; it complements the wrapper-side
+# `--pp` triage.
+
+set -euo pipefail
+
+LOG=".git/antcrate-hook.log"
+TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+if ! command -v __ANTCRATE_BIN__ >/dev/null 2>&1; then
+    {
+        printf '%s [pre-push-tests] FAIL: __ANTCRATE_BIN__ not on PATH\n' "$TS"
+    } | tee -a "$LOG" >&2
+    exit 1
+fi
+
+# Pull test_cmd from the registry. Falls back to no-op if unset.
+test_cmd=$(__ANTCRATE_BIN__ --info __PROJECT_NAME__ 2>/dev/null \
+    | sed -n 's/^test_cmd[[:space:]]*:[[:space:]]*//p' \
+    | head -n 1 || true)
+
+if [[ -z "$test_cmd" ]]; then
+    printf '%s [pre-push-tests] SKIP: no test_cmd configured for __PROJECT_NAME__\n' "$TS" >> "$LOG" 2>/dev/null || true
+    exit 0
+fi
+
+{
+    printf '%s [pre-push-tests] running: %s\n' "$TS" "$test_cmd"
+    if eval "$test_cmd"; then
+        printf '%s [pre-push-tests] PASS\n' "$TS"
+        exit 0
+    else
+        rc=$?
+        printf '%s [pre-push-tests] FAIL (exit %d) — push blocked\n' "$TS" "$rc"
+        exit "$rc"
+    fi
+} 2>&1 | tee -a "$LOG"

@@ -18,3 +18,9 @@
 __pycache__/
 node_modules/
 .pytest_cache/
+
+# AntCrate per-project runtime state (cody-attempts.json + future counters).
+# This skill is registered as a self-project, so the lifecycle treatment
+# (#92) drops .antcrate/ here. Counter file churns on every delegation —
+# never useful to track.
+.antcrate/

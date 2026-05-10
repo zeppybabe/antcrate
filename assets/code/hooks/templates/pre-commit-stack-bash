@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+# antcrate-template: pre-commit-stack-bash
+# antcrate-template-version: 1.0
+# Project: __PROJECT_NAME__
+#
+# Runs shellcheck on changed *.sh files in the staged set. Skips if no
+# .sh files changed (so the hook is no-op for non-Bash commits). Skips
+# silently if shellcheck is not installed (with a one-line note in the
+# log) so this hook doesn't block committers who haven't installed it.
+
+set -euo pipefail
+
+LOG=".git/antcrate-hook.log"
+TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+if ! command -v shellcheck >/dev/null 2>&1; then
+    printf '%s [pre-commit-stack-bash] SKIP: shellcheck not installed\n' "$TS" >> "$LOG" 2>/dev/null || true
+    exit 0
+fi
+
+mapfile -t changed < <(git diff --cached --name-only --diff-filter=ACM | grep -E '\.sh$' || true)
+if (( ${#changed[@]} == 0 )); then
+    printf '%s [pre-commit-stack-bash] SKIP: no .sh files staged\n' "$TS" >> "$LOG" 2>/dev/null || true
+    exit 0
+fi
+
+if ! shellcheck "${changed[@]}" 2>&1 | tee -a "$LOG"; then
+    printf '%s [pre-commit-stack-bash] FAIL: shellcheck reported issues\n' "$TS" >> "$LOG" 2>/dev/null || true
+    exit 1
+fi
+
+printf '%s [pre-commit-stack-bash] PASS (%d file(s) checked)\n' "$TS" "${#changed[@]}" >> "$LOG" 2>/dev/null || true
+exit 0

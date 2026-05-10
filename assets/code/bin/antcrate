@@ -66,6 +66,18 @@ LIB_DIR="$SCRIPT_DIR/../lib"
 . "$LIB_DIR/git_init.sh"
 # shellcheck disable=SC1091
 . "$LIB_DIR/bootstrap.sh"
+# shellcheck disable=SC1091
+. "$LIB_DIR/agent_init.sh"
+# shellcheck disable=SC1091
+. "$LIB_DIR/md_scaffold.sh"
+# shellcheck disable=SC1091
+. "$LIB_DIR/profile.sh"
+# shellcheck disable=SC1091
+. "$LIB_DIR/env_scan.sh"
+# shellcheck disable=SC1091
+. "$LIB_DIR/hook_autoinstall.sh"
+# shellcheck disable=SC1091
+. "$LIB_DIR/lifecycle.sh"
 
 : "${ANTCRATE_HOME:=$HOME/.antcrate}"
 : "${ANTCRATE_ROOT:=$HOME/projects}"
@@ -102,6 +114,26 @@ Commands:
   --gh-help                           show GitHub HTTPS onboarding steps
   --git-init <project>                local-only: idempotent git init + core.hooksPath wire
                                       (no remote; counterpart to --gh-init)
+  --agent-init <project>              drop project-scoped Cody pointer at
+                                      <project>/.claude/agents/<project>-cody.md
+                                      and initialize the attempt counter at
+                                      <project>/.antcrate/cody-attempts.json. Idempotent.
+  --md-scaffold <project> [--force]   write CLAUDE.md / AGENTS.md / state.md / ledger.md
+                                      at the project root from internal-md templates.
+                                      Refresh-only by default; --force backs up existing
+                                      files to <file>.bak.<ts> then overwrites.
+  --profile <project> [--raw]         read-only stack/tooling/env profile + hook
+                                      recommendations. --raw emits a TAB-separated
+                                      stream for downstream consumption.
+  --env-scan <project> [--apply]      list .env files + env-var references.
+                                      --apply idempotently adds standard .env
+                                      patterns to .gitignore (.env, .env.local,
+                                      .env.*.local). Never modifies .env files.
+  --hook-autoinstall <project> [--dry-run]
+                                      one-shot: read --profile recommendations,
+                                      install picked hook template per slot,
+                                      patch .gitignore for env safety. Idempotent.
+                                      --dry-run prints the plan only.
   --bootstrap <project> [-m "<msg>"] [--with-remote [--public|--private]]
                                       one-liner: --git-init + default .gitignore + first commit;
                                       --with-remote chains --gh-init (private default)
@@ -133,6 +165,10 @@ Commands:
   --ci                                run shellcheck + bats; nonzero on any failure
   --hooks <project>                   list active git hooks for a project (read-only)
   --hook-log <project> [lines]        tail .git/antcrate-hook.log for debugging blocked commits
+  --hook-install <project> <template> [hook-name] [--force]
+                                      install a hook template into the project (idempotent;
+                                      backup-then-overwrite on --force). Templates ship at
+                                      assets/code/hooks/templates/.
   --pipe-file <basename>              decode a Positional filename and dispatch
   --status                            show daemon + registry summary
   --list                              list registered projects
@@ -252,6 +288,11 @@ EVENT_KIND="" EVENT_TTL="" EVENT_LABEL="" EVENT_AGENT=""
 WATCH_ONCE="" WATCH_INTERVAL="" WATCH_NOCOLOR="" WATCH_DEPTH=""
 CLEANUP_IDS=()
 BOOTSTRAP_WITH_REMOTE=""
+HOOK_TEMPLATE="" HOOK_NAME="" HOOK_FORCE=""
+MD_FORCE=""
+PROFILE_RAW=""
+ENV_APPLY=""
+HOOK_AUTO_DRY=""
 ACTION=""
 while (( $# > 0 )); do
     case "$1" in
@@ -302,6 +343,51 @@ while (( $# > 0 )); do
         --gh-init)           ACTION="gh-init"; NAME="$2"; shift 2 ;;
         --gh-help)           ACTION="gh-help"; shift ;;
         --git-init)          ACTION="git-init"; NAME="$2"; shift 2 ;;
+        --agent-init)        ACTION="agent-init"; NAME="$2"; shift 2 ;;
+        --md-scaffold)
+            ACTION="md-scaffold"; NAME="${2:-}"; shift
+            [[ $# -gt 0 ]] && shift
+            MD_FORCE=""
+            while (( $# > 0 )); do
+                case "${1:-}" in
+                    --force) MD_FORCE="--force"; shift ;;
+                    --*)     break ;;
+                    *)       break ;;
+                esac
+            done ;;
+        --profile)
+            ACTION="profile"; NAME="${2:-}"; shift
+            [[ $# -gt 0 ]] && shift
+            PROFILE_RAW=""
+            while (( $# > 0 )); do
+                case "${1:-}" in
+                    --raw) PROFILE_RAW="1"; shift ;;
+                    --*)   break ;;
+                    *)     break ;;
+                esac
+            done ;;
+        --env-scan)
+            ACTION="env-scan"; NAME="${2:-}"; shift
+            [[ $# -gt 0 ]] && shift
+            ENV_APPLY=""
+            while (( $# > 0 )); do
+                case "${1:-}" in
+                    --apply) ENV_APPLY="--apply"; shift ;;
+                    --*)     break ;;
+                    *)       break ;;
+                esac
+            done ;;
+        --hook-autoinstall)
+            ACTION="hook-autoinstall"; NAME="${2:-}"; shift
+            [[ $# -gt 0 ]] && shift
+            HOOK_AUTO_DRY=""
+            while (( $# > 0 )); do
+                case "${1:-}" in
+                    --dry-run) HOOK_AUTO_DRY="--dry-run"; shift ;;
+                    --*)       break ;;
+                    *)         break ;;
+                esac
+            done ;;
         --bootstrap)
             ACTION="bootstrap"; NAME="${2:-}"; shift 2
             while (( $# > 0 )); do
@@ -391,6 +477,19 @@ while (( $# > 0 )); do
             if [[ $# -ge 3 && "${3:-}" =~ ^[0-9]+$ ]]; then LOGS_LINES="$3"; shift 3
             elif [[ $# -ge 2 ]]; then shift 2
             else shift; fi ;;
+        --hook-install)
+            ACTION="hook-install"; NAME="${2:-}"; HOOK_TEMPLATE="${3:-}"; shift
+            [[ $# -gt 0 ]] && shift
+            [[ $# -gt 0 ]] && shift
+            HOOK_NAME=""
+            HOOK_FORCE=""
+            while (( $# > 0 )); do
+                case "${1:-}" in
+                    --force) HOOK_FORCE="--force"; shift ;;
+                    --*)     break ;;
+                    *)       HOOK_NAME="$1"; shift ;;
+                esac
+            done ;;
         --public)            GH_VIS="public"; shift ;;
         --private)           GH_VIS="private"; shift ;;
         --pipe-file)         ACTION="pipe-file"; NAME="$2"; shift 2 ;;
@@ -424,11 +523,13 @@ case "$ACTION" in
             target_path=$(ac_registry_get "$NAME" path)
             ac_diagrams_scaffold "$target_path" "$NAME"
         fi
-        ac_diagrams_auto_regen "$NAME" ;;
+        ac_diagrams_auto_regen "$NAME"
+        ac_lifecycle_treatment "$NAME" ;;
     register)
         [[ -z "$NAME" || -z "$REG_PATH" ]] && { ac_error "--register requires <name> <existing-path>"; exit 2; }
         ac_with_lock ac_action_register "$NAME" "$REG_PATH" "$DOMAIN"
-        ac_diagrams_auto_regen "$NAME" ;;
+        ac_diagrams_auto_regen "$NAME"
+        ac_lifecycle_treatment "$NAME" ;;
     branch)
         [[ -z "$DOMAIN" ]] && { ac_error "--branch requires --domain"; exit 2; }
         ac_with_lock ac_action_branch "$NAME" "$DOMAIN" "${META_VALUES[@]}"
@@ -484,6 +585,31 @@ case "$ACTION" in
     git-init)
         [[ -z "$NAME" ]] && { ac_error "--git-init requires <project>"; exit 2; }
         ac_with_lock ac_git_init "$NAME" ;;
+    agent-init)
+        [[ -z "$NAME" ]] && { ac_error "--agent-init requires <project>"; exit 2; }
+        ac_with_lock ac_agent_init "$NAME" ;;
+    md-scaffold)
+        [[ -z "$NAME" ]] && { ac_error "--md-scaffold requires <project>"; exit 2; }
+        md_args=( "$NAME" )
+        [[ -n "$MD_FORCE" ]] && md_args+=( "$MD_FORCE" )
+        ac_with_lock ac_md_scaffold "${md_args[@]}" ;;
+    profile)
+        [[ -z "$NAME" ]] && { ac_error "--profile requires <project>"; exit 2; }
+        if [[ -n "$PROFILE_RAW" ]]; then
+            ac_profile_raw "$NAME"
+        else
+            ac_profile "$NAME"
+        fi ;;
+    env-scan)
+        [[ -z "$NAME" ]] && { ac_error "--env-scan requires <project>"; exit 2; }
+        env_args=( "$NAME" )
+        [[ -n "$ENV_APPLY" ]] && env_args+=( "$ENV_APPLY" )
+        ac_with_lock ac_env_scan "${env_args[@]}" ;;
+    hook-autoinstall)
+        [[ -z "$NAME" ]] && { ac_error "--hook-autoinstall requires <project>"; exit 2; }
+        ha_args=( "$NAME" )
+        [[ -n "$HOOK_AUTO_DRY" ]] && ha_args+=( "$HOOK_AUTO_DRY" )
+        ac_with_lock ac_hook_autoinstall "${ha_args[@]}" ;;
     bootstrap)
         [[ -z "$NAME" ]] && { ac_error "--bootstrap requires <project>"; exit 2; }
         ac_with_lock ac_bootstrap "$NAME" "$COMMIT_MSG" "$BOOTSTRAP_WITH_REMOTE" "$GH_VIS"
@@ -532,7 +658,8 @@ case "$ACTION" in
     rename)
         [[ -z "$NAME" || -z "$RENAME_NEW" ]] && { ac_error "--rename requires <project> <new-name>"; exit 2; }
         ac_with_lock ac_devops_rename "$NAME" "$RENAME_NEW"
-        ac_diagrams_auto_regen "$RENAME_NEW" ;;
+        ac_diagrams_auto_regen "$RENAME_NEW"
+        ac_lifecycle_treatment "$RENAME_NEW" ;;
     archive)
         [[ -z "$NAME" ]] && { ac_error "--archive requires <project>"; exit 2; }
         ac_with_lock ac_devops_archive "$NAME"
@@ -578,6 +705,15 @@ case "$ACTION" in
     hook-log)
         [[ -z "$NAME" ]] && { ac_error "--hook-log requires <project>"; exit 2; }
         ac_hooks_log "$NAME" "$LOGS_LINES" ;;
+    hook-install)
+        [[ -z "$NAME"           ]] && { ac_error "--hook-install requires <project> <template>"; exit 2; }
+        [[ -z "$HOOK_TEMPLATE"  ]] && { ac_error "--hook-install requires a template name"; exit 2; }
+        # Pass positionals + flags to ac_hook_install; empty hook-name and
+        # empty force-flag are dropped by the function's parser.
+        args=( "$NAME" "$HOOK_TEMPLATE" )
+        [[ -n "$HOOK_NAME"  ]] && args+=( "$HOOK_NAME" )
+        [[ -n "$HOOK_FORCE" ]] && args+=( "$HOOK_FORCE" )
+        ac_with_lock ac_hook_install "${args[@]}" ;;
     pipe-file) cmd_pipe_file "$NAME" ;;
     "")        usage; exit 2 ;;
 esac

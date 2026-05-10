@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# antcrate-template: pre-commit-ci
+# antcrate-template-version: 1.0
+# Project: __PROJECT_NAME__
+#
+# Runs `antcrate --ci` against the working tree and tees output to
+# .git/antcrate-hook.log. Useful for the antcrate skill itself and for
+# any project with bats tests + shellcheck-able shell code. For projects
+# without those tools, prefer pre-commit-stack-bash or a stack-specific
+# hook.
+
+set -euo pipefail
+
+LOG=".git/antcrate-hook.log"
+TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+if ! command -v __ANTCRATE_BIN__ >/dev/null 2>&1; then
+    {
+        printf '%s [pre-commit-ci] FAIL: __ANTCRATE_BIN__ not on PATH\n' "$TS"
+        printf '%s [pre-commit-ci] hint: bash assets/code/install.sh\n' "$TS"
+    } | tee -a "$LOG" >&2
+    exit 1
+fi
+
+{
+    printf '%s [pre-commit-ci] running: __ANTCRATE_BIN__ --ci\n' "$TS"
+    if __ANTCRATE_BIN__ --ci; then
+        printf '%s [pre-commit-ci] PASS\n' "$TS"
+        exit 0
+    else
+        rc=$?
+        printf '%s [pre-commit-ci] FAIL (exit %d)\n' "$TS" "$rc"
+        printf '%s [pre-commit-ci] debug: __ANTCRATE_BIN__ --hook-log __PROJECT_NAME__\n' "$TS"
+        exit "$rc"
+    fi
+} 2>&1 | tee -a "$LOG"

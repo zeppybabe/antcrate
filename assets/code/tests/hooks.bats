@@ -136,3 +136,96 @@ EOF
     run src "ac_hooks_log ghost"
     [ "$status" -ne 0 ]
 }
+
+# ---------- ac_hook_install ----------
+
+@test "hook_install: writes pre-commit-secrets and chmods +x" {
+    src "ac_registry_upsert proj '$R' scripts ''"
+    run src "ac_hook_install proj pre-commit-secrets"
+    [ "$status" -eq 0 ]
+    [ -x "$R/.git/hooks/pre-commit" ]
+    grep -q "antcrate-template: pre-commit-secrets" "$R/.git/hooks/pre-commit"
+    grep -q "Project: proj" "$R/.git/hooks/pre-commit"
+}
+
+@test "hook_install: token substitution replaces __PROJECT_NAME__" {
+    src "ac_registry_upsert proj '$R' scripts ''"
+    src "ac_hook_install proj pre-commit-secrets"
+    ! grep -q "__PROJECT_NAME__" "$R/.git/hooks/pre-commit"
+}
+
+@test "hook_install: idempotent (no-op when content matches)" {
+    src "ac_registry_upsert proj '$R' scripts ''"
+    src "ac_hook_install proj pre-commit-secrets"
+    cs1=$(sha256sum "$R/.git/hooks/pre-commit" | cut -d' ' -f1)
+    run src "ac_hook_install proj pre-commit-secrets"
+    [ "$status" -eq 0 ]
+    cs2=$(sha256sum "$R/.git/hooks/pre-commit" | cut -d' ' -f1)
+    [ "$cs1" = "$cs2" ]
+}
+
+@test "hook_install: refuses overwrite when content differs (no --force)" {
+    src "ac_registry_upsert proj '$R' scripts ''"
+    src "ac_hook_install proj pre-commit-secrets"
+    printf '#!/usr/bin/env bash\n# user edit\nexit 0\n' > "$R/.git/hooks/pre-commit"
+    chmod +x "$R/.git/hooks/pre-commit"
+    run src "ac_hook_install proj pre-commit-secrets"
+    [ "$status" -ne 0 ]
+    grep -q "user edit" "$R/.git/hooks/pre-commit"
+}
+
+@test "hook_install: --force backs up then overwrites" {
+    src "ac_registry_upsert proj '$R' scripts ''"
+    printf '#!/usr/bin/env bash\n# user edit\nexit 0\n' > "$R/.git/hooks/pre-commit"
+    chmod +x "$R/.git/hooks/pre-commit"
+    run src "ac_hook_install proj pre-commit-secrets --force"
+    [ "$status" -eq 0 ]
+    grep -q "antcrate-template: pre-commit-secrets" "$R/.git/hooks/pre-commit"
+    # Backup file with timestamp suffix should exist.
+    ls "$R/.git/hooks/" | grep -q "pre-commit.bak."
+}
+
+@test "hook_install: pre-push-tests installs as pre-push" {
+    src "ac_registry_upsert proj '$R' scripts ''"
+    run src "ac_hook_install proj pre-push-tests"
+    [ "$status" -eq 0 ]
+    [ -x "$R/.git/hooks/pre-push" ]
+    grep -q "antcrate-template: pre-push-tests" "$R/.git/hooks/pre-push"
+}
+
+@test "hook_install: explicit hook-name override works" {
+    src "ac_registry_upsert proj '$R' scripts ''"
+    run src "ac_hook_install proj pre-commit-secrets pre-commit-extra"
+    [ "$status" -eq 0 ]
+    [ -x "$R/.git/hooks/pre-commit-extra" ]
+    [ ! -f "$R/.git/hooks/pre-commit" ]
+}
+
+@test "hook_install: refuses unknown template" {
+    src "ac_registry_upsert proj '$R' scripts ''"
+    run src "ac_hook_install proj nonexistent-template"
+    [ "$status" -ne 0 ]
+}
+
+@test "hook_install: refuses unknown project" {
+    run src "ac_hook_install ghost pre-commit-secrets"
+    [ "$status" -ne 0 ]
+}
+
+@test "hook_install: refuses non-git path" {
+    NOT="$BATS_TEST_TMPDIR/notgit"
+    mkdir -p "$NOT"
+    src "ac_registry_upsert nogit '$NOT' scripts ''"
+    run src "ac_hook_install nogit pre-commit-secrets"
+    [ "$status" -ne 0 ]
+}
+
+@test "hook_install: respects core.hooksPath" {
+    src "ac_registry_upsert proj '$R' scripts ''"
+    mkdir -p "$R/.githooks"
+    (cd "$R" && git config core.hooksPath .githooks)
+    run src "ac_hook_install proj pre-commit-secrets"
+    [ "$status" -eq 0 ]
+    [ -x "$R/.githooks/pre-commit" ]
+    [ ! -f "$R/.git/hooks/pre-commit" ]
+}

@@ -30,6 +30,13 @@ if [[ -d "$SRC/templates" ]]; then
     cp -rf "$SRC/templates"/. "$TPL_DIR/"
 fi
 
+# hook templates (sibling to lib so lib/hooks.sh's ../hooks/templates path resolves)
+HOOKS_DIR="$PREFIX/share/antcrate/hooks"
+if [[ -d "$SRC/hooks" ]]; then
+    mkdir -p "$HOOKS_DIR"
+    cp -rf "$SRC/hooks"/. "$HOOKS_DIR/"
+fi
+
 # state dir
 "$BIN_DIR/antcrate" --init >/dev/null
 
