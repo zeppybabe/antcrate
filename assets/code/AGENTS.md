@@ -49,6 +49,16 @@ These rules govern any AI agent (Claude Code, Cursor, etc.) operating on or with
     - The wrapper reading the config is fine; that's a load-time pass-through. Programmatic mutation is what's banned.
     - Extends to mirrors of the config (e.g., the systemd unit's `EnvironmentFile=`): same write-ban applies wherever bypass values can be sourced.
 
+14. **Hook bypass is a logged, single-shot, human-only action.** `antcrate --hook-bypass <project> --reason "<text>"` writes `.git/antcrate-hook-bypass` — a one-shot flag that the next antcrate-shipped hook reads, logs to both audit sinks, then deletes. Agents MAY propose a bypass (surface the reasoning + the exact command); the human runs the command. Agents MUST NOT call `--hook-bypass` directly, MUST NOT create the `.git/antcrate-hook-bypass` flag file by hand (Write / Edit / `echo >`), and MUST NOT use `git commit --no-verify` to skip a hook. Reusing a stale flag, attempting to suppress the log entry, or wrapping `--hook-bypass` in a script that fires without explicit per-invocation approval are also rule violations.
+
+    **Why:** Hooks exist precisely to catch the "I'll just skip it this once" case. A bypass flag is the sanctioned escape valve, but only when there's a human reason on record (incident, broken hook for an unrelated cause, urgent revert). Letting agents flip the flag programmatically lets them silently disarm the gate that protects the project — which defeats the audit trail the hook+bypass surface was built to produce. Same logic as rule #13 for `~/.antcrate/config`: bypass surfaces are for humans, not for agents.
+
+    **How to apply:**
+    - When a hook is blocking and the agent believes a bypass is warranted, the agent surfaces *what's blocking*, *why the bypass is justified*, and the exact command: *"This pre-commit hook is failing on an unrelated issue. Please run `antcrate --hook-bypass <project> --reason "<text>"` if you want to skip it for the next commit."* Then waits.
+    - The agent NEVER runs `antcrate --hook-bypass` itself, even in an environment where it has permission to execute antcrate commands. The flag's audit invariant — "every bypass is logged with a human's reason" — is meaningful only if the reason is the human's, not the agent's.
+    - The agent NEVER uses `git commit --no-verify`, `git push --no-verify`, or any other `--no-verify` variant. That bypasses the hook *without* the audit log entry, which is strictly worse than `--hook-bypass`.
+    - If the agent observes a stale `.git/antcrate-hook-bypass` flag (left over from a prior bypass that wasn't consumed), it surfaces the discovery to the human but does NOT delete the flag itself — deletion is also a human-only action (it discards a pending sanctioned bypass).
+
 ## Soft rules (proceed but log to ledger)
 
 - New project creation via `--start` or `--branch` — fine, log path to ledger.

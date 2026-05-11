@@ -181,6 +181,20 @@ Commands:
                                       install a hook template into the project (idempotent;
                                       backup-then-overwrite on --force). Templates ship at
                                       assets/code/hooks/templates/.
+  --hook-remove <project> <hook> [--force]
+                                      remove a hook (backs up to <hook>.bak.<ts>; audit-logged
+                                      to ~/.antcrate/hooks.log + .git/antcrate-hook-audit.log).
+  --hook-debug <project> [hook] [--with-stash] [--no-trace]
+                                      re-run a hook with annotated trace + captured stdout/stderr;
+                                      defaults to pre-commit; --with-stash mirrors the commit-time
+                                      staged set; --no-trace skips bash -x. Audit-logged + appended
+                                      to .git/antcrate-hook.log. Exits with the hook's exit code.
+  --hook-bypass <project> --reason "<text>"
+                                      write a single-shot bypass flag at .git/antcrate-hook-bypass;
+                                      the next antcrate-shipped hook consumes it, logs the bypass +
+                                      reason to .git/antcrate-hook.log + .git/antcrate-hook-audit.log,
+                                      deletes the flag, exits 0. AGENTS.md rule #14: agents may
+                                      PROPOSE this; humans run the command.
   --pipe-file <basename>              decode a Positional filename and dispatch
   --status                            show daemon + registry summary
   --list                              list registered projects
@@ -301,6 +315,8 @@ WATCH_ONCE="" WATCH_INTERVAL="" WATCH_NOCOLOR="" WATCH_DEPTH=""
 CLEANUP_IDS=()
 BOOTSTRAP_WITH_REMOTE=""
 HOOK_TEMPLATE="" HOOK_NAME="" HOOK_FORCE=""
+HOOK_WITH_STASH="" HOOK_NO_TRACE=""
+HOOK_BYPASS_REASON=""
 MD_FORCE=""
 PROFILE_RAW=""
 ENV_APPLY=""
@@ -529,6 +545,47 @@ while (( $# > 0 )); do
                     --force) HOOK_FORCE="--force"; shift ;;
                     --*)     break ;;
                     *)       HOOK_NAME="$1"; shift ;;
+                esac
+            done ;;
+        --hook-remove)
+            ACTION="hook-remove"; NAME="${2:-}"; HOOK_NAME="${3:-}"; shift
+            [[ $# -gt 0 ]] && shift
+            [[ $# -gt 0 ]] && shift
+            HOOK_FORCE=""
+            while (( $# > 0 )); do
+                case "${1:-}" in
+                    --force) HOOK_FORCE="--force"; shift ;;
+                    --*)     break ;;
+                    *)       shift ;;
+                esac
+            done ;;
+        --hook-debug)
+            ACTION="hook-debug"; NAME="${2:-}"; shift
+            [[ $# -gt 0 ]] && shift
+            HOOK_NAME=""
+            HOOK_WITH_STASH=""
+            HOOK_NO_TRACE=""
+            # Optional positional hook name, then any combination of flags.
+            while (( $# > 0 )); do
+                case "${1:-}" in
+                    --with-stash) HOOK_WITH_STASH="--with-stash"; shift ;;
+                    --no-trace)   HOOK_NO_TRACE="--no-trace";     shift ;;
+                    --*)          break ;;
+                    *)            [[ -z "$HOOK_NAME" ]] && HOOK_NAME="$1"; shift ;;
+                esac
+            done ;;
+        --hook-bypass)
+            ACTION="hook-bypass"; NAME="${2:-}"; shift
+            [[ $# -gt 0 ]] && shift
+            HOOK_BYPASS_REASON=""
+            while (( $# > 0 )); do
+                case "${1:-}" in
+                    --reason)
+                        HOOK_BYPASS_REASON="${2:-}"
+                        if [[ $# -ge 2 ]]; then shift 2; else shift; fi
+                        ;;
+                    --*)  break ;;
+                    *)    shift ;;
                 esac
             done ;;
         --public)            GH_VIS="public"; shift ;;
@@ -766,6 +823,23 @@ case "$ACTION" in
         [[ -n "$HOOK_NAME"  ]] && args+=( "$HOOK_NAME" )
         [[ -n "$HOOK_FORCE" ]] && args+=( "$HOOK_FORCE" )
         ac_with_lock ac_hook_install "${args[@]}" ;;
+    hook-debug)
+        [[ -z "$NAME" ]] && { ac_error "--hook-debug requires <project>"; exit 2; }
+        hd_args=( "$NAME" )
+        [[ -n "$HOOK_NAME"       ]] && hd_args+=( "$HOOK_NAME" )
+        [[ -n "$HOOK_WITH_STASH" ]] && hd_args+=( "$HOOK_WITH_STASH" )
+        [[ -n "$HOOK_NO_TRACE"   ]] && hd_args+=( "$HOOK_NO_TRACE" )
+        ac_with_lock ac_hook_debug "${hd_args[@]}" ;;
+    hook-bypass)
+        [[ -z "$NAME"               ]] && { ac_error "--hook-bypass requires <project>"; exit 2; }
+        [[ -z "$HOOK_BYPASS_REASON" ]] && { ac_error "--hook-bypass requires --reason \"<text>\""; exit 2; }
+        ac_with_lock ac_hook_bypass "$NAME" --reason "$HOOK_BYPASS_REASON" ;;
+    hook-remove)
+        [[ -z "$NAME"      ]] && { ac_error "--hook-remove requires <project> <hook>"; exit 2; }
+        [[ -z "$HOOK_NAME" ]] && { ac_error "--hook-remove requires a hook name"; exit 2; }
+        args=( "$NAME" "$HOOK_NAME" )
+        [[ -n "$HOOK_FORCE" ]] && args+=( "$HOOK_FORCE" )
+        ac_with_lock ac_hook_remove "${args[@]}" ;;
     pipe-file) cmd_pipe_file "$NAME" ;;
     "")        usage; exit 2 ;;
 esac
