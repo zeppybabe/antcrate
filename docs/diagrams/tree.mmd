@@ -1,4 +1,4 @@
-%% antcrate tree — generated 2026-05-05T07:44:16Z
+%% antcrate tree — generated 2026-05-11T21:09:17Z
 graph TD
   root(["antcrate"])
   1["README.md"]
@@ -21,134 +21,184 @@ graph TD
   3a4 --> 3a4a
   3a4b["antcrated"]
   3a4 --> 3a4b
-  3a5["install.sh"]
+  3a5[/hooks/]
   3a --> 3a5
-  3a6[/lib/]
+  3a5a[/templates/]
+  3a5 --> 3a5a
+  3a5a1["pre-commit-ci"]
+  3a5a --> 3a5a1
+  3a5a2["pre-commit-secrets"]
+  3a5a --> 3a5a2
+  3a5a3["pre-commit-stack-bash"]
+  3a5a --> 3a5a3
+  3a5a4["pre-push-tests"]
+  3a5a --> 3a5a4
+  3a6["install.sh"]
   3a --> 3a6
-  3a6a["address.sh"]
-  3a6 --> 3a6a
-  3a6b["anchor.sh"]
-  3a6 --> 3a6b
-  3a6c["backup.sh"]
-  3a6 --> 3a6c
-  3a6d["bootstrap.sh"]
-  3a6 --> 3a6d
-  3a6e["cleanup.sh"]
-  3a6 --> 3a6e
-  3a6f["commit.sh"]
-  3a6 --> 3a6f
-  3a6g["devops.sh"]
-  3a6 --> 3a6g
-  3a6h["diagrams.sh"]
-  3a6 --> 3a6h
-  3a6i["events.sh"]
-  3a6 --> 3a6i
-  3a6j["gh.sh"]
-  3a6 --> 3a6j
-  3a6k["git_init.sh"]
-  3a6 --> 3a6k
-  3a6l["git_triage.sh"]
-  3a6 --> 3a6l
-  3a6m["hooks.sh"]
-  3a6 --> 3a6m
-  3a6n["ingest.sh"]
-  3a6 --> 3a6n
-  3a6o["lock.sh"]
-  3a6 --> 3a6o
-  3a6p["log.sh"]
-  3a6 --> 3a6p
-  3a6q["propose.sh"]
-  3a6 --> 3a6q
-  3a6r["registry.sh"]
-  3a6 --> 3a6r
-  3a6s["safety.sh"]
-  3a6 --> 3a6s
-  3a6t["scaffold.sh"]
-  3a6 --> 3a6t
-  3a6u["schema.sh"]
-  3a6 --> 3a6u
-  3a6v["subbranch.sh"]
-  3a6 --> 3a6v
-  3a6w["watch.sh"]
-  3a6 --> 3a6w
-  3a7[/systemd/]
+  3a7[/lib/]
   3a --> 3a7
-  3a7a["antcrated.service"]
+  3a7a["address.sh"]
   3a7 --> 3a7a
-  3a8[/templates/]
+  3a7b["agent_init.sh"]
+  3a7 --> 3a7b
+  3a7c["anchor.sh"]
+  3a7 --> 3a7c
+  3a7d["backup.sh"]
+  3a7 --> 3a7d
+  3a7e["bootstrap.sh"]
+  3a7 --> 3a7e
+  3a7f["cleanup.sh"]
+  3a7 --> 3a7f
+  3a7g["commit.sh"]
+  3a7 --> 3a7g
+  3a7h["delegate.sh"]
+  3a7 --> 3a7h
+  3a7i["devops.sh"]
+  3a7 --> 3a7i
+  3a7j["diagrams.sh"]
+  3a7 --> 3a7j
+  3a7k["env_scan.sh"]
+  3a7 --> 3a7k
+  3a7l["events.sh"]
+  3a7 --> 3a7l
+  3a7m["gh.sh"]
+  3a7 --> 3a7m
+  3a7n["git_init.sh"]
+  3a7 --> 3a7n
+  3a7o["git_triage.sh"]
+  3a7 --> 3a7o
+  3a7p["hook_autoinstall.sh"]
+  3a7 --> 3a7p
+  3a7q["hooks.sh"]
+  3a7 --> 3a7q
+  3a7r["ingest.sh"]
+  3a7 --> 3a7r
+  3a7s["lifecycle.sh"]
+  3a7 --> 3a7s
+  3a7t["lock.sh"]
+  3a7 --> 3a7t
+  3a7u["log.sh"]
+  3a7 --> 3a7u
+  3a7v["md_scaffold.sh"]
+  3a7 --> 3a7v
+  3a7w["profile.sh"]
+  3a7 --> 3a7w
+  3a7x["propose.sh"]
+  3a7 --> 3a7x
+  3a7y["registry.sh"]
+  3a7 --> 3a7y
+  3a7z["safety.sh"]
+  3a7 --> 3a7z
+  3a7aa["scaffold.sh"]
+  3a7 --> 3a7aa
+  3a7ab["schema.sh"]
+  3a7 --> 3a7ab
+  3a7ac["subbranch.sh"]
+  3a7 --> 3a7ac
+  3a7ad["watch.sh"]
+  3a7 --> 3a7ad
+  3a8[/systemd/]
   3a --> 3a8
-  3a8a[/_generic/]
+  3a8a["antcrated.service"]
   3a8 --> 3a8a
-  3a8a1["README.md"]
-  3a8a --> 3a8a1
-  3a8a2[/docs/]
-  3a8a --> 3a8a2
-  3a8a2a[/diagrams/]
-  3a8a2 --> 3a8a2a
-  3a8a2a1["architecture.mmd"]
-  3a8a2a --> 3a8a2a1
-  3a8a3[/src/]
-  3a8a --> 3a8a3
-  3a8b[/notes/]
-  3a8 --> 3a8b
-  3a8b1["INDEX.md"]
-  3a8b --> 3a8b1
-  3a8c[/projects/]
-  3a8 --> 3a8c
-  3a8c1["README.md"]
-  3a8c --> 3a8c1
-  3a8c2[/docs/]
-  3a8c --> 3a8c2
-  3a8c3[/src/]
-  3a8c --> 3a8c3
-  3a8c4[/tests/]
-  3a8c --> 3a8c4
-  3a8d[/scripts/]
-  3a8 --> 3a8d
-  3a8d1["main.sh"]
-  3a8d --> 3a8d1
-  3a8e[/webapps/]
-  3a8 --> 3a8e
-  3a8e1["README.md"]
-  3a8e --> 3a8e1
-  3a9[/tests/]
+  3a9[/templates/]
   3a --> 3a9
-  3a9a["README.md"]
+  3a9a[/_generic/]
   3a9 --> 3a9a
-  3a9b["address.bats"]
+  3a9a1["README.md"]
+  3a9a --> 3a9a1
+  3a9a2[/docs/]
+  3a9a --> 3a9a2
+  3a9a2a[/diagrams/]
+  3a9a2 --> 3a9a2a
+  3a9a2a1["architecture.mmd"]
+  3a9a2a --> 3a9a2a1
+  3a9a3[/src/]
+  3a9a --> 3a9a3
+  3a9b[/md/]
   3a9 --> 3a9b
-  3a9c["backup.bats"]
+  3a9b1["AGENTS.md"]
+  3a9b --> 3a9b1
+  3a9b2["CLAUDE.md"]
+  3a9b --> 3a9b2
+  3a9b3["ledger.md"]
+  3a9b --> 3a9b3
+  3a9b4["state.md"]
+  3a9b --> 3a9b4
+  3a9c[/notes/]
   3a9 --> 3a9c
-  3a9d["bootstrap.bats"]
+  3a9c1["INDEX.md"]
+  3a9c --> 3a9c1
+  3a9d[/projects/]
   3a9 --> 3a9d
-  3a9e["cleanup.bats"]
+  3a9d1["README.md"]
+  3a9d --> 3a9d1
+  3a9d2[/docs/]
+  3a9d --> 3a9d2
+  3a9d3[/src/]
+  3a9d --> 3a9d3
+  3a9d4[/tests/]
+  3a9d --> 3a9d4
+  3a9e[/scripts/]
   3a9 --> 3a9e
-  3a9f["commit.bats"]
+  3a9e1["main.sh"]
+  3a9e --> 3a9e1
+  3a9f[/webapps/]
   3a9 --> 3a9f
-  3a9g["diagrams.bats"]
-  3a9 --> 3a9g
-  3a9h["events.bats"]
-  3a9 --> 3a9h
-  3a9i["git_init.bats"]
-  3a9 --> 3a9i
-  3a9j["git_triage.bats"]
-  3a9 --> 3a9j
-  3a9k["hooks.bats"]
-  3a9 --> 3a9k
-  3a9l["ingest.bats"]
-  3a9 --> 3a9l
-  3a9m["propose.bats"]
-  3a9 --> 3a9m
-  3a9n["register.bats"]
-  3a9 --> 3a9n
-  3a9o["registry.bats"]
-  3a9 --> 3a9o
-  3a9p["scaffold.bats"]
-  3a9 --> 3a9p
-  3a9q["schema.bats"]
-  3a9 --> 3a9q
-  3a9r["watch.bats"]
-  3a9 --> 3a9r
+  3a9f1["README.md"]
+  3a9f --> 3a9f1
+  3a10[/tests/]
+  3a --> 3a10
+  3a10a["README.md"]
+  3a10 --> 3a10a
+  3a10b["address.bats"]
+  3a10 --> 3a10b
+  3a10c["agent_init.bats"]
+  3a10 --> 3a10c
+  3a10d["backup.bats"]
+  3a10 --> 3a10d
+  3a10e["bootstrap.bats"]
+  3a10 --> 3a10e
+  3a10f["cleanup.bats"]
+  3a10 --> 3a10f
+  3a10g["commit.bats"]
+  3a10 --> 3a10g
+  3a10h["delegate.bats"]
+  3a10 --> 3a10h
+  3a10i["diagrams.bats"]
+  3a10 --> 3a10i
+  3a10j["env_scan.bats"]
+  3a10 --> 3a10j
+  3a10k["events.bats"]
+  3a10 --> 3a10k
+  3a10l["git_init.bats"]
+  3a10 --> 3a10l
+  3a10m["git_triage.bats"]
+  3a10 --> 3a10m
+  3a10n["hook_autoinstall.bats"]
+  3a10 --> 3a10n
+  3a10o["hooks.bats"]
+  3a10 --> 3a10o
+  3a10p["ingest.bats"]
+  3a10 --> 3a10p
+  3a10q["lifecycle.bats"]
+  3a10 --> 3a10q
+  3a10r["md_scaffold.bats"]
+  3a10 --> 3a10r
+  3a10s["profile.bats"]
+  3a10 --> 3a10s
+  3a10t["propose.bats"]
+  3a10 --> 3a10t
+  3a10u["register.bats"]
+  3a10 --> 3a10u
+  3a10v["registry.bats"]
+  3a10 --> 3a10v
+  3a10w["scaffold.bats"]
+  3a10 --> 3a10w
+  3a10x["schema.bats"]
+  3a10 --> 3a10x
+  3a10y["watch.bats"]
+  3a10 --> 3a10y
   3b[/docs/]
   3 --> 3b
   3b1["AntCrate_blueprint_v0.pdf"]
