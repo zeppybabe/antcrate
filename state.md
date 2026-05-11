@@ -4,6 +4,8 @@ _Last updated: 2026-05-11_
 
 ## Top of mind
 
+**Session-Close Protocol active (codified in `~/CLAUDE.md` on 2026-05-11).** Three parts that fire before every end-of-session statement: (1) command-sweep — proposals filed for `--hook-audit`, `--hook-render`, `--audit`, `--ci-snapshot` (review via `antcrate --proposals`); (2) codebase audit every +100 bats tests since last baseline; (3) end-of-session learning. **Audit baseline: 301 bats / shellcheck clean / sha `80385c3`. Next audit due at 401 bats tests** (or when `--audit` itself ships and can be invoked manually).
+
 **`--hook-bypass` shipped (2026-05-11, twentieth pass):** queued hook surface is now feature-complete except for the composite pre-commit umbrella. Same-night double pass with `--hook-debug` (nineteenth, earlier this session).
 
 - `antcrate --hook-bypass <project> --reason "<text>"` — writes `.git/antcrate-hook-bypass` as a JSON flag (`{ts, reason, project}`). The next antcrate-shipped hook to fire reads the flag, logs the bypass + reason to both `.git/antcrate-hook.log` (human tail) and `.git/antcrate-hook-audit.log` (per-project audit), deletes the flag (single-shot), exits 0.
