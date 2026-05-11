@@ -15,6 +15,8 @@
 #   ac_hook_bypass  <project> --reason "<text>"           — write a single-shot bypass flag at
 #                                                          .git/antcrate-hook-bypass; consumed by
 #                                                          the next antcrate-shipped hook
+#   ac_hook_render  <template> [project]                 — render a hook template to stdout
+#                                                          (no install, read-only)
 #
 # Internal:
 #   ac_hooks_dir            — resolve effective hooks dir (honors core.hooksPath)
@@ -658,4 +660,24 @@ ac_hook_bypass() {
     ac_info "hook-bypass: single-shot — will be consumed by the next antcrate-shipped hook"
     ac_info "hook-bypass: reason=$reason"
     return 0
+}
+
+# ac_hook_render <template> [project]
+# Read-only render to stdout. project defaults to "EXAMPLE_PROJECT" so a
+# quick preview does not require a registered project.
+ac_hook_render() {
+    local template="${1:-}" project="${2:-EXAMPLE_PROJECT}"
+    [[ -n "$template" ]] || { ac_error "hook-render: missing template name"; return 1; }
+
+    local tmpl
+    tmpl=$(_ac_hook_template_path "$template") || {
+        ac_error "hook-render: unknown template '$template'"
+        local tdir; tdir=$(dirname "${BASH_SOURCE[0]}")/../hooks/templates
+        if [[ -d "$tdir" ]]; then
+            ac_error "available: $(find "$tdir" -mindepth 1 -maxdepth 1 -type f -printf '%f ' 2>/dev/null)"
+        fi
+        return 1
+    }
+
+    _ac_hook_render "$tmpl" "$project"
 }

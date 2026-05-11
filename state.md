@@ -4,7 +4,27 @@ _Last updated: 2026-05-11_
 
 ## Top of mind
 
-**Session-Close Protocol active (codified in `~/CLAUDE.md` on 2026-05-11).** Three parts that fire before every end-of-session statement: (1) command-sweep — proposals filed for `--hook-audit`, `--hook-render`, `--audit`, `--ci-snapshot` (review via `antcrate --proposals`); (2) codebase audit every +100 bats tests since last baseline; (3) end-of-session learning. **Audit baseline: 301 bats / shellcheck clean / sha `80385c3`. Next audit due at 401 bats tests** (or when `--audit` itself ships and can be invoked manually).
+**Session-Close Protocol active (codified in `~/CLAUDE.md` on 2026-05-11).** Three parts that fire before every end-of-session statement: (1) command-sweep; (2) codebase audit every +100 bats tests since last baseline; (3) end-of-session learning. **Audit baseline: 301 bats / shellcheck clean / sha `80385c3`. Next audit due at 401 bats tests** (or when `--audit` itself ships and can be invoked manually).
+
+**`--hook-render` shipped (2026-05-11, twenty-first pass — first easy-proposal pass):**
+
+- `antcrate --hook-render <template> [project]` — renders a hook template to stdout (read-only, no install). Exposes the existing `_ac_hook_render` private helper as a public command. `project` defaults to `EXAMPLE_PROJECT` so a preview doesn't require a registered project. Unknown template errors with the available-templates listing.
+- **End-to-end Clyde→Cody delegation dogfood.** Clyde ran `antcrate --delegate antcrate --key hook-render --task "..."` (attempt 1/3); handoff block produced; spawned the `cody` subagent with the spec. Cody returned with shellcheck clean + 6 new bats tests, plus a `simplify` self-review. Clyde verified the diff, ran `--ci` independently, ran `install.sh` to sync the system wrapper, and live-smoked three paths.
+- **Re-install gotcha worth flagging.** `~/.local/bin/antcrate` is the installed copy; the source tree wrapper is at `assets/code/bin/antcrate`. After adding a new flag, `install.sh` must run before the system PATH wrapper picks it up. Candidate for an `--install-from-source` shortcut. Logged for future propose-sweep.
+- **AGENTS.md / Gateway Law observation:** the agent-layer delegation flow worked end-to-end — `--delegate` logged the attempt, the subagent stayed in-project, returned a structured report. No three-attempt-rule trip. Good signal that the layer is operationally solid for routine "expose this helper as a flag" tasks.
+
+Test count 301 → 307 (6 new in `tests/hooks.bats`). Full `--ci` PASS (shellcheck clean, bats 307/307).
+
+**Resume next session here:**
+- **Next easy proposals (queued from the same 2026-05-11 sweep):** `--hook-audit` (correlate three audit sinks for a project), `--ci-snapshot` (persist baseline after `--ci` PASS, surface "+N since last snapshot" in `--status`).
+- **`--audit`** — programmatic codebase audit; medium-large, focused pass.
+- **Composite pre-commit umbrella** — last item on `HOOK_PLAN.md`. ~2hr.
+- **dlg_smoke + hookrm_smoke registry entries** — `/tmp` is outside safety zones; surface to user before next big pass.
+- **Stale tickets to re-check:** #69 lib-header propagation, #76 `--mirror`, #78 three-tier agent context model, #79 AGENTS.md #15 private-by-default, #84 `--init`, #85 `--env-setup`.
+
+---
+
+## Earlier (this same session) — `--hook-bypass` shipped (twentieth pass)
 
 **`--hook-bypass` shipped (2026-05-11, twentieth pass):** queued hook surface is now feature-complete except for the composite pre-commit umbrella. Same-night double pass with `--hook-debug` (nineteenth, earlier this session).
 

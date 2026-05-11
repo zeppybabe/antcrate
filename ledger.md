@@ -4,6 +4,38 @@ Append-only log. Newest entries on top. ISO-8601 dates. Never delete.
 
 ---
 
+## 2026-05-11 — `--hook-render` shipped via Clyde→Cody delegation (twenty-first pass)
+
+First easy-proposal pass after the three-session catch-up landed (commits `5d207ae` → `d206636`). Pulled from `~/.antcrate/proposals.log` entry `2026-05-11T10:35:38Z`: render a hook template to stdout without installing it, so the awk-escape-interpretation class of bug is caught at edit time, not test time.
+
+**End-to-end agent-layer dogfood.** Clyde ran `antcrate --delegate antcrate --key hook-render --task "..."` (attempt 1/3); handoff block produced; spawned `cody` subagent with the spec. Cody returned with 307/307 bats + shellcheck clean and a `simplify` self-review (trimmed two "what" docblock lines, declined a premature helper for the "available templates" error block because there are only two call sites). Clyde verified the diff in-tree, ran `--ci` independently, ran `install.sh` to sync the system wrapper, and live-smoked three paths: rendered output, optional-project default (`EXAMPLE_PROJECT`), unknown-template error with the available-templates listing. All green.
+
+**Shape of the new surface:**
+
+- `antcrate --hook-render <template> [project]` → stdout. Read-only; no `ac_with_lock`. Reuses the existing `_ac_hook_template_path` resolver and the `_ac_hook_render` private helper (the same two-stage awk-ENVIRON-then-sed pipeline that `--hook-install` uses). The flag is purely a public-surface exposure of the existing renderer.
+- `project` is optional. Default `EXAMPLE_PROJECT` so a quick preview of a template-under-edit doesn't require a registered project. When given, the value is substituted into both `__PROJECT_NAME__` tokens and the bypass-snippet's `project=` log line.
+- Unknown template: same error pattern as `--hook-install`. Lists available templates from `assets/code/hooks/templates/` so the user doesn't have to remember names.
+
+**Non-obvious decisions worth remembering:**
+
+- **Read-only ⇒ no lock.** Every other `--hook-*` flag wraps in `ac_with_lock` because it mutates either the hooks dir or the audit sinks. `--hook-render` writes nothing; locking would serialize unnecessarily and would also pollute the lock-contention metrics in the daemon-side logs.
+- **Optional project arg parser pattern.** The wrapper's `--hook-render` arg-parse uses `if [[ $# -gt 0 && "${1:0:2}" != "--" ]]` to optionally consume a project name. This matches the existing pattern for `--tree-diagram [out]` (line 525–529). Worth keeping in mind for future optional-positional flags.
+- **`EXAMPLE_PROJECT` as default sentinel.** Picked an obviously-fake-looking placeholder over something realistic like `myproject`. If a developer pipes the rendered output into a real hooks dir by mistake, the substituted project name is loud enough to catch in code review.
+- **Cody's `simplify`-driven choice not to extract a helper.** Two call sites for the "available templates" error listing (`ac_hook_install` and `ac_hook_render`). The three-similar-lines threshold isn't met. Documenting because reviewers may be tempted to DRY it out.
+- **System wrapper vs source-tree wrapper.** First smoke (`antcrate --hook-render ...`) errored with "unknown arg" because `~/.local/bin/antcrate` is the installed copy, not the source tree. Re-ran `install.sh` from `assets/code/`; second smoke green. This is a real edge — any future flag will be invisible until install runs. Could be a candidate for an `--install-from-source` shortcut.
+
+Test count 301 → 307 (6 new in `tests/hooks.bats`). Full `--ci` PASS.
+
+**Proposals still queued from the same `2026-05-11` session-close sweep:**
+
+- `--hook-audit` (correlate three audit sinks per project, single command)
+- `--ci-snapshot` (persist baseline after `--ci` PASS, surface "+N since last snapshot" in `--status`)
+- `--audit` (programmatic codebase audit; medium-large)
+
+The first two are next-session candidates; `--audit` belongs in a focused pass.
+
+---
+
 ## 2026-05-11 — `--hook-bypass` shipped; queued hook surface feature-complete (twentieth pass)
 
 Second pass of the same session. After `--hook-debug` landed earlier tonight (nineteenth pass), the user re-confirmed the order: ship `--hook-bypass` before committing the three-session catch-up. `--hook-bypass` was originally planned as the immediate post-`--hook-remove` follow-up; routing it last in the queued set meant the audit-log helpers (`_ac_hooks_audit_append`) and the `backup`-field overload pattern were both already proven by the time bypass needed them.

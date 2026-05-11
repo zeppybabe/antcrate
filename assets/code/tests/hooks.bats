@@ -659,6 +659,48 @@ run_hook_from_repo() {
 
 # ---------- ac_hook_debug (continued) ----------
 
+# ---------- ac_hook_render ----------
+
+@test "hook_render: emits rendered pre-commit-secrets template to stdout" {
+    run src "ac_hook_render pre-commit-secrets testproj"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"#!/"* ]]
+    [[ "$output" == *"testproj"* ]]
+}
+
+@test "hook_render: substitutes __PROJECT_NAME__" {
+    run src "ac_hook_render pre-commit-secrets myproj"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"myproj"* ]]
+    [[ "$output" != *"__PROJECT_NAME__"* ]]
+}
+
+@test "hook_render: injects bypass-check block at the marker" {
+    run src "ac_hook_render pre-commit-secrets myproj"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"antcrate-hook-bypass"* ]]
+    [[ "$output" != *"# __ANTCRATE_BYPASS_CHECK__"* ]]
+}
+
+@test "hook_render: substitutes __ANTCRATE_BIN__" {
+    run src "ac_hook_render pre-commit-secrets myproj"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"antcrate"* ]]
+    [[ "$output" != *"__ANTCRATE_BIN__"* ]]
+}
+
+@test "hook_render: refuses unknown template" {
+    run src "ac_hook_render no-such-template myproj"
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"unknown template"* ]]
+}
+
+@test "hook_render: project arg is optional (defaults to EXAMPLE_PROJECT)" {
+    run src "ac_hook_render pre-commit-secrets"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"EXAMPLE_PROJECT"* ]]
+}
+
 @test "hook_debug: --with-stash pops even when downstream pipe closes early (SIGPIPE)" {
     # Regression for an outage where the smoke test piped --hook-debug output
     # through `head -14`, the closed pipe SIGPIPE'd a mid-trace printf, set -e
