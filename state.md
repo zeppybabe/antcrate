@@ -1,10 +1,72 @@
 # AntCrate — Current State
 
-_Last updated: 2026-05-09_
+_Last updated: 2026-05-11_
 
 ## Top of mind
 
-**Git history catch-up landed (2026-05-09, seventeenth pass):** three sessions of work (dogfood trio #82/#83/#87, agent layer #88-#92/#109-#111, --delegate #93) were sitting in the working tree from 2026-05-05 onward. Split into 4 commits (`f670f4f` dogfood, `d90aa11` agent-layer, `2a14155` delegate, `5116045` docs catch-up) and pushed via `antcrate --pp antcrate -y`. The new post-push verify from #87 fired on its own first push: `verify: origin/master in sync at 5116045`. CI green at HEAD (269/269 bats, shellcheck clean). Working tree clean. Pick up next session from the resume points below.
+**`--hook-bypass` shipped (2026-05-11, twentieth pass):** queued hook surface is now feature-complete except for the composite pre-commit umbrella. Same-night double pass with `--hook-debug` (nineteenth, earlier this session).
+
+- `antcrate --hook-bypass <project> --reason "<text>"` — writes `.git/antcrate-hook-bypass` as a JSON flag (`{ts, reason, project}`). The next antcrate-shipped hook to fire reads the flag, logs the bypass + reason to both `.git/antcrate-hook.log` (human tail) and `.git/antcrate-hook-audit.log` (per-project audit), deletes the flag (single-shot), exits 0.
+- `--reason` is **mandatory** — a reason-less bypass defeats the audit invariant and is refused before any flag is written.
+- **No silent overwrite.** If `.git/antcrate-hook-bypass` is already present (a prior bypass that hasn't been consumed), `--hook-bypass` refuses with exit 1 + an instruction to consume it (run a commit) or `rm` deliberately.
+- **Shared snippet via marker.** Every antcrate-shipped pre-commit/pre-push template carries a `# __ANTCRATE_BYPASS_CHECK__` marker. `_ac_hook_render` replaces the marker at install time with a canonical ~13-line bypass-check block. Templates that don't include the marker (e.g. a future `commit-msg-format`) pass through unchanged — appropriate when bypass doesn't apply.
+- **awk ENVIRON, not `-v`.** First render attempt passed the snippet via `awk -v block="$snippet"`, which mangled `\n` inside the snippet's printf format strings into actual newlines (gawk: "escape sequences in val are interpreted"). Switched to `ENVIRON["AC_HOOK_BYPASS_SNIPPET"]` which is byte-for-byte. Live render verification before tests would have caught this; I caught it via test failure.
+- **AGENTS.md rule #14 added.** Hook bypass is a logged, single-shot, human-only action. Agents MAY propose; humans run. Agents MUST NOT call `--hook-bypass` directly, MUST NOT create the flag by hand, MUST NOT use `git commit --no-verify`. Also: agents MUST NOT delete a stale flag — discarding a queued sanctioned bypass is itself a human-only action.
+- **Audit fan-out is three writes per bypass life-cycle:** wrapper-side row at write time (global JSONL + per-project audit), then hook-side rows at consume time (`.git/antcrate-hook.log` + per-project audit). The wrapper's `backup` field overloads to `reason:<text>` (same overload pattern as hook-debug's `stash:<label>`).
+
+Test count 293 → 301 (8 new in `tests/hooks.bats`). Full `--ci` PASS (shellcheck clean, bats 301/301). Live smoked end-to-end against the `antcrate` project: install pre-commit-secrets → write bypass with reason → run hook from repo root (`cd ~/.claude/skills/antcrate && bash .git/hooks/pre-commit`) → exit 0 → flag consumed → all three audit sinks populated as expected → hook removed via `--hook-remove`.
+
+**Non-obvious decisions worth remembering:**
+
+- **awk `-v` interprets escapes; awk `ENVIRON` does not.** This is the fix worth carrying forward to any future template-injection work.
+- **Marker placement matters.** The marker sits right after `set -euo pipefail` so the bypass-check runs *before* any of the hook's logic. If the marker were further down, a failing check could short-circuit and the bypass would never fire.
+- **Reason in `backup` field, not a new column.** Same overload pattern as hook-debug. Keeps the JSONL schema stable; consumers branch on `action` to interpret `backup` (`hook-remove` → backup path, `hook-debug` → `stash:<label>`, `hook-bypass` → `reason:<text>`).
+- **Snippet uses `git rev-parse --git-dir`, not a hardcoded `.git`.** Honors `GIT_DIR` env, works inside worktrees, works when the hook is invoked by git from any subdirectory.
+- **Snippet's jq path has a tr fallback.** A user who manually wrote a bare string to the flag (not JSON) still gets a clean consume — the snippet falls back to `tr '\n' ' '` and uses the file contents as the reason. Tested.
+- **Run hooks from repo root cwd in tests.** Pre-commit hooks rely on cwd for `git diff --cached` and (in our case) `git rev-parse --git-dir`. Added `run_hook_from_repo` helper to `tests/hooks.bats`; tests that exercise the rendered hook use it.
+- **Three sessions of work still uncommitted.** 2026-05-10 (`--hook-remove`), 2026-05-11 (`--hook-debug`), and 2026-05-11 (`--hook-bypass`) are all sitting in the working tree as M files. Next action is to commit + push via `antcrate --pp antcrate -y`.
+
+**Resume next session here:**
+- **Commit + push the three-session catch-up** (`--hook-remove`, `--hook-debug`, `--hook-bypass`) via `antcrate --pp antcrate -y`. Recommend three commits along feature boundaries.
+- **Composite pre-commit umbrella** — lift the Phase-1 single-slot constraint so `--hook-autoinstall` can install multiple stack checks side-by-side. ~2hr. This is the last item on `HOOK_PLAN.md`.
+- **dlg_smoke + hookrm_smoke registry entries** — surface to user before next big pass; `/tmp` is outside safety zones so `--remove` correctly refuses (rule #1, joint decision per Gateway Law).
+- **Stale tickets to re-check status on:** #69 lib-header propagation, #76 `--mirror`, #78 three-tier agent context model, #79 AGENTS.md #15 private-by-default, #84 `--init` (folds /init into antcrate), #85 `--env-setup`, #86 AGENTS.md #14 AI-action denylist (now superseded — #14 is the hook-bypass rule).
+
+---
+
+## Earlier (this same session) — `--hook-debug` shipped (nineteenth pass)
+
+**`--hook-debug` shipped (2026-05-11, nineteenth pass):** highest daily-UX HOOK_PLAN follow-up landed. Second-to-last queued hook surface; only `--hook-bypass` + the composite pre-commit umbrella remain.
+
+- `antcrate --hook-debug <project> [hook] [--with-stash] [--no-trace]` — re-runs the named hook (default `pre-commit`) with annotated, source-coord-prefixed trace, then prints captured stdout / stderr separately. Exits with the hook's exit code so scripts/agents can branch on it.
+- Trace strategy: `BASH_XTRACEFD` pinned to a dedicated fd so `bash -x` output lives in its own stream; the hook's real stdout and stderr never get mixed with xtrace noise. `PS4='+ ${BASH_SOURCE##*/}:${LINENO}: '` so every trace line carries `<file>:<line>` coords.
+- `--with-stash`: `git stash push --keep-index --include-untracked` before, pop after. Hook sees exactly the staged set a real commit would use. Detection is via stash-list-count delta (push returns 0 even when nothing's saved). Pop conflicts (overlapping staged+unstaged edits on the same file) leave the stash in place and emit a `[warn]` line.
+- `--no-trace`: skip xtrace entirely for hooks that are already verbose.
+- Audit: reuses `_ac_hooks_audit_append` with `action: "hook-debug"`. sha256 captures the hook file's content; the `backup` field carries `stash:antcrate-hook-debug-<UTC-ts>` when `--with-stash` created one. Also appends a labeled block to `<project>/.git/antcrate-hook.log` so `--hook-log` surfaces debug runs alongside real commit-time runs.
+
+Test count 278 → 293 (15 new in `tests/hooks.bats`, includes the SIGPIPE regression below). Full `--ci` PASS (shellcheck clean, bats 293/293). Live smoke against the `antcrate` project itself: header → trace → stdout sections, audit visible in all three sinks, `--no-trace` + `--with-stash` (clean + piped-to-head) all verified.
+
+**Non-obvious decisions worth remembering:**
+
+- **SIGPIPE caught early via live smoke.** First smoke iteration piped `--hook-debug --with-stash` output through `| head -14`. The closed pipe SIGPIPE'd a mid-trace `printf`, `set -e` / `pipefail` from the wrapper aborted the function **before** `git stash pop`, and the entire WIP (yesterday's `--hook-remove` work plus tonight's `--hook-debug` work) ended up stranded in `stash@{0}`. Recovered via `git stash apply` (apply succeeded on retry; pop had failed under SIGPIPE). Fix: cleanup (stash pop + audit-log append + `.git/antcrate-hook.log` append) runs in a **file-only** section before any pipe-sensitive prints; all subsequent prints live in `( ... ) || true` subshells so SIGPIPE only kills the subshell. Regression test (`hook_debug: --with-stash pops even when downstream pipe closes early (SIGPIPE)`) drives the function under wrapper-equivalent `set -euo pipefail` and confirms post-pop stash count and audit row.
+- **Pop ordering matters.** The original layout printed everything in sequence (header → run → trace → stdout → stderr → exit → pop → audit). After the SIGPIPE fix the contract is: header (subshell) → run (writes to files only) → pop (no pipe writes) → audit (file writes) → render (subshell) → final log. Live UX trade-off: the header still prints immediately so the user sees "stash pushed" right away, but the trace/stdout block comes after pop. Since re-runs are typically sub-second this is invisible.
+- **Pop-failure warning is in stdout, not `ac_warn`.** `ANTCRATE_LOG_LEVEL=error` (the bats default) would suppress `ac_warn`. A stash-preservation notice is critical regardless of log level, so it's a direct `printf '[warn] ...'` in the render block.
+- **`backup` field doubles as a stash refspec carrier.** For `--hook-remove` it's a file path; for `--hook-debug --with-stash` it's `stash:<label>`. Same column, different prefix tells a future `--hook-audit` consumer how to recover the pre-debug worktree.
+- **`ac_info` calls have `2>/dev/null || true` belt-and-suspenders.** Even though `ac_info` writes to stderr (not the closed stdout pipe), a caller might `2>&1 | head` and close stderr too.
+- **`--no-trace` reads as "plain (no xtrace)"** in the header so the mode is unambiguous when the user is comparing two runs.
+
+**Resume next session here:**
+- **`--hook-bypass`** — single-shot escape valve. Writes `.git/antcrate-hook-bypass` flag, antcrate-shipped hooks read+consume+log it, exits 0. Reuses `_ac_hooks_audit_append` with `action: "hook-bypass"`. Adds AGENTS.md rule (#14 or extension of #13): agents may **propose** bypass, not execute it; the human runs the command. ~90min. Now the last queued hook-surface item before the composite umbrella.
+- **Composite pre-commit umbrella** — lift the Phase-1 single-slot constraint so `--hook-autoinstall` can install multiple stack checks side-by-side. ~2hr.
+- **dlg_smoke + hookrm_smoke registry entries** — surface to user before next big pass; `/tmp` is outside safety zones so `--remove` correctly refuses (rule #1, joint decision per Gateway Law).
+- **Uncommitted history catch-up:** the 2026-05-10 `--hook-remove` work and tonight's `--hook-debug` work are both sitting in the working tree (M files: bin/antcrate, lib/hooks.sh, tests/hooks.bats, HOOK_PLAN.md, state.md, ledger.md). Recommend splitting into two commits (`feat(hooks): --hook-remove + dual audit-log infra` then `feat(hooks): --hook-debug + SIGPIPE-safe cleanup`) and pushing via `antcrate --pp antcrate -y` before starting `--hook-bypass`.
+- **Stale tickets to re-check status on:** #69 lib-header propagation, #76 `--mirror`, #78 three-tier agent context model, #79 AGENTS.md #15 private-by-default, #84 `--init` (folds /init into antcrate), #85 `--env-setup`, #86 AGENTS.md #14 AI-action denylist.
+
+---
+
+## Earlier (kept for history)
+
+**Git history catch-up landed (2026-05-09, seventeenth pass):** three sessions of work (dogfood trio #82/#83/#87, agent layer #88-#92/#109-#111, --delegate #93) were sitting in the working tree from 2026-05-05 onward. Split into 4 commits (`f670f4f` dogfood, `d90aa11` agent-layer, `2a14155` delegate, `5116045` docs catch-up) and pushed via `antcrate --pp antcrate -y`. The new post-push verify from #87 fired on its own first push: `verify: origin/master in sync at 5116045`. CI green at HEAD (269/269 bats, shellcheck clean). Working tree clean.
 
 **#93 `--delegate` shipped — agent layer is now feature-complete (2026-05-08, sixteenth pass):**
 

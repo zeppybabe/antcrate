@@ -83,37 +83,79 @@ exists, behavior is governed by AGENTS.md rule #1: backup the existing
 hook to `~/.antcrate/backups/<project>/hooks/` before overwrite,
 require approval. Logs the install to `~/.antcrate/hooks.log`.
 
-### `antcrate --hook-remove <project> <hook-name>`
+### `antcrate --hook-remove <project> <hook-name>` — **shipped 2026-05-10**
 
-Removes a hook. Falls under rule #1 (backup + approval). Logs removal
-with the file's sha256 so audit can detect tampering.
+Removes a hook. Backs the file up to `<hook>.bak.<UTC-timestamp>`
+adjacent to the original (mirroring `--hook-install --force`'s pattern),
+captures sha256 of the pre-removal file, and appends an audit entry to
+**two** sinks:
 
-### `antcrate --hook-bypass <project> [--reason "<why>"]`
+- Global JSONL at `~/.antcrate/hooks.log` (one well-formed object per
+  line — `{ts, ts_ms, action, project, hook, hooks_dir, sha256, backup}`).
+- Per-project plain-text at `<project>/.git/antcrate-hook-audit.log`.
 
-Sanctioned-bypass for a single commit. Writes a flag file
-(`.git/antcrate-hook-bypass`) that the antcrate-shipped hooks check at
-the top: if present, the hook logs the bypass + reason to
-`.git/antcrate-hook.log`, deletes the flag, and exits 0. Single-shot —
-the flag is consumed by the first hook that sees it.
+No-op friendly: removing a hook that isn't there returns 0 with a
+notice and writes nothing to either log. `--force` is reserved (parsed
+but currently a no-op) for the future case of skipping the backup.
 
-Audit invariant: every bypass is logged. The flag file's deletion is
-the proof of consumption; the log line names the timestamp + reason.
+The dual-sink shape is intentional: the global JSONL is the cross-
+project audit feed (consumed later by a `--hook-audit` flag, mirrors
+`events.jsonl` shape); the per-project plain-text lives with the
+project so a `git log` reviewer can see hook history without touching
+antcrate state.
+
+`--hook-bypass` (next pass) will reuse the same `_ac_hooks_audit_append`
+helper with `action: "hook-bypass"`.
+
+### `antcrate --hook-bypass <project> --reason "<text>"` — **shipped 2026-05-11**
+
+Sanctioned-bypass for a single commit. Writes a JSON flag file
+(`.git/antcrate-hook-bypass`) with `{ts, reason, project}`. The next
+antcrate-shipped hook to fire reads the flag's `.reason`, logs the
+bypass + reason to **both** `.git/antcrate-hook.log` (human tail) and
+`.git/antcrate-hook-audit.log` (audit), deletes the flag, and exits 0.
+Single-shot — the flag is consumed by the first hook that sees it.
+
+`--reason "<text>"` is **mandatory**. A reason-less bypass defeats the
+audit invariant ("every bypass is logged with a human's reason") and is
+refused with a validation error before any flag is written.
+
+If a flag already exists, `--hook-bypass` refuses (no silent overwrite —
+a stale flag plus a new reason would lose the prior reason and quietly
+extend the bypass). The human consumes it (run a commit) or `rm`s it
+deliberately.
+
+Audit invariant. Three writes per bypass life-cycle:
+- Wrapper-side, at write time: one row in `~/.antcrate/hooks.log` with
+  `action: "hook-bypass"`, `backup: "reason:<text>"`, plus one row in
+  the per-project plain-text audit log with the same fields.
+- Hook-side, at consume time: one row in `.git/antcrate-hook.log`
+  (`BYPASSED via antcrate --hook-bypass; reason=<text>`) and one row in
+  the per-project audit log (`hook-bypass-consumed project=<name>
+  hook=<name> reason=<text>`).
+
+**Hook template injection.** The bypass-check logic is shared across
+every antcrate-shipped hook template via a marker line:
+`# __ANTCRATE_BYPASS_CHECK__`. `_ac_hook_render` replaces the marker at
+install time with the canonical ~13-line bypass-check block, delivered
+via awk's `ENVIRON` (not `-v`, which would interpret `\n` as a real
+newline and break the snippet's `printf` format strings). Templates
+without the marker — e.g. a future `commit-msg-format` — pass through
+unchanged, appropriate when bypass doesn't make semantic sense.
 
 This is the **escape valve** for cases where the hook itself is broken
 (the prior `--ci` is dirty for an unrelated reason and we need to land
 a fix). It is *not* a general "skip the gate" — that's what the human
 editing `~/.antcrate/config` is for.
 
-### AGENTS.md rule for hook bypass
+### AGENTS.md rule for hook bypass — **rule #14, added 2026-05-11**
 
-Add (rule #14 or fold into #13):
-
-> **Hook bypass is a logged, single-shot human-approved action.** Agents
-> may PROPOSE `antcrate --hook-bypass` with a reason; the human runs the
-> command. Agents MUST NOT call `--hook-bypass` directly, MUST NOT
-> manually create `.git/antcrate-hook-bypass`, and MUST NOT
-> `git commit --no-verify`. The bypass log is part of the project's
-> audit trail.
+See `AGENTS.md` rule #14 ("Hook bypass is a logged, single-shot, human-
+only action"). Agents MAY propose `antcrate --hook-bypass`; humans run
+the command. Agents MUST NOT call `--hook-bypass` directly, MUST NOT
+create the flag by hand, MUST NOT use `git commit --no-verify`. The
+rule also forbids deleting a stale flag — discarding a queued sanctioned
+bypass is itself a human-only action.
 
 ### `--start --hooks <preset>` (auto-install on scaffold)
 
@@ -132,13 +174,34 @@ antcrate --start coolapp --domain webapps --meta html,css,ts --hooks svelte
 Per-project meta in `registry.json` gains a `hooks_preset` field so
 `--hooks` listing can show "preset: svelte" alongside the file list.
 
-### `antcrate --hook-debug <project>` (richer than `--hook-log`)
+### `antcrate --hook-debug <project> [hook] [--with-stash] [--no-trace]` — **shipped 2026-05-11**
 
-Beyond just tailing the log: on demand, **re-runs** the failing hook in
-verbose mode and pipes output through line-by-line annotation so the
-human/agent can see exactly which check failed. Optional flag
-`--with-stash` to stash unstaged changes first (so the run reflects the
-staged set the commit would actually use).
+Re-runs the named hook (default `pre-commit`) with annotated output so
+the human/agent can see exactly which check fired and what each one
+emitted. Trace is pinned to `BASH_XTRACEFD` so xtrace lives in its own
+stream — the hook's real stdout and stderr stay clean. `PS4` is set to
+`+ <file>:<line>: ` so every trace line carries source coords.
+
+`--with-stash` stashes unstaged changes with `--keep-index
+--include-untracked` before running, then pops after. The hook then sees
+exactly the staged set a real commit would use. Stash detection is via
+stash-list-count delta (push returns 0 even when nothing is stashed).
+Pop failures (e.g. conflict between staged + unstaged edits to the same
+file) leave the stash in place and surface a `[warn]` line in primary
+output.
+
+`--no-trace` skips the xtrace pass — useful when the hook is already
+verbose enough.
+
+Audit-logged via the same `_ac_hooks_audit_append` helper introduced by
+`--hook-remove`. Action `hook-debug`; sha256 captures the hook file's
+content; `backup` field carries the stash refspec when `--with-stash`
+created one (`stash:antcrate-hook-debug-<UTC-ts>`) so a future
+`--hook-audit` consumer can recover the pre-debug worktree. The
+annotated run is also appended to `.git/antcrate-hook.log` so
+`--hook-log` tails surface debug runs alongside real commit-time runs.
+
+Exits with the underlying hook's exit code so callers can branch on it.
 
 ---
 
@@ -169,17 +232,25 @@ projects are out of date.
 
 ---
 
-## Order of implementation (proposed)
+## Order of implementation
 
 1. Hook template library scaffolding (`assets/code/hooks/templates/`,
-   loader in `lib/hooks.sh`).
+   loader in `lib/hooks.sh`). **Shipped 2026-05-07.**
 2. `--hook-install` (without rule-#1 backup integration first; add the
-   gate immediately after).
-3. Rule #1 backup integration on overwrite/remove.
-4. `--hook-remove`.
-5. `--hook-bypass` + audit log + AGENTS.md rule.
-6. `--start --hooks <preset>` auto-install.
-7. `--hook-debug` (re-run with annotation).
+   gate immediately after). **Shipped 2026-05-07.**
+3. Rule #1 backup integration on overwrite/remove. **Shipped 2026-05-07**
+   (`--hook-install --force` backs up to `<hook>.bak.<ts>`).
+4. `--hook-remove`. **Shipped 2026-05-10** (dual audit-log infrastructure
+   introduced here; reused by `--hook-bypass`).
+5. `--hook-bypass` + audit log + AGENTS.md rule. **Shipped 2026-05-11**
+   (shared bypass-check snippet auto-injected into every antcrate-shipped
+   pre-commit/pre-push template via the `__ANTCRATE_BYPASS_CHECK__` marker;
+   AGENTS.md rule #14 added).
+6. `--start --hooks <preset>` auto-install. **Shipped 2026-05-07** as
+   `--hook-autoinstall` (Phase 1 — single-slot constraint).
+7. `--hook-debug` (re-run with annotation). **Shipped 2026-05-11.**
+8. Composite pre-commit umbrella template (lifts the Phase-1 single-slot
+   constraint so multiple stack checks can coexist). **Queued.**
 
 Each step is one focused pass with bats coverage and a state.md /
 ledger.md entry.

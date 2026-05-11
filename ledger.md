@@ -4,6 +4,189 @@ Append-only log. Newest entries on top. ISO-8601 dates. Never delete.
 
 ---
 
+## 2026-05-11 — `--hook-bypass` shipped; queued hook surface feature-complete (twentieth pass)
+
+Second pass of the same session. After `--hook-debug` landed earlier tonight (nineteenth pass), the user re-confirmed the order: ship `--hook-bypass` before committing the three-session catch-up. `--hook-bypass` was originally planned as the immediate post-`--hook-remove` follow-up; routing it last in the queued set meant the audit-log helpers (`_ac_hooks_audit_append`) and the `backup`-field overload pattern were both already proven by the time bypass needed them.
+
+**Shape of the new surface:**
+
+- `antcrate --hook-bypass <project> --reason "<text>"`. Validates registry entry, path, git repo. Writes `.git/antcrate-hook-bypass` as a JSON flag (`{ts, reason, project}`). `--reason` is mandatory — a reason-less bypass defeats the audit invariant and is refused with exit 2 before any flag is written.
+- **No silent overwrite.** If `.git/antcrate-hook-bypass` is already present, `--hook-bypass` refuses with exit 1 + a notice instructing the user to consume it (run a commit) or `rm` it deliberately. Without this refusal, a second bypass would silently extend a stale one and the prior reason would be lost.
+- **Consume is hook-side, not wrapper-side.** The wrapper writes the flag. The flag is consumed by the next antcrate-shipped hook to fire, via an auto-injected check at the top of the hook script. The check reads `.reason` from the flag (jq if available, `tr` fallback for non-JSON content), logs the bypass + reason to two sinks (`<git-dir>/antcrate-hook.log` + `<git-dir>/antcrate-hook-audit.log`), `rm`s the flag, exits 0.
+- **Shared snippet via marker.** Every antcrate-shipped pre-commit/pre-push template now carries a `# __ANTCRATE_BYPASS_CHECK__` marker line. `_ac_hook_render` replaces that line at install time with a canonical ~13-line bypass-check block. Templates without the marker pass through unchanged — appropriate when bypass doesn't apply semantically (e.g. a future `commit-msg-format` that just formats; bypassing it makes no sense).
+- **AGENTS.md rule #14 added.** Hook bypass is a logged, single-shot, human-only action. Agents MAY propose; humans run. Agents MUST NOT call `--hook-bypass` directly, MUST NOT create the flag by hand, MUST NOT use `git commit --no-verify`, MUST NOT delete a stale flag (discarding a queued sanctioned bypass is itself a human-only action). The function signature and the wrapper command don't enforce this — discipline lives at the AGENTS.md / Gateway Law layer, like rule #13's config-write-ban.
+
+**The awk gotcha that almost shipped a broken template.**
+
+First render of the snippet via `awk -v block="$snippet"` produced this:
+
+    printf '%s [%s] BYPASSED via antcrate --hook-bypass; reason=%s
+'         "$__ac_ts" "$__ac_hook" "$__ac_reason" >> "$__ac_dir/antcrate-hook.log" 2>/dev/null || true
+
+The `\n` inside the snippet's printf format strings got interpreted as an actual newline before the snippet reached awk's `print` statement. Reading the gawk manual: **"-v: Escape sequences in val are interpreted."** Subtle behavior; not visible in a quick mental model where `-v` is "just a variable."
+
+**Fix.** Pass via `ENVIRON` instead:
+
+    AC_HOOK_BYPASS_SNIPPET=$(_ac_hook_bypass_check_snippet) \
+    awk '
+        /^# __ANTCRATE_BYPASS_CHECK__$/ { print ENVIRON["AC_HOOK_BYPASS_SNIPPET"]; next }
+        { print }
+    ' "$tmpl" | sed -e "s|__PROJECT_NAME__|$project|g" ...
+
+`ENVIRON` reads environment values byte-for-byte. No escape interpretation. The rendered hook now has the snippet intact.
+
+**Live smoke caught two real issues the bats env masked.**
+
+1. **`run bash "$R/.git/hooks/pre-commit"` runs from bats' cwd, not the repo root.** Git's `git diff --cached` and the snippet's `git rev-parse --git-dir` both rely on cwd to resolve the repo. From outside the repo: diff returns nothing, snippet builds an absolute path that doesn't exist, bypass-check doesn't fire. Tests passed but for the wrong reason. **Fix.** Added `run_hook_from_repo` helper that does `( cd "$R" && bash ".git/hooks/$1" )`. Updated all three consume-side bats tests to use it.
+2. **Backticks in test names confuse bats.** `@test "...rendered hook handles a flag with no \`reason\` field gracefully" { ... }` — bats interpreted the backticked `reason` as a command substitution and barfed `reason: command not found` on every other test in the file (the env got corrupted before each `@test`). Renamed to "rendered hook handles a flag with no JSON reason field gracefully" — no backticks in test names.
+
+Both issues turned 8 fresh test cases from "passing" to "actually exercising the code path I meant to exercise." Without the live smoke + the bats stderr message I'd have shipped silently-broken tests.
+
+**Non-obvious decisions worth remembering:**
+
+- **`--reason` is mandatory, not optional.** HOOK_PLAN.md's original wording said `[--reason "<why>"]` (optional). The implementation makes it required. Reason: an unreasoned bypass writes a flag with `{ts, reason: null, project}`, the consume snippet logs `reason=<no reason>`, and the audit trail loses its entire reason for existing. Required-at-write-time is the correct contract.
+- **Single-shot refusal on existing flag is exit 1, not 0.** Refusal of a state-corrupting op is an error, not a no-op (cf. `--hook-remove` on a missing hook, which is exit 0 because the user's goal is satisfied — no row to remove). For bypass, "another bypass is queued" means the user's state is *not* what they expect; surfacing it with exit 1 is correct.
+- **Stale-flag deletion is human-only, codified in AGENTS.md.** If an agent sees a stale `.git/antcrate-hook-bypass`, it surfaces the discovery but does NOT `rm` it. Reason: a stale flag is a queued sanctioned bypass; deleting it is discarding a human's prior decision, which sits in the same category as actually flipping the bypass.
+- **`backup` field semantics now branch on `action`.** Three actions, three meanings:
+  - `hook-remove`: backup path (`/path/to/hook.bak.<ts>`).
+  - `hook-debug`: stash refspec (`stash:<label>`) or empty.
+  - `hook-bypass`: reason payload (`reason:<text>`).
+  A future `--hook-audit` consumer parses based on `action`. The schema stayed stable across three features; new field not needed.
+- **Snippet uses `git rev-parse --git-dir`.** Not a hardcoded `.git`. Honors `GIT_DIR`, works in worktrees, works when the hook is invoked from any subdirectory of the repo.
+- **Marker placement is right after `set -euo pipefail`.** Bypass-check must run BEFORE any hook logic so a failing check can't short-circuit and prevent the bypass from firing.
+- **The consume snippet's `printf` paths all carry `|| true`.** Audit-log writes are best-effort: a perms issue on `.git/` shouldn't block the bypass-consume path (the bypass is the user's primary intent; the audit is observability).
+
+**Tests added (8 new in `tests/hooks.bats`):**
+
+- `hook_bypass: writes flag with structured JSON + audits with reason` — golden path; verifies JSON shape + audit row.
+- `hook_bypass: refuses without --reason (audit invariant)` — mandatory-reason check; verifies no flag + no audit row written on refusal.
+- `hook_bypass: refuses unknown project` — registry validation.
+- `hook_bypass: refuses non-git path` — git-repo precondition.
+- `hook_bypass: refuses when flag already present (no silent overwrite)` — single-shot guarantee at the wrapper level; verifies prior payload preserved.
+- `hook_bypass: rendered hook consumes the flag, logs to both sinks, exits 0` — end-to-end: install pre-commit-secrets, stage a `.env` secret, confirm hook refuses without bypass, issue bypass, confirm hook now passes, flag consumed, both sinks logged.
+- `hook_bypass: flag is single-shot, second hook run executes normally` — verifies the second hook run (no flag) re-fires the underlying check.
+- `hook_bypass: rendered hook handles a flag with no JSON reason field gracefully` — tr fallback when flag content is plain text.
+
+Test count 293 → 301. Full `--ci` PASS (shellcheck clean across all libs incl. hooks.sh; bats 301/301). Live smoke against the `antcrate` project:
+
+- `--hook-install antcrate pre-commit-secrets` → installed.
+- `--hook-bypass antcrate --reason "smoke test of --hook-bypass"` → 90-byte JSON flag written, three log lines confirming the queue.
+- `(cd ~/.claude/skills/antcrate && bash .git/hooks/pre-commit)` → exit 0, flag gone, hook.log and audit log both carry consume rows.
+- `--hook-remove antcrate pre-commit` → audited cleanup, `.bak.<ts>` preserved.
+
+**Resume next session.** With `--hook-debug` (nineteenth) and `--hook-bypass` (twentieth) both shipped tonight on top of the uncommitted `--hook-remove` from 2026-05-10, the next action is the long-deferred git-history catch-up — `antcrate --pp antcrate -y` after splitting the working-tree changes into feature commits. Then the composite pre-commit umbrella is the last item on `HOOK_PLAN.md`.
+
+---
+
+## 2026-05-11 — `--hook-debug` shipped; SIGPIPE-safe cleanup pattern caught + fixed mid-session
+
+Second of the HOOK_PLAN follow-ups landed. After re-routing from the planned-order `--hook-bypass` (the user picked `--hook-debug` for the daily-UX payoff at session start), the surface settled into the same envelope as `--hook-install` / `--hook-remove`: positional `<project>` then a positional `<hook>` (defaults `pre-commit`), trailing flags. The work also surfaced + fixed an outage in the cleanup ordering that would have stranded WIP for anyone piping debug output through `head` / `less` / `grep -q`.
+
+**Shape of the new surface:**
+
+- `antcrate --hook-debug <project> [hook] [--with-stash] [--no-trace]`. Validates registry entry, path, git repo via the existing `ac_hooks_dir` envelope. Resolves the target hook (default `pre-commit`). Refuses with exit 1 if the hook file isn't present (`nothing to debug`).
+- **Trace strategy.** `BASH_XTRACEFD` pinned to a private fd 9 so `bash -x` output goes to its own file, leaving the hook's stdout and stderr clean. `PS4='+ ${BASH_SOURCE##*/}:${LINENO}: '` so every trace line carries `<file>:<line>` coords — turns a noisy xtrace dump into something you can `grep ":NN:"` against.
+- **Three captured streams** rendered with prefixes (`[trace]` / `[out]` / `[err]`) so a skim of the output answers "what came from where" instantly. Empty streams are skipped so a clean run is short.
+- **`--with-stash`** runs `git stash push --keep-index --include-untracked` before the hook and `git stash pop` after. Detection is via stash-list-count delta (push returns 0 even when nothing was saved, so the exit code is unreliable). Pop conflicts (overlapping staged+unstaged edits on the same file) leave the stash in place and emit a `[warn]` line in primary output naming the stash label so the user can `git stash list` / `git stash pop` manually.
+- **`--no-trace`** skips xtrace entirely. Useful when the hook is already verbose enough that interleaving xtrace lines just hurts.
+- **Audit.** Reuses `_ac_hooks_audit_append` (introduced 2026-05-10) with `action: "hook-debug"`. `sha256` captures the hook file's content; `backup` carries `stash:antcrate-hook-debug-<UTC-ts>` when `--with-stash` created one, empty otherwise. The annotated run is also appended to `<project>/.git/antcrate-hook.log` so `--hook-log` tails surface debug runs alongside real commit-time runs.
+- **Exit-code passthrough.** The function returns the hook's exit code so scripts / agents can branch on the underlying check. Failure prints `=== exit <N> ===` in the render block plus a final `ac_info: hook-debug: <hook> exited <N>` line.
+
+**The SIGPIPE outage (caught + fixed in this same session).**
+
+After implementing + testing in bats, the first live smoke ran:
+
+    ./bin/antcrate --hook-debug antcrate --with-stash 2>&1 | head -14
+
+The closed `head` pipe SIGPIPE'd a mid-trace `printf`. `set -e` / `pipefail` (inherited from `bin/antcrate`'s `set -euo pipefail`) aborted the function **before** `git stash pop`. The entire working tree's WIP — both yesterday's uncommitted `--hook-remove` work and tonight's in-progress `--hook-debug` edits — ended up stranded in `stash@{0}`. The `git status --short` post-run was clean; the `git stash list` post-run showed the stash. Recovery was clean: `git stash apply` succeeded on retry (pop had failed under SIGPIPE; the second attempt without a pipe consumer worked cleanly), `git stash drop` cleared the entry.
+
+**Fix.** Restructured `ac_hook_debug` into three sections by I/O safety class:
+
+1. **Setup + header** (subshell, `( ... ) || true`). The header is pipe-sensitive but cheap; wrapping in a subshell means SIGPIPE here only kills the subshell and the parent continues.
+2. **Hook run + cleanup** (no stdout writes at all). The hook itself writes to capture files. After it returns: `git stash pop` (always runs if `--with-stash` pushed), append to `.git/antcrate-hook.log`, audit-log append. Every operation here is a file write — no pipe-sensitive I/O.
+3. **Render captured output** (subshell, `( ... ) || true`). All `printf` and `sed` of the captured streams happens here. SIGPIPE in this block kills only the subshell; the parent has already finished cleanup.
+
+`ac_info` final-line calls also got `2>/dev/null || true` belt-and-suspenders in case the caller did `2>&1 | head` and closed stderr too.
+
+**Regression test.** `hook_debug: --with-stash pops even when downstream pipe closes early (SIGPIPE)`. Drives the function under `set -euo pipefail` (matches wrapper context) with `| head -2` so the pipe closes very early. Hook emits 10 lines of stdout to make the close-deep-into-output scenario realistic. Asserts post-run stash count returned to baseline, untracked-payload file restored, and audit log entry written. Re-smoked live with `| head -3`: stash list empty post-run, working tree intact, all six modified files still present.
+
+**Non-obvious decisions worth remembering:**
+
+- **Cleanup ordering inverts the "live UX" instinct.** The natural order is "run → print → cleanup," because that mirrors the temporal flow. The SIGPIPE-safe order is "run → cleanup → print." The header still prints before the run so the user sees activity immediately; only the trace/stdout/stderr block waits for cleanup. Since re-runs are sub-second this is invisible.
+- **Subshell + `|| true` is enough; no `trap` needed.** I considered an EXIT trap to handle errexit aborts, but trap scoping in bash functions is global-ish (a function-set EXIT trap fires at shell exit, not function exit; RETURN trap doesn't fire on errexit abort). Wrapping printing in a subshell is simpler and more local: SIGPIPE/errexit inside the subshell can't propagate past the `|| true`.
+- **Pop-failure warning lives in primary output, not `ac_warn`.** `ANTCRATE_LOG_LEVEL=error` would suppress `ac_warn`. A stash-preservation notice is critical regardless of log level (the user has data on the line), so it's a direct `printf '[warn] ...'` inside the render subshell. The warning text names the stash label so manual recovery is a `git -C <path> stash pop` away.
+- **`backup` field overloads cleanly.** For `--hook-remove` it's a backup file path; for `--hook-debug --with-stash` it's a stash refspec (`stash:<label>`). Same column, different prefix tells a future `--hook-audit` consumer how to interpret the recovery handle without adding a separate field.
+- **Stash-list-count delta beats exit-code detection.** `git stash push` exits 0 whether or not anything was saved (`No local changes to save` is exit 0). Comparing `git stash list | wc -l` before and after is the only reliable way to know if a stash was actually created — and therefore whether to attempt a pop afterward.
+- **Working-tree state DOES affect pop after `--keep-index`.** The overlapping-edits test (staged change + unstaged change on the same file) reproduces the conflict path because `--keep-index` leaves the index applied in the worktree, and pop tries to re-apply both staged and unstaged deltas on top. With separate files (staged in one, unstaged in another), pop is clean. The two `--with-stash` tests in `hooks.bats` cover both cases; the regression test uses an untracked file to keep pop trivially clean.
+- **Live smoke had to be re-issued from `assets/code/`, not project root.** First attempt did `cd /home/twntydotsix/.claude/skills/antcrate && ./bin/antcrate ...`, but `bin/` is under `assets/code/`. Slip surfaced only when re-running post-recovery; harmless but worth noting for the next live smoke (use `cd ~/.claude/skills/antcrate/assets/code` or just call the installed `~/.local/bin/antcrate`).
+
+**Tests added (15 new in `tests/hooks.bats`):**
+
+- `hook_debug: passing hook returns 0, prints header + STDOUT, audits` — golden path.
+- `hook_debug: failing hook surfaces stderr + nonzero exit` — error-path passthrough.
+- `hook_debug: emits TRACE section by default (xtrace)` — confirms PS4 source coords.
+- `hook_debug: --no-trace suppresses xtrace output` — flag semantics.
+- `hook_debug: appends a labeled block to .git/antcrate-hook.log` — log integration.
+- `hook_debug: missing hook returns nonzero with friendly notice` — refusal path; **also asserts no audit entry written**.
+- `hook_debug: refuses unknown project` / `refuses non-git path` — validation.
+- `hook_debug: respects core.hooksPath` — envelope parity with install/remove.
+- `hook_debug: --with-stash creates+pops a stash; hook sees staged set only` — clean-pop golden path.
+- `hook_debug: --with-stash overlapping edits — pop conflict warned, stash preserved` — conflict path.
+- `hook_debug: --with-stash is a no-op when there are no local changes` — no-stash-needed branch.
+- `hook_debug: explicit hook name targets the named file` — non-default hook arg.
+- `hook_debug: JSONL audit entry is well-formed (jq-parseable)` — schema invariant.
+- `hook_debug: --with-stash pops even when downstream pipe closes early (SIGPIPE)` — the regression.
+
+Test count 278 → 293. Full `--ci` PASS (shellcheck clean across all libs incl. hooks.sh; bats 293/293). Live smoked end-to-end:
+
+- `--hook-debug antcrate` (after `--hook-install antcrate pre-commit-secrets`): header + trace + exit 0, all three audit sinks populated.
+- `--hook-debug antcrate --no-trace`: clean output, `mode: plain (no xtrace)` header line.
+- `--hook-debug antcrate --with-stash | head -3`: header truncated by `head`; stash list empty after; working tree intact (regression confirmed live, not just in bats).
+- `--hook-remove antcrate pre-commit`: cleaned up the smoke-installed hook via the proper audited path; `.bak.<ts>` preserved per convention.
+
+**Resume next session.** `--hook-bypass` is the last queued hook-surface item before the composite umbrella. Then a git-history catch-up pass to commit both 2026-05-10 (`--hook-remove`) and 2026-05-11 (`--hook-debug`) work — they're sitting uncommitted in the working tree.
+
+---
+
+## 2026-05-10 — `--hook-remove` shipped; dual audit-log infrastructure introduced
+
+First of the four HOOK_PLAN follow-ups landed. The narrower of the queued surface — `--hook-remove` doesn't solve a daily friction the way `--hook-debug` or `--hook-bypass` would — but it lays the audit-log foundation the other two will reuse. User chose the audit-log shape (both global JSONL + per-project plain text) over a single-sink design, and chose to stay on the planned order (`--hook-remove`) over a re-route to `--hook-debug` after I surfaced the trade-off.
+
+**Shape of the new surface:**
+
+- `antcrate --hook-remove <project> <hook> [--force]`. Validates registry entry, path, git repo. Resolves hooks dir via existing `ac_hooks_dir` (honors `core.hooksPath`). Captures `sha256sum` of the live file, copies it to `<hook>.bak.<UTC-timestamp>` adjacent to the original (mirrors `--hook-install --force`'s backup pattern — no full-project backup, since the hook file is self-contained and the `.bak` is a one-cp rollback). Deletes the live file. Appends audit entry to **both** sinks.
+- Global JSONL at `$ANTCRATE_HOME/hooks.log`. One well-formed object per line; `jq -e '.ts and .action and .project and .hook and .sha256 and .backup'` parses every line (covered by bats). Schema mirrors `events.jsonl` shape from `lib/events.sh` so a future `--hook-audit` consumer can use the same pattern.
+- Per-project plain text at `<project>/.git/antcrate-hook-audit.log`. Lives with the project, survives clones, visible to `git`-adjacent review without needing antcrate state.
+- New helper `_ac_hooks_audit_append` is the single entry point for both sinks. Non-fatal on write failure (per-sink `|| true`) so a perms issue on `$ANTCRATE_HOME` doesn't block the destructive op itself — the audit is best-effort, the file removal is the primary action.
+
+**Non-obvious decisions worth remembering:**
+
+- **No-op writes nothing to either log.** Removing a hook that isn't there returns 0 with a friendly notice and **does not** append. Verified by bats (`hook_remove: missing hook returns 0 with friendly notice` asserts the global log file either doesn't exist or doesn't contain an entry for this hook). Reasoning: an audit log should record state changes, not non-events. Otherwise `--hook-remove` in a CI loop would generate noise.
+- **`--force` is reserved, currently a no-op.** Parsed but doesn't branch yet. Intent: future "skip the backup" toggle for the case where the user knows the hook is recoverable from a template and doesn't want a `.bak` left behind. Suppressed shellcheck SC2034 with a `: "$force"` line at function exit — clearer than disable-this-warning comments.
+- **sha256 of pre-removal file is captured, not post-removal.** The `.bak` could later diverge from what was removed (someone edits it before we re-read); the JSONL must record what was actually removed. Test `hook_remove: captures sha256 of pre-removal file` asserts the logged sha matches the pre-`rm` sha.
+- **jq-or-printf fallback for JSONL emission.** `_ac_hooks_audit_append` uses jq when available (safe quoting for paths with weird chars), falls back to printf. registry.sh already requires jq elsewhere, so the printf branch is belt-and-suspenders but free to keep.
+- **`ts_ms` field uses `date +%s%3N`.** GNU date extension; falls back to `<unix-seconds>000` on platforms where `%3N` isn't supported (BSD date). Same trick `lib/events.sh` uses — kept consistent so a future audit-event consumer can merge streams.
+- **Backup path semantics differ from `--hook-install --force`.** Install's `.bak` is created before overwriting (so the user keeps their prior hook). Remove's `.bak` is created before deletion (so the removed hook is recoverable). Same `.bak.<ts>` naming, semantically distinct intent — documented in the bats test `hook_remove: backup file is restorable to working hook` which proves the round-trip.
+- **Live smoke fixture (`hookrm_smoke` at `/tmp/ac_hookrm_smoke`).** Per AGENTS.md rule #1 + standing user memory ("removals require executive Claude+antcrate+user joint decision"), `--remove` will refuse this entry — `/tmp` is outside ANTCRATE_ROOT safety zones. Adds to the `dlg_smoke` cleanup queue; will surface both to the user before next pass.
+
+**Tests added (9 new in `tests/hooks.bats`):**
+
+- `hook_remove: removes installed hook, creates .bak, audit logs append` — golden path.
+- `hook_remove: JSONL audit entry is well-formed (jq-parseable)` — schema invariant.
+- `hook_remove: captures sha256 of pre-removal file` — content fidelity.
+- `hook_remove: missing hook returns 0 with friendly notice (no-op)` — no-op semantics + no spurious log entry.
+- `hook_remove: refuses unknown project` — registry validation.
+- `hook_remove: requires a hook name` — arg validation.
+- `hook_remove: refuses non-git path` — git-repo precondition.
+- `hook_remove: respects core.hooksPath` — same envelope as install.
+- `hook_remove: backup file is restorable to working hook` — round-trip proof.
+
+Test count 269 → 278. Full `antcrate --ci` PASS (shellcheck clean across all libs incl. hooks.sh; bats 278/278). Pre-install drift detected (`install.sh` had to re-run because the wrapper at `~/.local/bin/antcrate` was the old version — the in-tree CLI is the source of truth, the installed copy is a snapshot).
+
+**Resume next session:** `--hook-bypass`. It reuses `_ac_hooks_audit_append` with `action: "hook-bypass"`, writes `.git/antcrate-hook-bypass` as a single-shot flag, and adds an AGENTS.md rule restricting agents from calling the bypass directly (must be a human-issued command). ~90min.
+
+---
+
 ## 2026-05-09 — git history catch-up: dogfood + agent-layer + delegate passes pushed
 
 Three sessions of work were sitting in the working tree uncommitted (HEAD was at `a7638b2` from 2026-05-05 while state.md/ledger.md documented through 2026-05-08). New session opened with `--status` showing 12 modified + 17 untracked files. Surfaced the gap, paused before any new work, split into four logical commits, and pushed.
