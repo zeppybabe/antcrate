@@ -4,6 +4,58 @@ Append-only log. Newest entries on top. ISO-8601 dates. Never delete.
 
 ---
 
+## 2026-05-11 — `--hook-audit` shipped + live-tree window pattern validated (twenty-second pass)
+
+Second easy-proposal pass of the day. Pulled from `~/.antcrate/proposals.log` entry `2026-05-11T10:35:33Z`. End-to-end Clyde→Cody delegation again (attempt 1/3, no retries), this time with a deliberate test of the **separate-terminal live-tree workflow** that the user proposed at the start of the session.
+
+**Shape of `--hook-audit`.**
+
+- `antcrate --hook-audit <project> [N]` (default N=20). Three labeled sections:
+  - `[1/3] global JSONL (last N, filtered to project=<name>)` — `jq -c --arg p "$project" 'select(.project == $p)'` over `$ANTCRATE_HOME/hooks.log`, then `tail -n N`.
+  - `[2/3] per-project audit (last N)` — `tail -n N` of `<path>/.git/antcrate-hook-audit.log`.
+  - `[3/3] human-readable hook log (last N)` — `tail -n N` of `<path>/.git/antcrate-hook.log`.
+- Each missing sink prints a friendly "no entries" / "no log yet" notice instead of erroring — the audit view should work as a diagnostic even when nothing has fired yet.
+- Does NOT require the project to be a git repo. The global JSONL may carry entries from before `.git/` was removed; we still want those surfaced.
+- Read-only ⇒ no `ac_with_lock`. Reuses the `LOGS_LINES` arg-parse var that `--hook-log` already owns (matching the `[N]` shape on that flag).
+- Header shows all three sink paths up front so "which sink is missing?" is one-glance answerable.
+
+Test count 307 → 312 (5 new in `tests/hooks.bats`). Full `--ci` PASS (shellcheck clean, bats 312/312).
+
+**Live-tree separate-window workflow validated.**
+
+Before delegating, Clyde spawned a detached Alacritty window via:
+
+    setsid alacritty --class ac-watch-antcrate --title "antcrate watch: antcrate" -e bash -lc 'antcrate --watch antcrate' >/dev/null 2>&1 < /dev/null &
+    disown
+
+- `--class ac-watch-<project>` is the Wayland-friendly grouping handle (compositor uses app-id since `decorations = "None"` hides the title bar).
+- `setsid` + `< /dev/null` + `disown` fully detaches the spawn from the calling shell. The watch process keeps running after Clyde's shell finishes.
+- `bash -lc` so the watch inherits a proper login shell env (PATH, EDITOR, etc.).
+- PID resolution: orchestrator-side `pgrep -P <alacritty-pid>` confirmed the child `antcrate --watch antcrate` process was alive in the new window before delegation.
+
+**Why this matters.** With Claude / the AI agent occupying one Alacritty window for the conversation, a second window dedicated to per-project state means context never has to leave the IDE-equivalent. The watch view doesn't paint live for this particular project (antcrate lives at `~/.claude/skills/antcrate/`, outside the daemon's `~/projects/` watch root), but the workflow pattern is sound; for a `~/projects/`-resident project with the daemon running, the same spawn-and-delegate produces a literal real-time tree.
+
+**`--watch-window` flag filed as a proposal** (`~/.antcrate/proposals.log` entry 2026-05-11T22:23:46Z roughly) to codify the spawn-or-warn pattern: PID file at `~/.antcrate/watch/<project>.pid`, re-invocation detects the live PID and exits 0 ("already watching pid N") instead of spawning a duplicate. Wayland-first because `wmctrl` is X11-only and a focus-existing-window primitive doesn't have a portable Wayland equivalent.
+
+**Non-obvious decisions worth remembering:**
+
+- **Three labeled sections > chronological merge.** The three sinks have different schemas (JSONL vs plain); a merged view would require schema-normalization for marginal benefit. Sink-labeled output answers "what was bypassed?" / "what was debugged?" with a single eye scan.
+- **`printf --` defensive prefix.** Cody used `printf -- '--- [%s] ...'` because the format string starts with `---`, which some printf implementations parse as an option. Defensive but cheap; worth carrying forward for any future `--- section ---` output.
+- **`--class` is the Wayland grouping handle, not title.** Title becomes irrelevant on `decorations=None`; the WM groups by app-id. Pass both anyway — terminals like `kitty` or fallback X11 sessions may surface either.
+- **`bash -lc 'cmd'` inside `alacritty -e`.** Without `-l`, the env in the spawned shell misses login-time exports (npm-global PATH, etc.). With `-c`, the command runs and stays attached to the terminal; the watch loops happily until killed.
+
+**Bashrc/profile cleanup landed earlier this same session** (commit not yet made — these are user-side dotfiles, not in the antcrate repo). Backups at `~/.bashrc.bak.20260511T222220Z` and `~/.profile.bak.<same>`. Changes: dropped a dead PS1 (line-27 of the old .bashrc was unconditionally overridden by line 74 — orphaned code), de-duplicated `MICRO_TRUECOLOR=1` (was set three times), moved `MOZ_ENABLE_WAYLAND=1` out of .bashrc (was duplicated with .profile), added `alacritty*)` arm to the window-title block (was only matching `xterm*|rxvt*` so the title never set), made PATH idempotent in .profile via case-match guards, moved `~/.npm-global/bin` PATH-prepend out of .bashrc into .profile, normalized hex case in `alacritty.toml`. The `~/.bashrc` was the source of one of the user-reported "visual errors" — line 74 (the override) had `\e[1;93m` for the username (bright yellow) but `\e[1;37m` for everything else (white), so the prompt rendered as white-on-dark with a single yellow word; not visually broken but contrary to the line-27 intent (green box / blue username) that the user had originally configured. Preserved the line-74 aesthetic since that's what the user has been looking at.
+
+**Proposals still queued:**
+
+- `--ci-snapshot` (persist baseline after `--ci` PASS, surface "+N since last snapshot" in `--status`)
+- `--audit` (programmatic codebase audit; medium-large)
+- `--install-from-source` (auto-fire `install.sh` after commits to the antcrate project so the system wrapper doesn't go stale)
+- `--watch-window` (Wayland-friendly spawn-or-warn around `alacritty --watch <project>`)
+- Composite pre-commit umbrella (last item on `HOOK_PLAN.md`)
+
+---
+
 ## 2026-05-11 — `--hook-render` shipped via Clyde→Cody delegation (twenty-first pass)
 
 First easy-proposal pass after the three-session catch-up landed (commits `5d207ae` → `d206636`). Pulled from `~/.antcrate/proposals.log` entry `2026-05-11T10:35:38Z`: render a hook template to stdout without installing it, so the awk-escape-interpretation class of bug is caught at edit time, not test time.

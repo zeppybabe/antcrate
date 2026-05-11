@@ -6,6 +6,28 @@ _Last updated: 2026-05-11_
 
 **Session-Close Protocol active (codified in `~/CLAUDE.md` on 2026-05-11).** Three parts that fire before every end-of-session statement: (1) command-sweep; (2) codebase audit every +100 bats tests since last baseline; (3) end-of-session learning. **Audit baseline: 301 bats / shellcheck clean / sha `80385c3`. Next audit due at 401 bats tests** (or when `--audit` itself ships and can be invoked manually).
 
+**`--hook-audit` shipped + live-tree window pattern validated (2026-05-11, twenty-second pass):**
+
+- `antcrate --hook-audit <project> [N]` — three-section unified view of the global JSONL (jq-filtered to project), per-project audit plain log, and human-readable hook tail. Default N=20 lines per sink. Read-only. Each missing sink prints a friendly "no entries" notice instead of erroring.
+- **Live-tree separate-window workflow validated.** Before delegating, Clyde spawned a detached Alacritty window via `setsid alacritty --class ac-watch-<project> --title "..." -e bash -lc 'antcrate --watch <project>' >/dev/null 2>&1 < /dev/null & disown`. The watch process runs independently of Claude's shell. `--class` is the Wayland-friendly grouping handle since `decorations = "None"` hides the title bar. The antcrate project lives outside the daemon's `~/projects/` watch root so paint events don't fire for THIS project — but the spawn-and-detach pattern is proven and will paint live for `~/projects/`-resident projects with the daemon running.
+- **`--watch-window` flag filed as a proposal** to codify the pattern: PID file at `~/.antcrate/watch/<project>.pid`, re-invocation detects live PID and exits 0 ("already watching pid N") instead of duplicate-spawning. Wayland-first since `wmctrl` is X11-only.
+- **Bashrc/profile cleanup landed this same session** (user-side dotfiles, not in repo; backups at `~/.bashrc.bak.20260511T222220Z`, `~/.profile.bak.<same>`). Fixed: dead-code PS1 override, triple `MICRO_TRUECOLOR=1`, duplicate `MOZ_ENABLE_WAYLAND=1`, missing `alacritty*)` arm on window-title block, double-prepended PATH, hex-case inconsistency in alacritty.toml.
+
+Test count 307 → 312 (5 new in `tests/hooks.bats`). Full `--ci` PASS (shellcheck clean, bats 312/312).
+
+**Resume next session here:**
+- **`--watch-window`** — ship the proposal filed today. ~60min. Pairs with the dotfile cleanup that just landed.
+- **`--ci-snapshot`** (persist baseline after `--ci` PASS, surface "+N since last snapshot" in `--status`). Last of the three easy-proposal trio.
+- **`--audit`** — programmatic codebase audit; medium-large, focused pass.
+- **`--install-from-source`** — auto-fire `install.sh` after commits to the antcrate project so the system wrapper never goes stale. Filed earlier this session.
+- **Composite pre-commit umbrella** — last item on `HOOK_PLAN.md`. ~2hr.
+- **dlg_smoke + hookrm_smoke registry entries** — `/tmp` is outside safety zones; surface to user before next big pass.
+- **Stale tickets to re-check:** #69 lib-header propagation, #76 `--mirror`, #78 three-tier agent context model, #79 AGENTS.md #15 private-by-default, #84 `--init`, #85 `--env-setup`.
+
+---
+
+## Earlier (this same session) — `--hook-render` shipped (twenty-first pass)
+
 **`--hook-render` shipped (2026-05-11, twenty-first pass — first easy-proposal pass):**
 
 - `antcrate --hook-render <template> [project]` — renders a hook template to stdout (read-only, no install). Exposes the existing `_ac_hook_render` private helper as a public command. `project` defaults to `EXAMPLE_PROJECT` so a preview doesn't require a registered project. Unknown template errors with the available-templates listing.
@@ -14,13 +36,6 @@ _Last updated: 2026-05-11_
 - **AGENTS.md / Gateway Law observation:** the agent-layer delegation flow worked end-to-end — `--delegate` logged the attempt, the subagent stayed in-project, returned a structured report. No three-attempt-rule trip. Good signal that the layer is operationally solid for routine "expose this helper as a flag" tasks.
 
 Test count 301 → 307 (6 new in `tests/hooks.bats`). Full `--ci` PASS (shellcheck clean, bats 307/307).
-
-**Resume next session here:**
-- **Next easy proposals (queued from the same 2026-05-11 sweep):** `--hook-audit` (correlate three audit sinks for a project), `--ci-snapshot` (persist baseline after `--ci` PASS, surface "+N since last snapshot" in `--status`).
-- **`--audit`** — programmatic codebase audit; medium-large, focused pass.
-- **Composite pre-commit umbrella** — last item on `HOOK_PLAN.md`. ~2hr.
-- **dlg_smoke + hookrm_smoke registry entries** — `/tmp` is outside safety zones; surface to user before next big pass.
-- **Stale tickets to re-check:** #69 lib-header propagation, #76 `--mirror`, #78 three-tier agent context model, #79 AGENTS.md #15 private-by-default, #84 `--init`, #85 `--env-setup`.
 
 ---
 

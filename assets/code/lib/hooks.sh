@@ -17,6 +17,10 @@
 #                                                          the next antcrate-shipped hook
 #   ac_hook_render  <template> [project]                 — render a hook template to stdout
 #                                                          (no install, read-only)
+#   ac_hook_audit   <project> [N]                        — unified view of three hook audit sinks
+#                                                          (global JSONL filtered to project,
+#                                                          per-project plain, human-readable hook
+#                                                          log). N caps lines per sink (default 20).
 #
 # Internal:
 #   ac_hooks_dir            — resolve effective hooks dir (honors core.hooksPath)
@@ -660,6 +664,80 @@ ac_hook_bypass() {
     ac_info "hook-bypass: single-shot — will be consumed by the next antcrate-shipped hook"
     ac_info "hook-bypass: reason=$reason"
     return 0
+}
+
+# ac_hook_audit <project> [lines]
+# Read-only unified view of the three hook audit sinks. Default 20 lines per sink.
+# Friendly notice when a sink is absent (no error). Returns nonzero only on
+# unknown project / missing project path.
+#
+# Sinks:
+#   1. global JSONL at $ANTCRATE_HOME/hooks.log — filtered to this project via jq
+#   2. per-project plain at <path>/.git/antcrate-hook-audit.log
+#   3. human-readable tail at <path>/.git/antcrate-hook.log
+#
+# Does NOT require the project to be a git repo — the global JSONL may have
+# entries from before .git/ was removed and we still want to surface those.
+ac_hook_audit() {
+    local project="${1:-}" lines="${2:-20}"
+    [[ -n "$project" ]] || { ac_error "hook-audit: missing project name"; return 1; }
+
+    ac_registry_has "$project" || { ac_error "hook-audit: unknown project '$project'"; return 1; }
+    local p; p=$(ac_registry_get "$project" path)
+    [[ -d "$p" ]] || { ac_error "hook-audit: missing path: $p"; return 1; }
+
+    local home="${ANTCRATE_HOME:-$HOME/.antcrate}"
+    local global="$home/hooks.log"
+    local audit_log="$p/.git/antcrate-hook-audit.log"
+    local hook_log="$p/.git/antcrate-hook.log"
+
+    printf '=== antcrate hook-audit: %s ===\n' "$project"
+    printf 'sinks resolved:\n'
+    printf '  global    : %s\n' "$global"
+    printf '  per-proj  : %s\n' "$audit_log"
+    printf '  human tail: %s\n' "$hook_log"
+    printf '\n'
+
+    printf -- '--- [1/3] global JSONL (last %s, filtered to project=%s) ---\n' "$lines" "$project"
+    if [[ ! -f "$global" ]]; then
+        printf 'no entries (global hooks.log not yet present)\n'
+    else
+        local filtered
+        filtered=$(jq -c --arg p "$project" 'select(.project == $p)' "$global" 2>/dev/null | tail -n "$lines")
+        if [[ -z "$filtered" ]]; then
+            printf 'no entries\n'
+        else
+            printf '%s\n' "$filtered"
+        fi
+    fi
+    printf '\n'
+
+    printf -- '--- [2/3] per-project audit (last %s) ---\n' "$lines"
+    if [[ ! -f "$audit_log" ]]; then
+        printf 'no entries\n'
+    else
+        local audit_content
+        audit_content=$(tail -n "$lines" "$audit_log")
+        if [[ -z "$audit_content" ]]; then
+            printf 'no entries\n'
+        else
+            printf '%s\n' "$audit_content"
+        fi
+    fi
+    printf '\n'
+
+    printf -- '--- [3/3] human-readable hook log (last %s) ---\n' "$lines"
+    if [[ ! -f "$hook_log" ]]; then
+        printf 'no log yet\n'
+    else
+        local hook_content
+        hook_content=$(tail -n "$lines" "$hook_log")
+        if [[ -z "$hook_content" ]]; then
+            printf 'no log yet\n'
+        else
+            printf '%s\n' "$hook_content"
+        fi
+    fi
 }
 
 # ac_hook_render <template> [project]

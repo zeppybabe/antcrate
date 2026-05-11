@@ -199,6 +199,9 @@ Commands:
                                       __PROJECT_NAME__, __ANTCRATE_BIN__, and injects the
                                       __ANTCRATE_BYPASS_CHECK__ block. Useful for previewing a
                                       template after edits to catch injection bugs before install.
+  --hook-audit <project> [N]          unified view of three hook audit sinks (global JSONL filtered
+                                      to project, per-project plain, human-readable hook log). N
+                                      caps lines per sink (default 20). Read-only.
   --pipe-file <basename>              decode a Positional filename and dispatch
   --status                            show daemon + registry summary
   --list                              list registered projects
@@ -538,6 +541,11 @@ while (( $# > 0 )); do
             if [[ $# -ge 3 && "${3:-}" =~ ^[0-9]+$ ]]; then LOGS_LINES="$3"; shift 3
             elif [[ $# -ge 2 ]]; then shift 2
             else shift; fi ;;
+        --hook-audit)
+            ACTION="hook-audit"; NAME="${2:-}"
+            if [[ $# -ge 3 && "${3:-}" =~ ^[0-9]+$ ]]; then LOGS_LINES="$3"; shift 3
+            elif [[ $# -ge 2 ]]; then shift 2
+            else shift; fi ;;
         --hook-install)
             ACTION="hook-install"; NAME="${2:-}"; HOOK_TEMPLATE="${3:-}"; shift
             [[ $# -gt 0 ]] && shift
@@ -822,6 +830,9 @@ case "$ACTION" in
     hook-log)
         [[ -z "$NAME" ]] && { ac_error "--hook-log requires <project>"; exit 2; }
         ac_hooks_log "$NAME" "$LOGS_LINES" ;;
+    hook-audit)
+        [[ -z "$NAME" ]] && { ac_error "--hook-audit requires <project>"; exit 2; }
+        ac_hook_audit "$NAME" "$LOGS_LINES" ;;
     hook-install)
         [[ -z "$NAME"           ]] && { ac_error "--hook-install requires <project> <template>"; exit 2; }
         [[ -z "$HOOK_TEMPLATE"  ]] && { ac_error "--hook-install requires a template name"; exit 2; }

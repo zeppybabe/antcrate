@@ -701,6 +701,86 @@ run_hook_from_repo() {
     [[ "$output" == *"EXAMPLE_PROJECT"* ]]
 }
 
+# ---------- ac_hook_audit ----------
+
+@test "hook_audit: prints all three section headers when sinks exist" {
+    src "ac_registry_upsert proj '$R' scripts ''"
+
+    # Populate global JSONL sink with one entry for this project.
+    mkdir -p "$ANTCRATE_HOME"
+    printf '{"ts":"2026-01-01T00:00:00Z","ts_ms":0,"action":"hook-remove","project":"proj","hook":"pre-commit","hooks_dir":"%s/.git/hooks","sha256":"abc","backup":"bak"}\n' \
+        "$R" >> "$ANTCRATE_HOME/hooks.log"
+
+    # Populate per-project plain audit log.
+    mkdir -p "$R/.git"
+    printf '2026-01-01T00:00:00Z hook-remove project=proj hook=pre-commit sha256=abc backup=bak\n' \
+        >> "$R/.git/antcrate-hook-audit.log"
+
+    # Populate human-readable hook log.
+    printf '%s\n' '--- antcrate hook-debug 2026-01-01T00:00:00Z ---' \
+        >> "$R/.git/antcrate-hook.log"
+
+    run src "ac_hook_audit proj"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"=== antcrate hook-audit: proj ==="* ]]
+    [[ "$output" == *"--- [1/3] global JSONL"* ]]
+    [[ "$output" == *"--- [2/3] per-project audit"* ]]
+    [[ "$output" == *"--- [3/3] human-readable hook log"* ]]
+    [[ "$output" == *'"action":"hook-remove"'* ]]
+    [[ "$output" == *"hook-remove project=proj"* ]]
+    [[ "$output" == *"antcrate hook-debug"* ]]
+}
+
+@test "hook_audit: friendly notice when sinks absent (no error)" {
+    src "ac_registry_upsert proj '$R' scripts ''"
+    # No hooks.log, no audit log, no hook.log — all three sinks absent.
+    run src "ac_hook_audit proj"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"no entries (global hooks.log not yet present)"* ]]
+    [[ "$output" == *"no entries"* ]]
+    [[ "$output" == *"no log yet"* ]]
+}
+
+@test "hook_audit: caps lines per sink via N argument" {
+    src "ac_registry_upsert proj '$R' scripts ''"
+    mkdir -p "$R/.git"
+    # Write 6 lines to the per-project audit log.
+    for i in 1 2 3 4 5 6; do
+        printf '2026-01-01T00:0%s:00Z hook-debug project=proj hook=pre-commit sha256=x%s backup=\n' \
+            "$i" "$i" >> "$R/.git/antcrate-hook-audit.log"
+    done
+
+    run src "ac_hook_audit proj 3"
+    [ "$status" -eq 0 ]
+    # Count lines in the per-project section that contain "hook-debug project=proj".
+    local count
+    count=$(printf '%s\n' "$output" | grep -c "hook-debug project=proj")
+    [ "$count" -eq 3 ]
+}
+
+@test "hook_audit: filters global JSONL to the named project" {
+    src "ac_registry_upsert proj '$R' scripts ''"
+    mkdir -p "$ANTCRATE_HOME"
+    # Write one entry for this project and one for a different project.
+    printf '{"ts":"2026-01-01T00:00:00Z","ts_ms":0,"action":"hook-remove","project":"proj","hook":"pre-commit","hooks_dir":"/x","sha256":"a","backup":"b"}\n' \
+        >> "$ANTCRATE_HOME/hooks.log"
+    printf '{"ts":"2026-01-01T00:00:01Z","ts_ms":1,"action":"hook-remove","project":"other","hook":"pre-commit","hooks_dir":"/y","sha256":"c","backup":"d"}\n' \
+        >> "$ANTCRATE_HOME/hooks.log"
+
+    run src "ac_hook_audit proj"
+    [ "$status" -eq 0 ]
+    # The proj entry appears.
+    [[ "$output" == *'"project":"proj"'* ]]
+    # The other-project entry must NOT appear anywhere in the JSONL section.
+    [[ "$output" != *'"project":"other"'* ]]
+}
+
+@test "hook_audit: refuses unknown project" {
+    run src "ac_hook_audit ghost"
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"unknown project"* ]]
+}
+
 @test "hook_debug: --with-stash pops even when downstream pipe closes early (SIGPIPE)" {
     # Regression for an outage where the smoke test piped --hook-debug output
     # through `head -14`, the closed pipe SIGPIPE'd a mid-trace printf, set -e
