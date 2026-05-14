@@ -95,3 +95,45 @@ strip_ansi() { sed -E 's/\x1B\[[0-9;]*[a-zA-Z]//g'; }
     # depth 2: project root counts as level, so we should not see "much"
     ! echo "$out" | grep -q 'much'
 }
+
+@test "render_once: no active events → no anchor header" {
+    out=$(src "ac_watch_render_once mybun --no-color")
+    # anchor uses ▶ ; without events the line must not appear
+    ! echo "$out" | grep -q '▶'
+    # first non-empty line is the project header, not the anchor
+    first=$(echo "$out" | grep -v '^$' | head -n 1)
+    [ "$first" = "mybun/" ]
+}
+
+@test "render_once: one active event → anchor header pins path + kind" {
+    src "ac_events_emit mybun modify src/foo.ts --ttl-ms 60000"
+    out=$(src "ac_watch_render_once mybun --no-color")
+    # header line carries the relative path and the kind label
+    echo "$out" | grep -q '▶ src/foo.ts'
+    echo "$out" | grep -q '← latest modify'
+}
+
+@test "render_once: latest path gets ● marker in tree" {
+    src "ac_events_emit mybun modify src/foo.ts --ttl-ms 60000"
+    out=$(src "ac_watch_render_once mybun --no-color")
+    # the foo.ts row picks up the dot; other rows (bar.ts) do not
+    foo_line=$(echo "$out" | grep 'foo.ts')
+    bar_line=$(echo "$out" | grep 'bar.ts')
+    echo "$foo_line" | grep -q '●'
+    ! echo "$bar_line" | grep -q '●'
+}
+
+@test "render_once: anchor follows most-recent ts_ms when multiple events" {
+    src "ac_events_emit mybun modify src/foo.ts --ttl-ms 60000"
+    sleep 0.05  # ensures ts_ms strictly later for bar.ts
+    src "ac_events_emit mybun modify src/bar.ts --ttl-ms 60000"
+    out=$(src "ac_watch_render_once mybun --no-color")
+    # anchor must reflect bar.ts (later), not foo.ts
+    echo "$out" | grep -q '▶ src/bar.ts'
+    ! echo "$out" | grep -q '▶ src/foo.ts'
+    # only bar.ts's tree row carries the marker
+    bar_line=$(echo "$out" | grep 'bar.ts')
+    foo_line=$(echo "$out" | grep 'foo.ts')
+    echo "$bar_line" | grep -q '●'
+    ! echo "$foo_line" | grep -q '●'
+}

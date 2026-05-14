@@ -19,11 +19,14 @@
 #
 # Internal (do not call from outside this file):
 #   ac_watch_severity_for, ac_watch_color_for,
-#   ac_watch_build_overlay, ac_watch_fold_overlay, ac_watch_walk_tree
+#   ac_watch_build_overlay, ac_watch_fold_overlay, ac_watch_walk_tree,
+#   ac_watch_latest_event
 # Reason: severity / color / fold helpers depend on a stable input shape
 # from ac_watch_build_overlay; calling them out of order would render a
 # partial or inconsistent overlay. Recursion (ac_watch_walk_tree) holds
 # an associative array via nameref and must be invoked via render_once.
+# ac_watch_latest_event reads the same active-event stream that the
+# overlay does, so it is consistent with what the tree colors show.
 
 : "${ANTCRATE_HOME:=$HOME/.antcrate}"
 : "${ANTCRATE_WATCH_INTERVAL_MS:=200}"
@@ -87,11 +90,29 @@ ac_watch_fold_overlay() {
     '
 }
 
-# ac_watch_walk_tree <root> <rel_prefix> <line_prefix> <depth_remaining> <use_color> <overlay_assoc_name>
+# ac_watch_latest_event <project>
+# Outputs "<ts_ms>\t<kind>\t<path>" for the most-recent active event, or
+# nothing if there are no active events. Tie-break: lexicographic path
+# (deterministic, doesn't matter much in practice since ts_ms is ms-resolved).
+# Used to paint the anchor header above the tree so the eye lands on the
+# hot path even when the rest of the tree is scrolling.
+ac_watch_latest_event() {
+    local project="$1"
+    local active; active=$(ac_events_active "$project")
+    [[ -z "$active" ]] && return 0
+    jq -r 'select(.kind != null and .path != null and .path != "__root__")
+           | [.ts_ms, .kind, .path] | @tsv' <<< "$active" \
+        | sort -k1,1nr -k3,3 \
+        | head -n 1
+}
+
+# ac_watch_walk_tree <root> <rel_prefix> <line_prefix> <depth_remaining> <use_color> <overlay_assoc_name> [latest_path]
 # Recursive tree walker. The overlay is passed by name (associative array
-# in the caller's scope) so we don't reparse for every entry.
+# in the caller's scope) so we don't reparse for every entry. latest_path
+# (optional, project-relative) marks one entry with a "   ●" suffix so the
+# eye can find the most-recently-active node even in a large tree.
 ac_watch_walk_tree() {
-    local root="$1" rel_prefix="$2" line_prefix="$3" depth="$4" use_color="$5" overlay_name="$6"
+    local root="$1" rel_prefix="$2" line_prefix="$3" depth="$4" use_color="$5" overlay_name="$6" latest_path="${7:-}"
     (( depth <= 0 )) && return 0
     # gather entries (directories first then files, both sorted)
     local entries=()
@@ -123,11 +144,13 @@ ac_watch_walk_tree() {
         fi
         local label="$e"
         [[ -d "$root/$e" ]] && label="$e/"
+        local marker=""
+        [[ -n "$latest_path" && "$rel" == "$latest_path" ]] && marker="   ●"
         # printf wants escapes interpreted via %b
         printf '%s%s' "$line_prefix" "$connector"
-        printf '%b%s%b\n' "$color" "$label" "$reset"
+        printf '%b%s%b%s\n' "$color" "$label" "$reset" "$marker"
         if [[ -d "$root/$e" ]] && (( depth > 1 )); then
-            ac_watch_walk_tree "$root/$e" "$rel" "$child_pfx" $((depth - 1)) "$use_color" "$overlay_name"
+            ac_watch_walk_tree "$root/$e" "$rel" "$child_pfx" $((depth - 1)) "$use_color" "$overlay_name" "$latest_path"
         fi
     done
 }
@@ -162,9 +185,30 @@ ac_watch_render_once() {
         done < <(ac_watch_build_overlay "$project" | ac_watch_fold_overlay)
     fi
 
+    # Anchor: most-recent active event, pinned above the tree so the eye
+    # lands on the hot path even when the project tree scrolls past the
+    # viewport. Emitted whether or not colors are on (color-off mode is
+    # for scripts/tests; the anchor is information either way).
+    local latest_path="" latest_kind=""
+    local latest; latest=$(ac_watch_latest_event "$project" 2>/dev/null || true)
+    if [[ -n "$latest" ]]; then
+        latest_kind=$(awk -F'\t' '{print $2}' <<< "$latest")
+        latest_path=$(awk -F'\t' '{print $3}' <<< "$latest")
+    fi
+    if [[ -n "$latest_path" ]]; then
+        if (( use_color )); then
+            local c; c=$(ac_watch_color_for "$latest_kind")
+            printf '%b\xe2\x96\xb6 %s%b   \xe2\x86\x90 latest %s\n' \
+                "$c" "$latest_path" '\033[0m' "$latest_kind"
+        else
+            printf '\xe2\x96\xb6 %s   \xe2\x86\x90 latest %s\n' "$latest_path" "$latest_kind"
+        fi
+        printf '\n'
+    fi
+
     # Header — paint if any event landed at any descendant (the most
-    # common case for a "project is busy" indicator). The "" key holds
-    # the highest-severity kind seen anywhere in the tree.
+    # common case for a "project is busy" indicator). The "__root__" key
+    # holds the highest-severity kind seen anywhere in the tree.
     local hdr="$project/"
     local hdr_kind="${overlay[__root__]:-}"
     if (( use_color )) && [[ -n "$hdr_kind" ]]; then
@@ -173,7 +217,7 @@ ac_watch_render_once() {
         printf '%s\n' "$hdr"
     fi
 
-    ac_watch_walk_tree "$root" "" "" "$depth" "$use_color" overlay
+    ac_watch_walk_tree "$root" "" "" "$depth" "$use_color" overlay "$latest_path"
 }
 
 # ac_watch_loop <project> [--interval-ms N] [--no-color] [--depth N]
