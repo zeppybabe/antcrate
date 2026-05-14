@@ -4,6 +4,114 @@ Append-only log. Newest entries on top. ISO-8601 dates. Never delete.
 
 ---
 
+## 2026-05-14 — C++ migration Wave 0 + agent-orchestrator architecture shift
+
+User opened with a 12-page PDF (`~/Documents/PDF/File for Clyde, AntCrate.pdf`) proposing a Bash → C++ migration of AntCrate. Stated motivation: deep-traversal correctness (`<dirent.h>`, `stat()`), errno granularity, perf on string/data ops, and the security-CVE surface from shell expansion (`execve` instead of subshell + `$PATH` expansion). PDF doubles as a 12-category taxonomy of agent failures (rm -rf $HOME, force-push to main, .env commits, compaction-induced safety-rule loss, install-fix-install loops, slopsquatting, etc.) with ~30 `<wrapper>` fallback specs — those become `antcrate-core`'s implementation contract.
+
+Same message announced an orchestration shift: **Clyde orchestrates only, writes no code; Cody + named agents (Explore, Plan, general-purpose) build; max 5 concurrent.** This session is the first end-to-end test of the multi-agent build model.
+
+**Decisions made (via three AskUserQuestion polls):**
+
+1. **Migration shape: staged hybrid.** Bash CLI stays as user-facing surface (the PDF itself flags shell as fine for bootstrapping, dependency checks, process orchestration, shallow tool chaining — that's roughly half of `bin/antcrate`'s job). C++ helper binary `antcrate-core` takes wrapper-guard contracts, registry I/O, deep traversal, and gap-fill guards. Full rewrite rejected: the 316-bats safety net is too expensive to recreate from scratch.
+2. **POSIX baseline: POSIX.1-2024.** Feature-test macros default to `_POSIX_C_SOURCE=200809L _XOPEN_SOURCE=700`; .1-2024 additions enabled per-TU when used. Glibc 2.39 on Ubuntu 24.04 supports the baseline.
+3. **Step-0 sequencing re-routed mid-flight.** User originally picked "Queue Cody to run `antcrate --backup antcrate`"; flagged that Cody's published scope excludes `~/.antcrate/` ops; re-polled and user picked "Clyde runs the backup, Cody starts on code." Orchestration lesson: surface agent-definition scope conflicts before executing, even when the user's answer overrides them.
+
+**Five-wave roadmap** (full design at `~/.claude/plans/sunny-strolling-book.md`):
+
+- **Wave 0** (this session): Backup + C++ scaffold. ✅
+- **Wave 1**: Wrapper guards (compaction canary, `--no-verify` strip, $HOME-expansion detect on rm, compound-command splitter, bulk-delete count gate).
+- **Wave 2**: Registry I/O port (`lib/registry.sh` → `antcrate-core registry`).
+- **Wave 3**: Deep traversal + content secret-scan (`lib/cleanup.sh`, `lib/ingest.sh`, `lib/address.sh` hot paths).
+- **Wave 4**: Gap-fill guards (reasoning signature, install-loop detector, cross-worktree write rejection, slopsquatting check).
+
+**Wave 0 execution:**
+
+- Clyde ran `antcrate --backup antcrate` → `~/.antcrate/backups/antcrate/antcrate-20260514T194402Z.tar.gz` (808 files, 2.3 MB, manifest sidecar). Eat-dogfood pass clean.
+- Spawned Cody (single agent invocation) for the C++ scaffold. Cody created `assets/code/core/`: `CMakeLists.txt`, `src/main.cpp` (29-line `--version`/`--help` stub), `include/.gitkeep`, `tests/CMakeLists.txt`, `tests/test_smoke.cpp` (2 doctest cases), `tests/doctest/doctest.h` (fetched via curl from upstream v2.4.11 — fallback harness not needed), `README.md`. Cody self-fixed three nits before reporting (removed unused include path, renamed misleading test, swapped `<cstring>` for `<string_view>`).
+- Cody modified two existing files: `lib/devops.sh` (+15 lines: cmake/ctest hook into `--ci`, between shellcheck and bats) and `.github/workflows/ci.yml` (apt-install cmake + g++; new "Build & test antcrate-core" step). Brief specified `bin/antcrate` for the --ci hook; Cody routed through `lib/devops.sh` which is the existing dispatcher-vs-implementation pattern. Architectural call accepted.
+- Verified: `bash bin/antcrate --ci` exits `=== ci result: PASS ===` with shellcheck clean + cmake+ctest 1/1 + 316/316 bats. `core/build/antcrate-core --version` prints `antcrate-core 0.0.0-stub`.
+
+**Non-obvious decisions / lessons worth carrying forward:**
+
+- **Cody's summary discipline needs sharpening.** First orchestration test: Cody returned "three fixes applied" minutiae instead of leading with headline (Wave 0 done? --ci green? files created?). Clyde had to re-inspect git status + run --ci + verify diffs to confirm completion. Future Cody briefs must include explicit "Report back: lead with headline metrics" clause.
+- **Explore-agent in-flight inventory drifted under noise.** First Explore claimed in-flight files were `bin/antcrate, lib/hooks.sh, tests/hooks.bats, HOOK_PLAN.md` (inferred from recent ledger/state); live `git status` showed `lib/devops.sh, lib/watch.sh, tests/watch.bats`. Future "what's in-flight" delegations must read `git status` directly.
+- **Cody made a defensible architecture call routing `--ci` into `lib/devops.sh`** rather than `bin/antcrate`. Pattern: name the *behavior* in the brief and let Cody pick the file when architecture is obvious; pin the file when it matters.
+- **doctest fetched successfully from upstream** — `https://raw.githubusercontent.com/doctest/doctest/v2.4.11/doctest/doctest.h`. Vendored at `core/tests/doctest/doctest.h`. Pattern available for future C++ dep vendoring.
+- **No flags filed for `--propose` this session.** Verification commands (tar listing, ctest, `--ci`) are already automated. The "verify-after-cody-summary" pattern could become an `antcrate --verify-agent-output` flag if it recurs; file later if so.
+
+**Files modified (uncommitted at session end):**
+
+```
+M  .github/workflows/ci.yml          (Wave 0)
+M  assets/code/lib/devops.sh         (Wave 0)
+M  assets/code/lib/watch.sh          (pre-existing, anchor-on-latest from 2026-05-11)
+M  assets/code/tests/watch.bats      (pre-existing, anchor-on-latest from 2026-05-11)
+M  ledger.md                         (this entry)
+M  state.md                          (Wave 0 top-of-mind)
+?? assets/code/core/                 (Wave 0 — new scaffold tree)
+```
+
+When user is ready to `--pp antcrate -y`, separate concerns: Wave 0 files commit as one feature-boundary; the watch.sh / watch.bats files commit as the anchor-on-latest catch-up.
+
+**Test count: 316 bats (unchanged) + 1 ctest (new). Audit counter: baseline 301 → +15. Next audit due at 401.**
+
+---
+
+## 2026-05-11 — `--watch` anchor-on-latest landed (twenty-third pass)
+
+User opened the session with a bug observation: `antcrate --watch antcrate` "looped infinitely on the entire current project, instead of staying fixated on the current path that is being worked on." Asked whether to `/clear` or continue; cleared, then handed me the observation cold.
+
+**Diagnosis.** `ac_watch_render_once` in `lib/watch.sh` walks the whole project from `root` every ~200ms via `find -mindepth 1 -maxdepth 1` recursively up to depth 8. The active-events stream (`ac_events_active`) only feeds *coloring* through the overlay map — it never narrows *scope*. For a project bigger than a viewport, the hot path scrolls off and the entire-tree repaint looks like infinite churn.
+
+**Picked option (via AskUserQuestion preview-select): "Anchor on latest event."** Render the full tree unchanged but pin a header line above it carrying the most-recent active event, and mark the matching tree row inline so the eye can land in the body too. Rejected the "focus on hot path / collapse inactive subtrees" option because it would change the existing color-overlay contract (descendants propagate to ancestors); the anchor approach is purely additive.
+
+**Implementation.**
+
+- New `ac_watch_latest_event <project>` — `ac_events_active` piped through `jq -r '[.ts_ms, .kind, .path] | @tsv' | sort -k1,1nr -k3,3 | head -n 1`. Tie-break on lexicographic path is deterministic; ms-resolution ts makes ties practically impossible. Skips the synthetic `__root__` event the overlay emits.
+- `ac_watch_render_once` calls the helper before walking. If non-empty, prints `▶ <path>   ← latest <kind>` (kind-colored arrow + label, uncolored tail) plus a blank-line separator. Header is emitted whether or not colors are on — color-off mode is for scripts/tests; the anchor is information either way.
+- `ac_watch_walk_tree` accepts an optional 7th arg `latest_path`. When `rel == latest_path`, appends `   ●` after the label (outside the color reset, so the dot stays uncolored and visible regardless of the row's overlay color).
+
+**Non-obvious decisions worth carrying forward.**
+
+- **`%s` does NOT interpret `\x` escapes; only the format string does.** First attempt put `"\xe2\x96\xb6 "` (UTF-8 bytes for ▶) as a `%s` argument and would have output the literal backslash-x bytes. Caught before tests by re-reading the change. Fix: move the unicode escape into the format string (single-quoted so bash doesn't touch it; printf interprets it). Same pattern applies to `←` (`\xe2\x86\x90`). Filed mentally alongside the **awk `-v` interprets escapes; awk `ENVIRON` does not** rule from the `--hook-bypass` session — they're both about which interpolation layer interprets escapes.
+- **Anchor emitted in `--no-color` mode too.** The header is data, not decoration. Tests verify it appears in `--no-color` output (`▶ ` is plain UTF-8, no ANSI).
+- **Marker `   ●` placed OUTSIDE the color reset.** `printf '%b%s%b%s\n' "$color" "$label" "$reset" "$marker"` — keeps the dot uncolored. If the matching row is colored red+strikethrough (a delete), strikethrough on a bullet glyph reads poorly; keeping the dot plain sidesteps that.
+- **Project's `composes.md` is the right smoke target.** `lib/watch.sh` lives at `assets/code/lib/watch.sh`, outside the depth-2 view of the project root. First smoke with `lib/watch.sh` proved the header but not the marker. Second smoke with `composes.md` (depth-1, top-level) proved both. Worth remembering: pick a smoke path that lives within `--depth N` of the project root.
+- **`install.sh` after a lib change.** The `~/.local/bin/antcrate` system wrapper sources installed lib copies, not the source tree. After every lib edit, `bash install.sh` must run before user-facing `antcrate --watch` sees the change. `--install-from-source` proposal (filed earlier) would automate this.
+
+**Why this had to land before `--watch-window`.** The proposal is just a spawn-wrapper around `antcrate --watch <project>` in a detached Alacritty window. Shipping the wrapper without the anchor would put the "infinite loop over the whole project" symptom into a second window — not fix it. Ordering: fix the renderer, then ship the spawn-wrapper.
+
+**Live smoke.**
+
+    $ antcrate --emit-activity antcrate modify composes.md --ttl-ms 60000
+    $ antcrate --watch antcrate --once --no-color --depth 2
+
+Output:
+
+    ▶ composes.md   ← latest modify
+
+    antcrate/
+    ├── .antcrate/
+    │   └── cody-attempts.json
+    ├── assets/
+    │   ├── code/
+    │   └── docs/
+    ├── composes.md   ●
+    ├── docs/
+    │   └── diagrams/
+    ├── .git/
+    ...
+
+Anchor + marker both present, formatting as designed.
+
+**Filed proposal: `--watch-smoke`.** Collapse the emit+render-once smoke pattern (`antcrate --emit-activity <project> <kind> <relpath> --ttl-ms N && antcrate --watch <project> --once --depth N --no-color`) into one call. Used twice in this session for verification; will recur as the watch surface grows (especially with `--watch-window` next).
+
+Test count 312 → 316 (4 new in `tests/watch.bats`: no-events → no anchor; single-event header; in-tree marker; most-recent-wins). Full `--ci` PASS (shellcheck clean, bats 316/316).
+
+**Catch-up backlog now at FIVE sessions uncommitted:** `--hook-remove` (2026-05-10), `--hook-debug`, `--hook-bypass`, `--hook-audit`, `--watch` anchor (all 2026-05-11). Next session should open with `antcrate --pp antcrate -y` along feature-boundary commits.
+
+---
+
 ## 2026-05-11 — `--hook-audit` shipped + live-tree window pattern validated (twenty-second pass)
 
 Second easy-proposal pass of the day. Pulled from `~/.antcrate/proposals.log` entry `2026-05-11T10:35:33Z`. End-to-end Clyde→Cody delegation again (attempt 1/3, no retries), this time with a deliberate test of the **separate-terminal live-tree workflow** that the user proposed at the start of the session.

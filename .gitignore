@@ -24,3 +24,7 @@ node_modules/
 # (#92) drops .antcrate/ here. Counter file churns on every delegation —
 # never useful to track.
 .antcrate/
+
+# C++ build artifacts (Wave 0+; antcrate-core out-of-source CMake build).
+# Keep src/, include/, tests/, CMakeLists.txt tracked; ignore generated.
+assets/code/core/build/

@@ -1,10 +1,62 @@
 # AntCrate — Current State
 
-_Last updated: 2026-05-11_
+_Last updated: 2026-05-14_
 
 ## Top of mind
 
 **Session-Close Protocol active (codified in `~/CLAUDE.md` on 2026-05-11).** Three parts that fire before every end-of-session statement: (1) command-sweep; (2) codebase audit every +100 bats tests since last baseline; (3) end-of-session learning. **Audit baseline: 301 bats / shellcheck clean / sha `80385c3`. Next audit due at 401 bats tests** (or when `--audit` itself ships and can be invoked manually).
+
+**C++ migration Wave 0 landed + agent-orchestrator architecture first run (2026-05-14):**
+
+- **Architecture shift in effect from this date.** Clyde (me) orchestrates and writes no code; Cody + named agents (Explore, Plan, general-purpose) do all building; max 5 concurrent. First end-to-end test of the multi-agent build model. Full design at `~/.claude/plans/sunny-strolling-book.md`. Wrapper-guard contract source: `~/Documents/PDF/File for Clyde, AntCrate.pdf` (12-category agent-failure taxonomy, ~30 `<wrapper>` fallback specs).
+- **Migration shape: staged hybrid (locked).** Bash CLI surface stays as user-facing entry; new C++ helper binary `antcrate-core` (POSIX.1-2024, C++17, `-Wall -Wextra -Wpedantic -Werror`, `_POSIX_C_SOURCE=200809L _XOPEN_SOURCE=700`, doctest vendored at v2.4.11) takes wrapper-guard contracts, registry I/O, deep traversal, gap-fill guards. Full rewrite rejected — the 316-bats safety net is too expensive to recreate.
+- **Wave 0 deliverables (this session, ~PASS):**
+    - Backup: `antcrate --backup antcrate` → `~/.antcrate/backups/antcrate/antcrate-20260514T194402Z.tar.gz` (808 files, 2.3 MB, manifest sidecar). Eat-dogfood pass clean.
+    - C++ scaffold: `assets/code/core/` — `CMakeLists.txt`, `src/main.cpp` (29-line `--version`/`--help` stub), `include/.gitkeep`, `tests/CMakeLists.txt`, `tests/test_smoke.cpp` (2 doctest cases), `tests/doctest/doctest.h` (fetched from upstream, fallback harness not needed), `README.md`.
+    - `--ci` extended: cmake build + ctest now runs between shellcheck and bats. Implementation lives in `lib/devops.sh` (Cody's defensible architectural call — bin dispatches, libs implement, though brief specified `bin/antcrate`). Missing-toolchain branch skips with a log line; bats remains source of truth until Wave 1.
+    - CI workflow updated: `.github/workflows/ci.yml` installs `cmake` + `g++`; new "Build & test antcrate-core" step before `antcrate --ci`. (Untested on GH Actions until next push.)
+    - Local `bash bin/antcrate --ci` exits `=== ci result: PASS ===` with shellcheck clean + cmake+ctest 1/1 + 316/316 bats.
+- **Multi-agent orchestration observations from this first run (carry forward):**
+    - **Cody's summary discipline drifted.** Returned with "three fixes applied" minutiae instead of leading with the headline (Wave 0 done? --ci green? what files?). Clyde had to re-inspect git status, run --ci, and check diffs to confirm completion. Future briefs to Cody must include an explicit "Report back: lead with headline metrics" clause. The orchestration model only delivers efficiency if the builder's summary is trustworthy at face value.
+    - **Explore-agent in-flight inventory drifted.** First Explore claimed in-flight files were `bin/antcrate, lib/hooks.sh, tests/hooks.bats, HOOK_PLAN.md`; live `git status` showed `lib/devops.sh, lib/watch.sh, tests/watch.bats` (the 2026-05-11 anchor-on-latest work, still pending --pp). Lesson: when delegating "what's in-flight" questions, the agent must read `git status` directly, not infer from recent ledger/state passes.
+    - **Cody routing `--ci` cmake/ctest into `lib/devops.sh` rather than `bin/antcrate`** is correct (dispatch vs implementation) but deviated from the brief. Future pattern: name the *behavior* and let Cody pick the file when the architecture is obvious; pin the exact file when it matters.
+    - **Step-0 backup re-routed from Cody to Clyde mid-flight.** User's original answer queued Cody for `antcrate --backup antcrate`, but Cody's published scope excludes `~/.antcrate/` ops. Surfaced the conflict via AskUserQuestion, re-routed to Clyde. Lesson: agent-definition scope boundaries are guardrails — surface the conflict, don't silently override.
+
+**Resume next session at one of (user's choice — multiple parallel tracks now):**
+
+- **C++ migration Wave 1** — wrapper guards. Compaction canary first (Cat 4 of the PDF, the most structurally-Bash-impossible guard); then `--no-verify` strip via outer PATH-shim (Cat 7); then `$HOME`-expansion detect on `rm` (Cat 1.2); then compound-command splitter (Cat 10.2); then bulk-delete count gate (Cat 1.4). Pre-implementation design pass via Plan agent.
+- **--watch-window** — queued before C++ pivot, still valid. Spawn-wrapper around `antcrate --watch <project>` in detached Alacritty with PID file dedup. ~60min.
+- **Commit catch-up via `antcrate --pp antcrate -y`** — now SIX session-boundary commits queued: `--hook-remove`, `--hook-debug`, `--hook-bypass`, `--hook-audit`, `--watch` anchor-on-latest, and Wave 0 scaffold. Wave 0 should commit as its own feature-boundary, separated from the hook catch-up.
+- **Other queued:** --ci-snapshot, --watch-smoke, --audit, --install-from-source, composite pre-commit umbrella.
+
+---
+
+## Earlier (2026-05-11, twenty-third pass) — `--watch` anchor-on-latest landed
+
+**`--watch` anchor-on-latest landed (2026-05-11, twenty-third pass):**
+
+- Symptom: user observed `antcrate --watch antcrate` "looped infinitely on the entire current project, instead of staying fixated on the current path that is being worked on." Root cause: `ac_watch_render_once` always walks the whole tree from project root (depth 8 by default), and active events only changed *coloring*, not *scope* — so the hot path scrolled off the viewport in any project bigger than a screenful.
+- Fix shape (in `lib/watch.sh`): new `ac_watch_latest_event <project>` helper returns the max-`ts_ms` active event as `<ts_ms>\t<kind>\t<path>`. `ac_watch_render_once` pins a header line `▶ <path>   ← latest <kind>` (kind-colored) above the project root, with a blank-line separator. `ac_watch_walk_tree` now accepts an optional `latest_path` arg and appends `   ●` to the row whose `rel` matches — so the eye gets a pin in the tree even when the tree below scrolls.
+- Why this had to land **before** `--watch-window`: the proposal is just a spawn-wrapper around `antcrate --watch <project>`. Shipping the wrapper without the anchor would relocate the symptom to a new window, not fix it.
+- Live-smoke pattern: `antcrate --emit-activity antcrate modify composes.md --ttl-ms 60000 && antcrate --watch antcrate --once --no-color --depth 2`. Confirmed header pins composes.md and the in-tree row shows `composes.md   ●`. **Filed `--watch-smoke` proposal** to collapse the emit+render-once pair into one call.
+- Printf gotcha worth carrying forward: **`%s` does NOT interpret `\x` escapes; only the format string does.** First attempt put `"\xe2\x96\xb6 "` as a `%s` argument and would have rendered the literal backslash-x-bytes instead of the unicode arrow. Caught before tests by re-reading the change. Carry forward to any future ANSI/UTF-8 work.
+
+Test count 312 → 316 (4 new in `tests/watch.bats`: no-events → no header, single-event header, in-tree marker, most-recent-wins). Full `--ci` PASS (shellcheck clean, bats 316/316). `install.sh` re-run so the system wrapper at `~/.local/bin/antcrate` picks up the lib change.
+
+**Resume next session here:**
+- **`--watch-window`** — now safe to ship. ~60min. PID file at `~/.antcrate/watch/<project>.pid`, spawn-or-warn on duplicate, Alacritty-first via `--class ac-watch-<project>`.
+- **Commit the now-FIVE-session catch-up** via `antcrate --pp antcrate -y` (`--hook-remove`, `--hook-debug`, `--hook-bypass`, `--hook-audit`, today's `--watch` anchor). Five feature-boundary commits.
+- **`--ci-snapshot`** (persist baseline after `--ci` PASS, surface "+N since last snapshot" in `--status`). Last of the three easy-proposal trio.
+- **`--watch-smoke`** filed today — emit + render-once in one call. Quick win that pairs with --watch-window since smoke verification will recur.
+- **`--audit`** — programmatic codebase audit; medium-large, focused pass.
+- **`--install-from-source`** — auto-fire `install.sh` after commits to the antcrate project so the system wrapper never goes stale. Filed earlier.
+- **Composite pre-commit umbrella** — last item on `HOOK_PLAN.md`. ~2hr.
+- **dlg_smoke + hookrm_smoke registry entries** — `/tmp` is outside safety zones; surface to user before next big pass.
+- **Stale tickets to re-check:** #69 lib-header propagation, #76 `--mirror`, #78 three-tier agent context model, #79 AGENTS.md #15 private-by-default, #84 `--init`, #85 `--env-setup`.
+
+---
+
+## Earlier (this same session) — `--hook-audit` shipped + live-tree window pattern validated (twenty-second pass)
 
 **`--hook-audit` shipped + live-tree window pattern validated (2026-05-11, twenty-second pass):**
 
