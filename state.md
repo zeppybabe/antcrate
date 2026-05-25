@@ -1,10 +1,31 @@
 # AntCrate — Current State
 
-_Last updated: 2026-05-14_
+_Last updated: 2026-05-25_
 
 ## Top of mind
 
 **Session-Close Protocol active (codified in `~/CLAUDE.md` on 2026-05-11).** Three parts that fire before every end-of-session statement: (1) command-sweep; (2) codebase audit every +100 bats tests since last baseline; (3) end-of-session learning. **Audit baseline: 301 bats / shellcheck clean / sha `80385c3`. Next audit due at 401 bats tests** (or when `--audit` itself ships and can be invoked manually).
+
+**Public-release flip landed (2026-05-25):** `zeppybabe/antcrate` is now **PUBLIC** on GitHub — https://github.com/zeppybabe/antcrate. MIT license recognized, description set ("Bash, jq, and inotify. One controllable surface for solo-developer project ops."), 10 topics added (bash, cli, jq, inotify, scaffolding, devops, project-management, agent-orchestration, ci, mit-license). Repo metadata polished, README rewritten for a public landing page (937 words, 12 anchor flags across 4 buckets, no badges, no emojis), SECURITY.md + CONTRIBUTING.md shipped. Five literal `/home/twntydotsix/` references sanitized to `~/`-prefixed forms; tracked-file grep for that path now returns zero hits.
+
+**Agent-orchestrator second end-to-end run (2026-05-25 session):**
+
+- **Three Explore-agent invocations** (one for the public-readiness audit producing a 7-bucket punch list with "SAFE TO FLIP" verdict + 2 minor cleanups; one for the full 69-flag command-surface inventory used as Plan input; one Plan agent for the 935-word README outline with anchor-flag cut list and Cody pitfalls). All three returned usable structured output in single shot.
+- **One Cody invocation** for the four deliverables (LICENSE, README rewrite, SECURITY.md, CONTRIBUTING.md, path sanitization). Cody self-invoked `simplify` mid-task; removed one redundant phrase from README's Contributing teaser ("state.md Top of mind alignment" duplicated detail already in CONTRIBUTING.md).
+- **Cody's "lead-with-headline" report-back drifted again.** Returned with the simplify findings as the lead paragraph instead of the explicit headline metrics (Task / Files created / Files modified / --ci result / grep count / wc / simplify). The format works when narrowly stipulated AND the task is single-purpose, but multi-deliverable Cody runs still default to nit-summary-first. Clyde verified deliverables via direct git status + git diff + Read instead of trusting Cody's summary at face value — same pattern as 2026-05-14. **Carry forward:** Cody's report format may need an enforcement mechanism (lint? checksum on the first paragraph?) rather than just a brief clause. Filed mentally; not a proposal yet.
+- **Two file-level commits** (`7ee2de0` catch-up + `a024771` public-prep), one auto-commit sync (`249a2a2`). Bundle split worked cleanly via `antcrate --commit antcrate -- <files...>` — confirms the file-level `--` argument list works in practice (state.md note from 2026-05-14 said "interleaved-section split via --commit is impossible," which remains true at hunk level but file-level splits are clean).
+- **`--gh-publish` proposed.** Three `gh repo edit` + one `gh repo view` calls became the catalyst. Logged in proposals.log + appended to `GH_PIPELINE_PLAN.md` "Observed gh usage" section.
+
+**Resume next session at one of (user's choice — multiple parallel tracks now):**
+
+- **C++ migration Wave 1** — wrapper guards. Compaction canary first (Cat 4 of the PDF, the most structurally-Bash-impossible guard); then `--no-verify` strip via outer PATH-shim (Cat 7); then `$HOME`-expansion detect on `rm` (Cat 1.2); then compound-command splitter (Cat 10.2); then bulk-delete count gate (Cat 1.4). Pre-implementation design pass via Plan agent.
+- **--gh-publish** — newly proposed today. One-shot composite for visibility flip + description + topics. Gateway-Law gated since visibility-flip is functionally irreversible. ~90min.
+- **--watch-window** — queued before C++ pivot, still valid. Spawn-wrapper around `antcrate --watch <project>` in detached Alacritty with PID file dedup. ~60min.
+- **Other queued:** --ci-snapshot, --watch-smoke, --audit, --install-from-source, --ci-core, composite pre-commit umbrella.
+
+---
+
+## Earlier (2026-05-14) — C++ migration Wave 0 + agent-orchestrator first run
 
 **C++ migration Wave 0 landed + agent-orchestrator architecture first run (2026-05-14):**
 

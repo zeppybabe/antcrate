@@ -4,6 +4,62 @@ Append-only log. Newest entries on top. ISO-8601 dates. Never delete.
 
 ---
 
+## 2026-05-25 — Public-release flip: zeppybabe/antcrate is now PUBLIC
+
+User opened with two intertwined directives: "continue where we left off" + "for the next push, we will be making antcrate open via github. Ensure the repo looks neat and good and includes all the command basics and how antcrate works." Plus an enabling clause: "use agents for almost anything so that we can have more data on agents + antcrate." Session became pure public-prep (Wave 1 deferred per user's AskUserQuestion answer).
+
+**Decisions (one four-question AskUserQuestion poll + one follow-up):**
+
+1. **License: MIT.** Permissive, shortest text, conventional for small-dev-tools / solo-maintainer projects. Filed at repo root as `LICENSE`, canonical SPDX text, 2026 zeppybabe.
+2. **Visibility flip: after polish lands.** Commit + push polish first, then `gh repo edit --visibility public`. Eliminated the window where private-only state could become publicly visible.
+3. **README scope: full rewrite.** Treat current README as internal notes; new top-of-funnel README built from a Plan-agent outline.
+4. **Session scope: pure public-prep.** Wave 1 (C++ wrapper guards) deferred. Resume next session against the now-public repo.
+5. **Optional OSS files: SECURITY.md + CONTRIBUTING.md both shipped.** SECURITY.md was the obvious-yes (antcrate wraps `git push` + executes repo-local hooks → credible attack surface). CONTRIBUTING.md was a borderline-yes (solo-maintained for now, but a short file signals "PRs welcome / read state.md first" — cheap and reduces future friction).
+6. **GitHub repo metadata: description = tagline, 10 topics added.** Tagline: "Bash, jq, and inotify. One controllable surface for solo-developer project ops." Topics: bash, cli, jq, inotify, scaffolding, devops, project-management, agent-orchestration, ci, mit-license.
+
+**Agent-orchestrator usage (per user directive to use agents heavily):**
+
+- **Two parallel Explore agents** at session start. (a) public-readiness audit producing a 7-bucket punch list with "SAFE TO FLIP" verdict; (b) full 69-flag command-surface inventory grouped by 11 buckets. Both returned single-shot usable structured output.
+- **One Plan agent** consumed the audit + inventory and produced a 935-word section-by-section README outline. Outline included: 3 tagline candidates (recommended #1), the 12 anchor flags that survive the cut (with justification for cuts), word-count budgets per section, pitfalls for Cody (do not duplicate PATTERNS.md, pull live numbers at write-time, no badges, no emojis, no `/home/twntydotsix/` paths, filename-schema example must round-trip exactly).
+- **One Cody invocation** via `antcrate --delegate antcrate --key public-prep --task "..."` (attempt 1/3). Five deliverables: MIT LICENSE, README.md full rewrite, SECURITY.md, CONTRIBUTING.md, five-site path sanitization (architecture.md ×2, ledger.md ×3). Cody self-invoked `simplify` before reporting; removed one redundant phrase from the README's Contributing teaser.
+
+**Commits on origin/master:**
+
+```
+249a2a2  antcrate: auto-commit 2026-05-25T20:01:29Z   ← antcrate --pp internal sync (tree.mmd diagram regen)
+a024771  feat(public): public-release prep — MIT LICENSE, README rewrite, SECURITY + CONTRIBUTING, path sanitization
+7ee2de0  docs(state,core): cpp-check skill catch-up — clang-tidy config + state.md narrative
+```
+
+(Plus a planned 4th commit landing after this ledger entry, bundling state.md + ledger.md + GH_PIPELINE_PLAN.md updates from the session-close protocol.)
+
+**Public-flip sequence (post-commit):**
+
+1. `gh repo edit zeppybabe/antcrate --description "..." --add-topic bash --add-topic cli --add-topic jq --add-topic inotify --add-topic scaffolding --add-topic devops --add-topic project-management --add-topic agent-orchestration --add-topic ci --add-topic mit-license` — set description + 10 topics in one call.
+2. `gh repo edit zeppybabe/antcrate --visibility public` — flip private → public.
+3. `gh repo view zeppybabe/antcrate --json visibility,description,licenseInfo,repositoryTopics,url` — confirm: `visibility: "PUBLIC"`, MIT license recognized, all 10 topics present.
+
+Repo is live at https://github.com/zeppybabe/antcrate. Zero stars, zero forks, fresh public.
+
+**Non-obvious lessons worth carrying forward:**
+
+- **Cody's "lead-with-headline" report-back drifted again.** Identical to 2026-05-14: report opened with simplify findings instead of the explicit headline metrics format (Task / Files created / Files modified / --ci result / grep count / wc / simplify). The format works when narrowly stipulated AND the task is single-purpose; multi-deliverable Cody runs default to nit-summary-first. **Clyde recovery pattern stays the same:** verify deliverables via direct git status + git diff + Read instead of trusting summary at face value. The agent-orchestration model still pays off because (a) Cody did the writing, (b) verification is fast, (c) the work was correct end-to-end — but if Cody's summary became reliable enough to skip verification, the savings would compound substantially. Possible next step: enforce report format via a Cody-side hook (lint the first paragraph for required metric strings before sending) — but that's a Cody-skill change, not antcrate work. Not filing as a proposal yet.
+- **`antcrate --commit -- <files...>` file-level split works cleanly.** State.md note from 2026-05-14 said "interleaved-section split via --commit is impossible." Still true at the HUNK level (one section per commit when same file has multiple sections changed). At the FILE level, `--commit ... -- state.md .clang-tidy` vs `--commit ... -- LICENSE README.md SECURITY.md CONTRIBUTING.md architecture.md ledger.md` produced two clean commits with the right files in each. Pragmatic floor: when split granularity is "commit A touches files X,Y; commit B touches files M,N" with no file overlap, `--commit --` handles it perfectly.
+- **`--gh-publish` is the natural next gh-pipeline flag.** Three `gh repo edit` calls + one verification `gh repo view` for what is conceptually one action ("flip this project public with polish"). Proposal filed; logged in `assets/docs/GH_PIPELINE_PLAN.md` under "Observed `gh` usage" 2026-05-25 session. Should fold the older deferred `--gh-public` proposal into this richer scope. Gateway-Law gating is essential — once a repo is public, undoing it is functionally irreversible (caching, mirrors, indexers).
+- **`gh repo edit ... --visibility public` does NOT take an `--accept-visibility-change-consequences` flag** on this `gh` version. First attempt failed with the gh help output; second attempt without that flag succeeded silently. Stops being a concern for the public→private direction (where gh DOES prompt), but for private→public it's a one-shot no-prompt flip. Worth knowing: there is NO interactive safety on private→public via gh CLI. Strengthens the case for `--gh-publish` Gateway-Law gating.
+- **Live-tree diagram regen happens post-commit, NOT pre-push.** After the second commit completed cleanly, `git status` showed `modified: docs/diagrams/tree.mmd` — the diagram auto-regenerated as part of the commit's post-hook fires. `antcrate --pp` handled it via the auto-commit synthetic sync pattern (`249a2a2`). Acceptable for now; if commit-count cleanliness ever becomes a priority, the regen should fire pre-stage instead.
+- **State.md / ledger.md / GH_PIPELINE_PLAN.md updates BUNDLE with the public-flip commit narrative.** Session-close protocol writes these AFTER the main work is committed and pushed. They'll go in as a single trailing commit after this entry is finished, keeping the public-prep commit clean (just the user-facing files) and the trailing commit explicit (just the narrative + proposal).
+
+**Test count unchanged: 316 bats + cmake/ctest 1/1 + shellcheck clean. Audit baseline still 301; next audit at 401.** No code/test surface changes this session — docs + metadata only.
+
+**Resume next session at one of:**
+- Wave 1 of C++ migration (wrapper guards, compaction canary first; Plan agent before Cody).
+- `--gh-publish` (newly proposed; collapses today's 4-call gh sequence into one wrapped command with Gateway-Law gate).
+- `--watch-window` (queued pre-pivot, still valid).
+- Other queued proposals: --ci-snapshot, --watch-smoke, --audit, --install-from-source, --ci-core, composite pre-commit umbrella.
+
+---
+
 ## 2026-05-14 (continued, evening) — Catch-up shipped + Cody skill upgrade landed
 
 User re-entered plan mode post-Wave-0 with two intertwined asks: agree on catch-up commit, and design a Cody skill upgrade (should Cody get cppcheck/clang-tidy/sonar-scanner/ast-grep/super-linter/qlty?). Broader framing: "dedicated skills per agent, continually upgradeable."

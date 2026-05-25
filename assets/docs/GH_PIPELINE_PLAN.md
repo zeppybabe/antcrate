@@ -57,6 +57,16 @@ ad-hoc is a candidate for absorption. The `gh` CLI is dual-use:
 
 **Pattern observed:** the `--gh-name-free` precheck is a natural building block of `--mirror` (#76) and would also be useful as a standalone flag. When `--mirror` ships it should call this internally before `--gh-init`. Alternative: fold the precheck into `--gh-init` itself with a clear exit 12.
 
+### Session: 2026-05-25 (public-release flip)
+
+| Command | Purpose | Wrapped? | Proposed flag |
+|---|---|---|---|
+| `gh repo view zeppybabe/antcrate --json visibility,description,licenseInfo,repositoryTopics,url` | Inspect repo metadata before + after the public flip (verify license recognition, description, topic list) | no | `antcrate --gh-info <project>` (already proposed; same field set is the right default) |
+| `gh repo edit zeppybabe/antcrate --description "..." --add-topic <t> ...` (10 topics in one call) | Set description + topics on a registered project's GitHub repo | no | `antcrate --gh-publish <project> --description "..." --topics t1,t2,...` (filed 2026-05-25 via `--propose`) |
+| `gh repo edit zeppybabe/antcrate --visibility public` | Flip private→public | no | folded into `--gh-publish` above (with Gateway-Law gate since the flip is functionally irreversible) |
+
+**Pattern observed:** the public-flip is exactly the kind of one-shot composite the gh pipeline should absorb. Three `gh repo edit` calls (description, topics, visibility) plus pre/post `gh repo view` for verification = five gh invocations for what is conceptually one action. `--gh-publish` collapses to one command + audit row + Gateway-Law approval. The earlier "Deferred" `--gh-public` line is now superseded by this richer proposal.
+
 ---
 
 ## Proposed flag set (first implementation pass)
