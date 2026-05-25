@@ -1,305 +1,311 @@
-%% antcrate tree — generated 2026-05-14T20:28:03Z
+%% antcrate tree — generated 2026-05-25T20:01:02Z
 graph TD
   root(["antcrate"])
-  1["README.md"]
+  1["CONTRIBUTING.md"]
   root --> 1
-  2["SKILL.md"]
+  2[(LICENSE)]
   root --> 2
-  3[/assets/]
+  3["README.md"]
   root --> 3
-  3a[/code/]
-  3 --> 3a
-  3a1["AGENTS.md"]
-  3a --> 3a1
-  3a2["CLAUDE_CODE.md"]
-  3a --> 3a2
-  3a3["README.md"]
-  3a --> 3a3
-  3a4[/bin/]
-  3a --> 3a4
-  3a4a["antcrate"]
-  3a4 --> 3a4a
-  3a4b["antcrated"]
-  3a4 --> 3a4b
-  3a5[/core/]
-  3a --> 3a5
-  3a5a["CMakeLists.txt"]
-  3a5 --> 3a5a
-  3a5b["README.md"]
-  3a5 --> 3a5b
-  3a5c[/include/]
-  3a5 --> 3a5c
-  3a5d[/src/]
-  3a5 --> 3a5d
-  3a5d1["main.cpp"]
-  3a5d --> 3a5d1
-  3a5e[/tests/]
-  3a5 --> 3a5e
-  3a5e1["CMakeLists.txt"]
-  3a5e --> 3a5e1
-  3a5e2[/doctest/]
-  3a5e --> 3a5e2
-  3a5e2a["doctest.h"]
-  3a5e2 --> 3a5e2a
-  3a5e3["test_smoke.cpp"]
-  3a5e --> 3a5e3
-  3a6[/hooks/]
-  3a --> 3a6
-  3a6a[/templates/]
-  3a6 --> 3a6a
-  3a6a1["pre-commit-ci"]
-  3a6a --> 3a6a1
-  3a6a2["pre-commit-secrets"]
-  3a6a --> 3a6a2
-  3a6a3["pre-commit-stack-bash"]
-  3a6a --> 3a6a3
-  3a6a4["pre-push-tests"]
-  3a6a --> 3a6a4
-  3a7["install.sh"]
-  3a --> 3a7
-  3a8[/lib/]
-  3a --> 3a8
-  3a8a["address.sh"]
-  3a8 --> 3a8a
-  3a8b["agent_init.sh"]
-  3a8 --> 3a8b
-  3a8c["anchor.sh"]
-  3a8 --> 3a8c
-  3a8d["backup.sh"]
-  3a8 --> 3a8d
-  3a8e["bootstrap.sh"]
-  3a8 --> 3a8e
-  3a8f["cleanup.sh"]
-  3a8 --> 3a8f
-  3a8g["commit.sh"]
-  3a8 --> 3a8g
-  3a8h["delegate.sh"]
-  3a8 --> 3a8h
-  3a8i["devops.sh"]
-  3a8 --> 3a8i
-  3a8j["diagrams.sh"]
-  3a8 --> 3a8j
-  3a8k["env_scan.sh"]
-  3a8 --> 3a8k
-  3a8l["events.sh"]
-  3a8 --> 3a8l
-  3a8m["gh.sh"]
-  3a8 --> 3a8m
-  3a8n["git_init.sh"]
-  3a8 --> 3a8n
-  3a8o["git_triage.sh"]
-  3a8 --> 3a8o
-  3a8p["hook_autoinstall.sh"]
-  3a8 --> 3a8p
-  3a8q["hooks.sh"]
-  3a8 --> 3a8q
-  3a8r["ingest.sh"]
-  3a8 --> 3a8r
-  3a8s["lifecycle.sh"]
-  3a8 --> 3a8s
-  3a8t["lock.sh"]
-  3a8 --> 3a8t
-  3a8u["log.sh"]
-  3a8 --> 3a8u
-  3a8v["md_scaffold.sh"]
-  3a8 --> 3a8v
-  3a8w["profile.sh"]
-  3a8 --> 3a8w
-  3a8x["propose.sh"]
-  3a8 --> 3a8x
-  3a8y["registry.sh"]
-  3a8 --> 3a8y
-  3a8z["safety.sh"]
-  3a8 --> 3a8z
-  3a8aa["scaffold.sh"]
-  3a8 --> 3a8aa
-  3a8ab["schema.sh"]
-  3a8 --> 3a8ab
-  3a8ac["subbranch.sh"]
-  3a8 --> 3a8ac
-  3a8ad["watch.sh"]
-  3a8 --> 3a8ad
-  3a9[/systemd/]
-  3a --> 3a9
-  3a9a["antcrated.service"]
-  3a9 --> 3a9a
-  3a10[/templates/]
-  3a --> 3a10
-  3a10a[/_generic/]
-  3a10 --> 3a10a
-  3a10a1["README.md"]
-  3a10a --> 3a10a1
-  3a10a2[/docs/]
-  3a10a --> 3a10a2
-  3a10a2a[/diagrams/]
-  3a10a2 --> 3a10a2a
-  3a10a2a1["architecture.mmd"]
-  3a10a2a --> 3a10a2a1
-  3a10a3[/src/]
-  3a10a --> 3a10a3
-  3a10b[/md/]
-  3a10 --> 3a10b
-  3a10b1["AGENTS.md"]
-  3a10b --> 3a10b1
-  3a10b2["CLAUDE.md"]
-  3a10b --> 3a10b2
-  3a10b3["ledger.md"]
-  3a10b --> 3a10b3
-  3a10b4["state.md"]
-  3a10b --> 3a10b4
-  3a10c[/notes/]
-  3a10 --> 3a10c
-  3a10c1["INDEX.md"]
-  3a10c --> 3a10c1
-  3a10d[/projects/]
-  3a10 --> 3a10d
-  3a10d1["README.md"]
-  3a10d --> 3a10d1
-  3a10d2[/docs/]
-  3a10d --> 3a10d2
-  3a10d3[/src/]
-  3a10d --> 3a10d3
-  3a10d4[/tests/]
-  3a10d --> 3a10d4
-  3a10e[/scripts/]
-  3a10 --> 3a10e
-  3a10e1["main.sh"]
-  3a10e --> 3a10e1
-  3a10f[/webapps/]
-  3a10 --> 3a10f
-  3a10f1["README.md"]
-  3a10f --> 3a10f1
-  3a11[/tests/]
-  3a --> 3a11
-  3a11a["README.md"]
-  3a11 --> 3a11a
-  3a11b["address.bats"]
-  3a11 --> 3a11b
-  3a11c["agent_init.bats"]
-  3a11 --> 3a11c
-  3a11d["backup.bats"]
-  3a11 --> 3a11d
-  3a11e["bootstrap.bats"]
-  3a11 --> 3a11e
-  3a11f["cleanup.bats"]
-  3a11 --> 3a11f
-  3a11g["commit.bats"]
-  3a11 --> 3a11g
-  3a11h["delegate.bats"]
-  3a11 --> 3a11h
-  3a11i["diagrams.bats"]
-  3a11 --> 3a11i
-  3a11j["env_scan.bats"]
-  3a11 --> 3a11j
-  3a11k["events.bats"]
-  3a11 --> 3a11k
-  3a11l["git_init.bats"]
-  3a11 --> 3a11l
-  3a11m["git_triage.bats"]
-  3a11 --> 3a11m
-  3a11n["hook_autoinstall.bats"]
-  3a11 --> 3a11n
-  3a11o["hooks.bats"]
-  3a11 --> 3a11o
-  3a11p["ingest.bats"]
-  3a11 --> 3a11p
-  3a11q["lifecycle.bats"]
-  3a11 --> 3a11q
-  3a11r["md_scaffold.bats"]
-  3a11 --> 3a11r
-  3a11s["profile.bats"]
-  3a11 --> 3a11s
-  3a11t["propose.bats"]
-  3a11 --> 3a11t
-  3a11u["register.bats"]
-  3a11 --> 3a11u
-  3a11v["registry.bats"]
-  3a11 --> 3a11v
-  3a11w["scaffold.bats"]
-  3a11 --> 3a11w
-  3a11x["schema.bats"]
-  3a11 --> 3a11x
-  3a11y["watch.bats"]
-  3a11 --> 3a11y
-  3b[/docs/]
-  3 --> 3b
-  3b1["AntCrate_blueprint_v0.pdf"]
-  3b --> 3b1
-  3b2["BUNDLE_SPEC.md"]
-  3b --> 3b2
-  3b3["DIAGRAM_AUTOMATION_GUIDE.md"]
-  3b --> 3b3
-  3b4["DIAGRAM_PLAN.md"]
-  3b --> 3b4
-  3b5["GH_PIPELINE_PLAN.md"]
-  3b --> 3b5
-  3b6["HOOK_PLAN.md"]
-  3b --> 3b6
-  3b7["PATTERNS.md"]
-  3b --> 3b7
-  3b8["POST_DEV_BACKLOG.md"]
-  3b --> 3b8
-  3b9["architecture.md"]
-  3b --> 3b9
-  3b10[/examples/]
-  3b --> 3b10
-  3b10a[/bundles/]
-  3b10 --> 3b10a
-  3b10a1["README.md"]
-  3b10a --> 3b10a1
-  3b10a2[/composite/]
-  3b10a --> 3b10a2
-  3b10a2a["STATUS"]
-  3b10a2 --> 3b10a2a
-  3b10a2b["manifest.json"]
-  3b10a2 --> 3b10a2b
-  3b10a2c["research.md"]
-  3b10a2 --> 3b10a2c
-  3b10a3[/git-pinned/]
-  3b10a --> 3b10a3
-  3b10a3a["STATUS"]
-  3b10a3 --> 3b10a3a
-  3b10a3b["claude.md"]
-  3b10a3 --> 3b10a3b
-  3b10a3c[/diagrams/]
-  3b10a3 --> 3b10a3c
-  3b10a3c1["architecture.mmd"]
-  3b10a3c --> 3b10a3c1
-  3b10a3d["manifest.json"]
-  3b10a3 --> 3b10a3d
-  3b10a3e["research.md"]
-  3b10a3 --> 3b10a3e
-  3b10a3f[/skill/]
-  3b10a3 --> 3b10a3f
-  3b10a3f1["SKILL.md"]
-  3b10a3f --> 3b10a3f1
-  3b10a4[/supersedes/]
-  3b10a --> 3b10a4
-  3b10a4a["STATUS"]
-  3b10a4 --> 3b10a4a
-  3b10a4b["manifest.json"]
-  3b10a4 --> 3b10a4b
-  3b10a4c["research.md"]
-  3b10a4 --> 3b10a4c
-  3b10a5[/theoretical/]
-  3b10a --> 3b10a5
-  3b10a5a["STATUS"]
-  3b10a5 --> 3b10a5a
-  3b10a5b["manifest.json"]
-  3b10a5 --> 3b10a5b
-  3b10a5c["research.md"]
-  3b10a5 --> 3b10a5c
-  4["composes.md"]
+  4["SECURITY.md"]
   root --> 4
-  5[/docs/]
+  5["SKILL.md"]
   root --> 5
-  5a[/diagrams/]
-  5 --> 5a
-  5a1["tree.mmd"]
-  5a --> 5a1
-  6["ledger.md"]
+  6[/assets/]
   root --> 6
-  7["stack.md"]
+  6a[/code/]
+  6 --> 6a
+  6a1["AGENTS.md"]
+  6a --> 6a1
+  6a2["CLAUDE_CODE.md"]
+  6a --> 6a2
+  6a3["README.md"]
+  6a --> 6a3
+  6a4[/bin/]
+  6a --> 6a4
+  6a4a["antcrate"]
+  6a4 --> 6a4a
+  6a4b["antcrated"]
+  6a4 --> 6a4b
+  6a5[/core/]
+  6a --> 6a5
+  6a5a["CMakeLists.txt"]
+  6a5 --> 6a5a
+  6a5b["README.md"]
+  6a5 --> 6a5b
+  6a5c[/include/]
+  6a5 --> 6a5c
+  6a5d[/src/]
+  6a5 --> 6a5d
+  6a5d1["main.cpp"]
+  6a5d --> 6a5d1
+  6a5e[/tests/]
+  6a5 --> 6a5e
+  6a5e1["CMakeLists.txt"]
+  6a5e --> 6a5e1
+  6a5e2[/doctest/]
+  6a5e --> 6a5e2
+  6a5e2a["doctest.h"]
+  6a5e2 --> 6a5e2a
+  6a5e3["test_smoke.cpp"]
+  6a5e --> 6a5e3
+  6a6[/hooks/]
+  6a --> 6a6
+  6a6a[/templates/]
+  6a6 --> 6a6a
+  6a6a1["pre-commit-ci"]
+  6a6a --> 6a6a1
+  6a6a2["pre-commit-secrets"]
+  6a6a --> 6a6a2
+  6a6a3["pre-commit-stack-bash"]
+  6a6a --> 6a6a3
+  6a6a4["pre-push-tests"]
+  6a6a --> 6a6a4
+  6a7["install.sh"]
+  6a --> 6a7
+  6a8[/lib/]
+  6a --> 6a8
+  6a8a["address.sh"]
+  6a8 --> 6a8a
+  6a8b["agent_init.sh"]
+  6a8 --> 6a8b
+  6a8c["anchor.sh"]
+  6a8 --> 6a8c
+  6a8d["backup.sh"]
+  6a8 --> 6a8d
+  6a8e["bootstrap.sh"]
+  6a8 --> 6a8e
+  6a8f["cleanup.sh"]
+  6a8 --> 6a8f
+  6a8g["commit.sh"]
+  6a8 --> 6a8g
+  6a8h["delegate.sh"]
+  6a8 --> 6a8h
+  6a8i["devops.sh"]
+  6a8 --> 6a8i
+  6a8j["diagrams.sh"]
+  6a8 --> 6a8j
+  6a8k["env_scan.sh"]
+  6a8 --> 6a8k
+  6a8l["events.sh"]
+  6a8 --> 6a8l
+  6a8m["gh.sh"]
+  6a8 --> 6a8m
+  6a8n["git_init.sh"]
+  6a8 --> 6a8n
+  6a8o["git_triage.sh"]
+  6a8 --> 6a8o
+  6a8p["hook_autoinstall.sh"]
+  6a8 --> 6a8p
+  6a8q["hooks.sh"]
+  6a8 --> 6a8q
+  6a8r["ingest.sh"]
+  6a8 --> 6a8r
+  6a8s["lifecycle.sh"]
+  6a8 --> 6a8s
+  6a8t["lock.sh"]
+  6a8 --> 6a8t
+  6a8u["log.sh"]
+  6a8 --> 6a8u
+  6a8v["md_scaffold.sh"]
+  6a8 --> 6a8v
+  6a8w["profile.sh"]
+  6a8 --> 6a8w
+  6a8x["propose.sh"]
+  6a8 --> 6a8x
+  6a8y["registry.sh"]
+  6a8 --> 6a8y
+  6a8z["safety.sh"]
+  6a8 --> 6a8z
+  6a8aa["scaffold.sh"]
+  6a8 --> 6a8aa
+  6a8ab["schema.sh"]
+  6a8 --> 6a8ab
+  6a8ac["subbranch.sh"]
+  6a8 --> 6a8ac
+  6a8ad["watch.sh"]
+  6a8 --> 6a8ad
+  6a9[/systemd/]
+  6a --> 6a9
+  6a9a["antcrated.service"]
+  6a9 --> 6a9a
+  6a10[/templates/]
+  6a --> 6a10
+  6a10a[/_generic/]
+  6a10 --> 6a10a
+  6a10a1["README.md"]
+  6a10a --> 6a10a1
+  6a10a2[/docs/]
+  6a10a --> 6a10a2
+  6a10a2a[/diagrams/]
+  6a10a2 --> 6a10a2a
+  6a10a2a1["architecture.mmd"]
+  6a10a2a --> 6a10a2a1
+  6a10a3[/src/]
+  6a10a --> 6a10a3
+  6a10b[/md/]
+  6a10 --> 6a10b
+  6a10b1["AGENTS.md"]
+  6a10b --> 6a10b1
+  6a10b2["CLAUDE.md"]
+  6a10b --> 6a10b2
+  6a10b3["ledger.md"]
+  6a10b --> 6a10b3
+  6a10b4["state.md"]
+  6a10b --> 6a10b4
+  6a10c[/notes/]
+  6a10 --> 6a10c
+  6a10c1["INDEX.md"]
+  6a10c --> 6a10c1
+  6a10d[/projects/]
+  6a10 --> 6a10d
+  6a10d1["README.md"]
+  6a10d --> 6a10d1
+  6a10d2[/docs/]
+  6a10d --> 6a10d2
+  6a10d3[/src/]
+  6a10d --> 6a10d3
+  6a10d4[/tests/]
+  6a10d --> 6a10d4
+  6a10e[/scripts/]
+  6a10 --> 6a10e
+  6a10e1["main.sh"]
+  6a10e --> 6a10e1
+  6a10f[/webapps/]
+  6a10 --> 6a10f
+  6a10f1["README.md"]
+  6a10f --> 6a10f1
+  6a11[/tests/]
+  6a --> 6a11
+  6a11a["README.md"]
+  6a11 --> 6a11a
+  6a11b["address.bats"]
+  6a11 --> 6a11b
+  6a11c["agent_init.bats"]
+  6a11 --> 6a11c
+  6a11d["backup.bats"]
+  6a11 --> 6a11d
+  6a11e["bootstrap.bats"]
+  6a11 --> 6a11e
+  6a11f["cleanup.bats"]
+  6a11 --> 6a11f
+  6a11g["commit.bats"]
+  6a11 --> 6a11g
+  6a11h["delegate.bats"]
+  6a11 --> 6a11h
+  6a11i["diagrams.bats"]
+  6a11 --> 6a11i
+  6a11j["env_scan.bats"]
+  6a11 --> 6a11j
+  6a11k["events.bats"]
+  6a11 --> 6a11k
+  6a11l["git_init.bats"]
+  6a11 --> 6a11l
+  6a11m["git_triage.bats"]
+  6a11 --> 6a11m
+  6a11n["hook_autoinstall.bats"]
+  6a11 --> 6a11n
+  6a11o["hooks.bats"]
+  6a11 --> 6a11o
+  6a11p["ingest.bats"]
+  6a11 --> 6a11p
+  6a11q["lifecycle.bats"]
+  6a11 --> 6a11q
+  6a11r["md_scaffold.bats"]
+  6a11 --> 6a11r
+  6a11s["profile.bats"]
+  6a11 --> 6a11s
+  6a11t["propose.bats"]
+  6a11 --> 6a11t
+  6a11u["register.bats"]
+  6a11 --> 6a11u
+  6a11v["registry.bats"]
+  6a11 --> 6a11v
+  6a11w["scaffold.bats"]
+  6a11 --> 6a11w
+  6a11x["schema.bats"]
+  6a11 --> 6a11x
+  6a11y["watch.bats"]
+  6a11 --> 6a11y
+  6b[/docs/]
+  6 --> 6b
+  6b1["AntCrate_blueprint_v0.pdf"]
+  6b --> 6b1
+  6b2["BUNDLE_SPEC.md"]
+  6b --> 6b2
+  6b3["DIAGRAM_AUTOMATION_GUIDE.md"]
+  6b --> 6b3
+  6b4["DIAGRAM_PLAN.md"]
+  6b --> 6b4
+  6b5["GH_PIPELINE_PLAN.md"]
+  6b --> 6b5
+  6b6["HOOK_PLAN.md"]
+  6b --> 6b6
+  6b7["PATTERNS.md"]
+  6b --> 6b7
+  6b8["POST_DEV_BACKLOG.md"]
+  6b --> 6b8
+  6b9["architecture.md"]
+  6b --> 6b9
+  6b10[/examples/]
+  6b --> 6b10
+  6b10a[/bundles/]
+  6b10 --> 6b10a
+  6b10a1["README.md"]
+  6b10a --> 6b10a1
+  6b10a2[/composite/]
+  6b10a --> 6b10a2
+  6b10a2a["STATUS"]
+  6b10a2 --> 6b10a2a
+  6b10a2b["manifest.json"]
+  6b10a2 --> 6b10a2b
+  6b10a2c["research.md"]
+  6b10a2 --> 6b10a2c
+  6b10a3[/git-pinned/]
+  6b10a --> 6b10a3
+  6b10a3a["STATUS"]
+  6b10a3 --> 6b10a3a
+  6b10a3b["claude.md"]
+  6b10a3 --> 6b10a3b
+  6b10a3c[/diagrams/]
+  6b10a3 --> 6b10a3c
+  6b10a3c1["architecture.mmd"]
+  6b10a3c --> 6b10a3c1
+  6b10a3d["manifest.json"]
+  6b10a3 --> 6b10a3d
+  6b10a3e["research.md"]
+  6b10a3 --> 6b10a3e
+  6b10a3f[/skill/]
+  6b10a3 --> 6b10a3f
+  6b10a3f1["SKILL.md"]
+  6b10a3f --> 6b10a3f1
+  6b10a4[/supersedes/]
+  6b10a --> 6b10a4
+  6b10a4a["STATUS"]
+  6b10a4 --> 6b10a4a
+  6b10a4b["manifest.json"]
+  6b10a4 --> 6b10a4b
+  6b10a4c["research.md"]
+  6b10a4 --> 6b10a4c
+  6b10a5[/theoretical/]
+  6b10a --> 6b10a5
+  6b10a5a["STATUS"]
+  6b10a5 --> 6b10a5a
+  6b10a5b["manifest.json"]
+  6b10a5 --> 6b10a5b
+  6b10a5c["research.md"]
+  6b10a5 --> 6b10a5c
+  7["composes.md"]
   root --> 7
-  8["state.md"]
+  8[/docs/]
   root --> 8
+  8a[/diagrams/]
+  8 --> 8a
+  8a1["tree.mmd"]
+  8a --> 8a1
+  9["ledger.md"]
+  root --> 9
+  10["stack.md"]
+  root --> 10
+  11["state.md"]
+  root --> 11
