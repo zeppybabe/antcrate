@@ -4,6 +4,50 @@ Append-only log. Newest entries on top. ISO-8601 dates. Never delete.
 
 ---
 
+## 2026-05-14 (continued, evening) — Catch-up shipped + Cody skill upgrade landed
+
+User re-entered plan mode post-Wave-0 with two intertwined asks: agree on catch-up commit, and design a Cody skill upgrade (should Cody get cppcheck/clang-tidy/sonar-scanner/ast-grep/super-linter/qlty?). Broader framing: "dedicated skills per agent, continually upgradeable."
+
+**Decisions (three AskUserQuestion polls):**
+
+1. **Toolchain matrix.** SHIP: cppcheck (already installed, fast, compact output, file:line citations). SHIP-PENDING-APT: clang-tidy (reads `compile_commands.json` already exported by our CMake; modernize/bugprone/perf checks), ast-grep (Wave 2+ placeholder; wired into skill but no patterns yet). SKIP: sonar-scanner (enterprise server overhead, zero value-add over cppcheck+clang-tidy), super-linter (Docker GH Action not a CLI; `antcrate --ci` already bundles), qlty (polyglot wrapper, overlaps cppcheck+clang-tidy without distinct upside). User runs `sudo apt install -y clang-tidy ast-grep` themselves — Gateway Law keeps sudo human-driven.
+2. **Skill packaging: standalone `cpp-check` skill** at `~/.claude/skills/cpp-check/`. Mirrors `simplify`/`review` pattern, reusable across future agents (planned: Claudy, custom Plan-agent extensions).
+3. **Commit split corrected from "six" to "two".** Original framing was Clyde's inaccuracy — `git log` showed four hook features already shipped (`872b62f --hook-audit`, `8cb4bff --hook-render`, plus two earlier). Real uncommitted work: only the 2026-05-11 anchor-on-latest pass + today's Wave 0. State.md/ledger.md doc updates bundled with the Wave 0 commit (pragmatic — `antcrate --commit` takes file-level not hunk-level granularity, and raw `git add -p` would bypass Gateway Law for marginal historical clarity).
+
+**Catch-up commits on origin/master:**
+
+```
+512c356  feat(watch): anchor-on-latest header pins hot path in live tree
+52ac50d  feat(core): Wave 0 of Bash→C++ migration — scaffold antcrate-core (POSIX.1-2024, C++17, doctest)
+a4175a3  antcrate: auto-commit 2026-05-14T20:28:28Z   ← antcrate --pp internal sync
+```
+
+**Cody skill upgrade — 4 new files + 1 modified, all outside antcrate's git tree:**
+
+- `~/.claude/skills/cpp-check/SKILL.md` — frontmatter (`name`, `description`, `allowed-tools: Read,Bash`) + body explaining the three-tool flow
+- `~/.claude/skills/cpp-check/assets/run.sh` — POSIX `sh` strict (`set -eu`, no bash-isms), mode 0755, shellcheck-clean, dash-n-clean. Detects each of cppcheck/clang-tidy/ast-grep via `command -v`; runs present ones with project-tuned flags; skips missing ones with one log line (exit 0 for skips). For clang-tidy, walks up four candidate dirs (`dirname $1`, `dirname $1/build`, parent, parent/build) to find `compile_commands.json`.
+- `~/.claude/skills/cpp-check/.cppcheck-suppressions` — initial: `missingIncludeSystem` only (common stdlib-header false positive)
+- `~/.claude/skills/antcrate/assets/code/core/.clang-tidy` — YAML, `Checks` enables `bugprone-*, modernize-*, performance-*, readability-suspicious-call-argument, readability-implicit-bool-conversion`; disables `modernize-use-trailing-return-type, bugprone-easily-swappable-parameters`. `WarningsAsErrors: ''` (warnings stay warnings through Wave 0+1). `HeaderFilterRegex` scoped to `core/(include|src)/`.
+- `~/.claude/agents/cody.md` — three additive sections at lines 56, 60, 64: `cpp-check` in "When appropriate" skills list; **"Report back format"** template addressing Wave 0 summary-discipline drift (first paragraph MUST lead with task status / files created / files modified / verification exit code / test counts; self-review nits go in second paragraph only); **"C++ workflow guidance"** describing the tight cmake→ctest→cpp-check loop with `--ci` reserved for end-of-task.
+
+**Validation:** `~/.claude/skills/cpp-check/assets/run.sh ~/.../core/src/main.cpp` → exit 0; cppcheck clean; clang-tidy + ast-grep correctly skip. Harness's available-skills list at end of session now includes `cpp-check` (proving frontmatter validates at runtime).
+
+**Cody's first lead-with-headline summary worked on the SAME task that introduced the format.** Report opened with "Task: complete. Files created: 4 — <paths>. Files modified: 1 — <path>. run.sh exit code: 0. shellcheck: clean. grep counts: cpp-check=2, Report-back-format=1, C++-workflow-guidance=1." Cody also invoked `simplify` before the headline (per its existing "Always invoke simplify" rule), so the literal first paragraph was simplify's output — expected, not a discipline regression.
+
+**Non-obvious lessons worth carrying forward:**
+
+- **Cody's scope edges blurred for meta-tasks.** This task edited `~/.claude/skills/cpp-check/` + `~/.claude/agents/cody.md` — both outside any registered AntCrate project. Published Cody description ("in-project code authoring within an AntCrate-registered project") doesn't cover this cleanly, but the user's broader directive ("we shall work on building the Agents") clearly does. Lesson: prefer user's stated intent over literal agent description when scope edges meet; consider codifying the broader scope ("agent-infrastructure authoring under `~/.claude/`") in a future cody.md revision.
+- **Wave 0 .gitignore gap (caught at staging dry-run).** Cody scaffolded `assets/code/core/` without adding `assets/code/core/build/` to `.gitignore`, so the first staging pass would have committed 30+ CMake generated artifacts. Clyde caught it via `git add -n core/` and fixed with one-line `.gitignore` addition before Commit B. Future C++ scaffolding briefs to Cody must include "add build dir to .gitignore" as explicit deliverable. Filed mentally as a brief-template improvement.
+- **`antcrate --pp` appends a synthetic auto-commit per push** if working tree shifted between the last `--commit` and the push. Doesn't hurt anything; inflates commit count by ~one per push. For clean N-commit-only history, run `--pp` immediately after the last `--commit` with no intervening writes.
+- **State.md / ledger.md interleaved-section split via `antcrate --commit` is impossible.** `--commit` takes file-level granularity, not hunk-level. For multi-pass doc updates pending one push, either bundle docs with the latest pass commit (what we did; pragmatic), or drop to raw `git add -p` + `git commit` (bypasses Gateway Law for one op). If this recurs, file `--commit-hunks` as a flag proposal.
+- **`--ci-core` filed via `antcrate --propose`** at `~/.antcrate/proposals.log`. Scoped `--ci` variant that runs ONLY shellcheck-on-bin + cmake+ctest, skipping bats. For tight C++ iteration loops in Wave 1+ where re-running 316 bats on every C++ edit is token-waste. Implementation sketch in the proposal body.
+
+**Test count: 316 bats (unchanged) + 1 ctest (new) + cppcheck clean against main.cpp stub. Audit counter baseline still 301; next audit at 401.**
+
+**Resume next session at: Wave 1 of C++ migration — wrapper guards.** Start with compaction canary (Cat 4 of PDF taxonomy; the most structurally-Bash-impossible guard). Plan agent before Cody. Alternatively: --watch-window from pre-pivot queue, or any of the queued proposals.
+
+---
+
 ## 2026-05-14 — C++ migration Wave 0 + agent-orchestrator architecture shift
 
 User opened with a 12-page PDF (`~/Documents/PDF/File for Clyde, AntCrate.pdf`) proposing a Bash → C++ migration of AntCrate. Stated motivation: deep-traversal correctness (`<dirent.h>`, `stat()`), errno granularity, perf on string/data ops, and the security-CVE surface from shell expansion (`execve` instead of subshell + `$PATH` expansion). PDF doubles as a 12-category taxonomy of agent failures (rm -rf $HOME, force-push to main, .env commits, compaction-induced safety-rule loss, install-fix-install loops, slopsquatting, etc.) with ~30 `<wrapper>` fallback specs — those become `antcrate-core`'s implementation contract.
@@ -310,7 +354,7 @@ The closed `head` pipe SIGPIPE'd a mid-trace `printf`. `set -e` / `pipefail` (in
 - **`backup` field overloads cleanly.** For `--hook-remove` it's a backup file path; for `--hook-debug --with-stash` it's a stash refspec (`stash:<label>`). Same column, different prefix tells a future `--hook-audit` consumer how to interpret the recovery handle without adding a separate field.
 - **Stash-list-count delta beats exit-code detection.** `git stash push` exits 0 whether or not anything was saved (`No local changes to save` is exit 0). Comparing `git stash list | wc -l` before and after is the only reliable way to know if a stash was actually created — and therefore whether to attempt a pop afterward.
 - **Working-tree state DOES affect pop after `--keep-index`.** The overlapping-edits test (staged change + unstaged change on the same file) reproduces the conflict path because `--keep-index` leaves the index applied in the worktree, and pop tries to re-apply both staged and unstaged deltas on top. With separate files (staged in one, unstaged in another), pop is clean. The two `--with-stash` tests in `hooks.bats` cover both cases; the regression test uses an untracked file to keep pop trivially clean.
-- **Live smoke had to be re-issued from `assets/code/`, not project root.** First attempt did `cd /home/twntydotsix/.claude/skills/antcrate && ./bin/antcrate ...`, but `bin/` is under `assets/code/`. Slip surfaced only when re-running post-recovery; harmless but worth noting for the next live smoke (use `cd ~/.claude/skills/antcrate/assets/code` or just call the installed `~/.local/bin/antcrate`).
+- **Live smoke had to be re-issued from `assets/code/`, not project root.** First attempt did `cd ~/.claude/skills/antcrate && ./bin/antcrate ...`, but `bin/` is under `assets/code/`. Slip surfaced only when re-running post-recovery; harmless but worth noting for the next live smoke (use `cd ~/.claude/skills/antcrate/assets/code` or just call the installed `~/.local/bin/antcrate`).
 
 **Tests added (15 new in `tests/hooks.bats`):**
 
@@ -514,7 +558,7 @@ Three small flags landed together. None large enough to merit its own pass; bund
 **`--info <project>` (#82).** New function `ac_registry_info` in `lib/registry.sh` (kept colocated with the other read-only registry helpers; didn't justify a new file). Output:
 ```
 project    : friendly_cars
-path       : /home/twntydotsix/projects/friendly_cars
+path       : ~/projects/friendly_cars
 domain     : projects
 git_remote : (none)
 linked     : (none)
@@ -762,7 +806,7 @@ Closed the "no enforcement layer" gap before the antcrate skill repo's first bat
 
 **Why split now: shipped vs queued.** The full hook-management surface (install/remove with rule-#1 backup integration, single-shot audit-logged bypass, hook templates per stack, auto-install on `--start`) is a multi-pass feature that needs its own focused implementation session. Shipping read-only inspection + the two safety nets (CI workflow + opt-in local hook) right now means today's batch of substantial uncommitted work (`--commit`, daemon hook, BUNDLE_SPEC) lands behind a real CI gate, with debuggability for blocked commits, without coupling to the larger hook-management refactor. HOOK_PLAN.md preserves the full design so the next pass can pick up cleanly.
 
-**Self-host check.** `antcrate --hooks antcrate` correctly reports `hooks-dir: /home/twntydotsix/.claude/skills/antcrate/.git/hooks (default)` — the antcrate repo itself hasn't enabled `core.hooksPath=.githooks` yet (will do so after this batch is committed, so the very first commit still goes via `antcrate --commit` + `antcrate --pp` and the hook activates from the next commit forward). `antcrate --hook-log antcrate` correctly prints the friendly "no hook log yet" notice. End-to-end behavior matches design.
+**Self-host check.** `antcrate --hooks antcrate` correctly reports `hooks-dir: ~/.claude/skills/antcrate/.git/hooks (default)` — the antcrate repo itself hasn't enabled `core.hooksPath=.githooks` yet (will do so after this batch is committed, so the very first commit still goes via `antcrate --commit` + `antcrate --pp` and the hook activates from the next commit forward). `antcrate --hook-log antcrate` correctly prints the friendly "no hook log yet" notice. End-to-end behavior matches design.
 
 **Files touched (this pass):**
 - `assets/code/lib/hooks.sh` (new)

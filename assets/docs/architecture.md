@@ -53,13 +53,13 @@ Lightweight JSON map updated upon every successful `--start` or `--branch`. Read
 {
   "projects": {
     "coolphotowebapp": {
-      "path": "/home/twntydotsix/projects/coolwebapps/coolphotowebapp",
+      "path": "~/projects/coolwebapps/coolphotowebapp",
       "parent": "coolwebapps",
       "linked_nodes": ["coolgifwebapp"],
       "git_remote": "git@github.com:user/coolphoto.git"
     },
     "coolgifwebapp": {
-      "path": "/home/twntydotsix/projects/coolwebapps/coolgifwebapp",
+      "path": "~/projects/coolwebapps/coolgifwebapp",
       "parent": "coolwebapps",
       "linked_nodes": ["coolphotowebapp"],
       "git_remote": "git@github.com:user/coolgif.git"
