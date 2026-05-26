@@ -39,11 +39,12 @@ Designed to be the **single controllable surface** for solo-developer ops — ev
   - `gh.sh` — `--gh-init` (HTTPS via `gh` CLI, no plaintext PATs)
   - `address.sh` — layered positional addressing (`1a3` = 3rd entry inside the 1st sub-branch of the 1st top-level dir; bijective base-26 letters)
   - `anchor.sh` — `--in` / `--anchor` (no bare `cd`)
-  - `devops.sh` — `--map`, `--rename`, `--archive`, `--unarchive`, `--remove`, `--touch`, `--mkdir`, `--logs`, `--diff`, `--selfsrc`/`--selfinstall`/`--selftest`/`--selfedit`, `--ci`
+  - `devops.sh` — `--map`, `--rename`, `--archive`, `--unarchive`, `--remove`, `--touch`, `--mkdir`, `--logs`, `--diff`, `--selfsrc`/`--selfinstall`/`--install-from-source`/`--selftest`/`--selfedit`, `--ci`
   - `diagrams.sh` — Mermaid registry + tree generation, `ac_diagrams_auto_regen` (silent, opt-out via `ANTCRATE_AUTO_DIAGRAMS=0`)
   - `hooks.sh` — `--hooks` (read-only listing) + `--hook-log` (debug blocked commits)
   - `events.sh` — append-only activity stream (`~/.antcrate/events/<project>.jsonl`); `--emit-activity` writes
-  - `watch.sh` — colored tree renderer over the active event overlay; `--watch` loops, `--once` for scripts
+  - `watch.sh` — colored tree renderer over the active event overlay; `--watch` loops, `--once` for scripts; `--watch-smoke` emits + renders in one call
+  - `watch_window.sh` — detached terminal window management; `--watch-window` spawns alacritty with PID-file dedup
   - `cleanup.sh` — classifier + apply for test-tmp / empty-dir candidates; `--cleanup <project> [--apply <id>...]`
   - `git_init.sh` — local-only `git init` for a registered project (idempotent + `core.hooksPath` wire); `--git-init <project>`
   - `bootstrap.sh` — one-liner: `--git-init` + default `.gitignore` + first commit; `--bootstrap <project> [-m] [--with-remote --public/--private]`

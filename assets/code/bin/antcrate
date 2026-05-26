@@ -61,6 +61,8 @@ LIB_DIR="$SCRIPT_DIR/../lib"
 # shellcheck disable=SC1091
 . "$LIB_DIR/watch.sh"
 # shellcheck disable=SC1091
+. "$LIB_DIR/watch_window.sh"
+# shellcheck disable=SC1091
 . "$LIB_DIR/cleanup.sh"
 # shellcheck disable=SC1091
 . "$LIB_DIR/git_init.sh"
@@ -107,6 +109,15 @@ Commands:
                                       kinds: modify | read | think | delegate | delete
   --watch <project> [--once] [--interval-ms N] [--no-color] [--depth N]
                                       colored tree painted by active events
+  --watch-smoke <project> [kind] [relpath] [--ttl-ms N] [--depth N] [--no-color]
+                                      emit one event then render the tree once
+                                      (smoke shortcut for emit-activity + watch --once)
+                                      defaults: kind=modify, relpath=., ttl=60000ms
+  --watch-window <project> [--terminal NAME]
+                                      spawn a detached terminal window running
+                                      --watch; dedup by PID file at
+                                      ~/.antcrate/watch/<project>.pid.
+                                      supported terminals: alacritty (default)
   --cleanup <project> [--apply <id>[,<id>...]]
                                       list test/cache/empty-dir candidates;
                                       --apply removes per id (rule #1 backup gate,
@@ -169,6 +180,8 @@ Commands:
   --diff <project>                    git status + diff via git -C (no cd)
   --selfsrc                           print the antcrate skill source root
   --selfinstall                       run install.sh from selfsrc
+  --install-from-source               run install.sh from the registered 'antcrate'
+                                      project path (bypasses ANTCRATE_SELFSRC cache)
   --selftest [pattern]                run bats tests/[pattern].bats from selfsrc
   --selfedit <relpath>                print absolute path to a file under selfsrc
   --diagrams <project>                render docs/diagrams/*.{mmd,puml,d2} to .svg if tools present
@@ -319,6 +332,8 @@ ADDR_CODE="" RENAME_NEW="" LOGS_LINES="50" CMD_ARGS=() RELPATH="" REG_PATH="" DI
 COMMIT_MSG="" COMMIT_MODE=""
 EVENT_KIND="" EVENT_TTL="" EVENT_LABEL="" EVENT_AGENT=""
 WATCH_ONCE="" WATCH_INTERVAL="" WATCH_NOCOLOR="" WATCH_DEPTH=""
+WATCH_SMOKE_KIND="" WATCH_SMOKE_REL=""
+WATCH_WIN_TERMINAL=""
 CLEANUP_IDS=()
 BOOTSTRAP_WITH_REMOTE=""
 HOOK_TEMPLATE="" HOOK_NAME="" HOOK_FORCE=""
@@ -354,6 +369,22 @@ while (( $# > 0 )); do
             elif [[ $# -ge 2 ]]; then shift 2
             else shift; fi ;;
         --watch)             ACTION="watch"; NAME="${2:-}"; shift 2 ;;
+        --watch-smoke)
+            ACTION="watch-smoke"; NAME="${2:-}"; shift 2
+            WATCH_SMOKE_KIND=""; WATCH_SMOKE_REL=""
+            if [[ $# -gt 0 && "${1:0:2}" != "--" ]]; then WATCH_SMOKE_KIND="$1"; shift; fi
+            if [[ $# -gt 0 && "${1:0:2}" != "--" ]]; then WATCH_SMOKE_REL="$1"; shift; fi
+            ;;
+        --watch-window)
+            ACTION="watch-window"; NAME="${2:-}"; shift 2
+            WATCH_WIN_TERMINAL=""
+            while (( $# > 0 )); do
+                case "${1:-}" in
+                    --terminal) WATCH_WIN_TERMINAL="$2"; shift 2 ;;
+                    --*) break ;;
+                    *) break ;;
+                esac
+            done ;;
         --cleanup)           ACTION="cleanup"; NAME="${2:-}"; shift 2 ;;
         --apply)             CLEANUP_IDS+=("$2"); shift 2 ;;
         --once)              WATCH_ONCE="1"; shift ;;
@@ -519,6 +550,7 @@ while (( $# > 0 )); do
         --diff)              ACTION="diff"; NAME="${2:-}"; shift 2 ;;
         --selfsrc)           ACTION="selfsrc"; shift ;;
         --selfinstall)       ACTION="selfinstall"; shift ;;
+        --install-from-source) ACTION="install-from-source"; shift ;;
         --selftest)
             ACTION="selftest"
             if [[ $# -ge 2 && -n "${2:-}" && "${2:0:2}" != "--" ]]; then NAME="$2"; shift 2
@@ -675,6 +707,20 @@ case "$ACTION" in
             [[ -n "$WATCH_INTERVAL" ]] && watch_args+=(--interval-ms "$WATCH_INTERVAL")
             ac_watch_loop "$NAME" "${watch_args[@]}"
         fi ;;
+    watch-smoke)
+        [[ -z "$NAME" ]] && { ac_error "--watch-smoke requires <project>"; exit 2; }
+        smoke_args=()
+        [[ -n "$WATCH_SMOKE_KIND" ]] && smoke_args+=("$WATCH_SMOKE_KIND")
+        [[ -n "$WATCH_SMOKE_REL"  ]] && smoke_args+=("$WATCH_SMOKE_REL")
+        [[ -n "$EVENT_TTL"        ]] && smoke_args+=(--ttl-ms "$EVENT_TTL")
+        [[ -n "$WATCH_DEPTH"      ]] && smoke_args+=(--depth "$WATCH_DEPTH")
+        [[ "$WATCH_NOCOLOR" == "1" ]] && smoke_args+=(--no-color)
+        ac_watch_smoke "$NAME" "${smoke_args[@]}" ;;
+    watch-window)
+        [[ -z "$NAME" ]] && { ac_error "--watch-window requires <project>"; exit 2; }
+        ww_args=( "$NAME" )
+        [[ -n "$WATCH_WIN_TERMINAL" ]] && ww_args+=(--terminal "$WATCH_WIN_TERMINAL")
+        ac_watch_window "${ww_args[@]}" ;;
     cleanup)
         [[ -z "$NAME" ]] && { ac_error "--cleanup requires <project>"; exit 2; }
         if (( ${#CLEANUP_IDS[@]} == 0 )); then
@@ -809,6 +855,7 @@ case "$ACTION" in
     diff)      ac_devops_diff "$NAME" ;;
     selfsrc)   ac_devops_selfsrc ;;
     selfinstall) ac_devops_selfinstall ;;
+    install-from-source) ac_devops_install_from_source ;;
     selftest)  ac_devops_selftest "$NAME" ;;
     selfedit)
         [[ -z "$NAME" ]] && { ac_error "--selfedit requires <relpath>"; exit 2; }

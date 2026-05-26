@@ -14,6 +14,7 @@
 #   read     sev 1   cyan
 #
 # Public API (callable from the wrapper):
+#   ac_watch_smoke <project> [kind] [relpath] [--ttl-ms N] [--depth N] [--no-color]
 #   ac_watch_render_once <project> [--no-color] [--depth N]
 #   ac_watch_loop <project> [--interval-ms N] [--no-color] [--depth N]
 #
@@ -153,6 +154,30 @@ ac_watch_walk_tree() {
             ac_watch_walk_tree "$root/$e" "$rel" "$child_pfx" $((depth - 1)) "$use_color" "$overlay_name" "$latest_path"
         fi
     done
+}
+
+# ac_watch_smoke <project> [kind] [relpath] [--ttl-ms N] [--depth N] [--no-color]
+# Convenience: emit one event then call ac_watch_render_once in one shot.
+# Defaults: kind=modify, relpath=".", ttl=60000ms.
+# Hard-coded --label smoke so downstream filters identify smoke events.
+# Exit: 0 success; 1 unknown project; 2 invalid kind / bad ttl (from ac_events_emit).
+ac_watch_smoke() {
+    local project="$1"; shift
+    local kind="modify" relpath="." ttl="60000"
+    local render_args=()
+    if [[ $# -gt 0 && "${1:0:2}" != "--" ]]; then kind="$1"; shift; fi
+    if [[ $# -gt 0 && "${1:0:2}" != "--" ]]; then relpath="$1"; shift; fi
+    while (( $# > 0 )); do
+        case "$1" in
+            --ttl-ms)   ttl="$2"; shift 2 ;;
+            --depth)    render_args+=(--depth "$2"); shift 2 ;;
+            --no-color) render_args+=(--no-color); shift ;;
+            *) shift ;;
+        esac
+    done
+    ac_registry_has "$project" || { ac_error "watch-smoke: unknown project '$project'"; return 1; }
+    ac_events_emit "$project" "$kind" "$relpath" --ttl-ms "$ttl" --label smoke || return $?
+    ac_watch_render_once "$project" "${render_args[@]}"
 }
 
 # ac_watch_render_once <project> [--no-color] [--depth N]

@@ -198,6 +198,8 @@ default 50).
 |---|---|
 | Append an activity event | `antcrate --emit-activity <project> <kind> <relpath> [--ttl-ms N] [--label X] [--agent A]` |
 | Watch the project tree painted by active events | `antcrate --watch <project> [--once] [--interval-ms N] [--no-color] [--depth N]` |
+| Emit one event then render the tree once (smoke shortcut) | `antcrate --watch-smoke <project> [kind] [relpath] [--ttl-ms N] [--depth N] [--no-color]` |
+| Spawn a detached terminal window running --watch | `antcrate --watch-window <project> [--terminal alacritty]` |
 
 Kinds: `modify` (yellow), `read` (cyan), `think` (magenta), `delegate`
 (green), `delete` (bright red strikethrough). Default TTLs are
@@ -228,7 +230,7 @@ The user reviews proposals and decides which become real flags. Until that happe
 
 ## Quick index by verb
 
-- **see**: `--status`, `--list`, `--map`, `--logs`, `--diff`, `--proposals`, `--registry-diagram`, `--tree-diagram`
+- **see**: `--status`, `--list`, `--map`, `--logs`, `--diff`, `--proposals`, `--registry-diagram`, `--tree-diagram`, `--watch`, `--watch-smoke`, `--watch-window`
 - **make**: `--start`, `--register`, `--branch`, `--link`, `--gh-init`, `--touch`, `--mkdir`, `--diagrams`
 - **point at**: `--addr`, `--anchor`, `--in`
 - **change**: `--rename`, `--resume --expand`, `--restore`, `--touch`, `--mkdir`
@@ -236,5 +238,5 @@ The user reviews proposals and decides which become real flags. Until that happe
 - **hard-delete**: `--remove` (backup-only recovery)
 - **safeguard**: `--backup`, `--backups`, `--restore`
 - **ship**: `--pp`
-- **build self**: `--selfsrc`, `--selfinstall`, `--selftest`, `--selfedit`, `--ci`
+- **build self**: `--selfsrc`, `--selfinstall`, `--install-from-source`, `--selftest`, `--selfedit`, `--ci`
 - **propose**: `--propose`, `--proposals`

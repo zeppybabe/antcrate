@@ -294,6 +294,32 @@ ac_devops_selfinstall() {
     bash "$src/install.sh"
 }
 
+ac_devops_install_from_source() {
+    # Auto-fire after --commit lands on antcrate is a follow-up flag
+    # (--commit-self-install or post-commit hook); ANTCRATE_SKIP_SELFINSTALL=1
+    # ships with that, not now.
+    if ! ac_registry_has antcrate; then
+        ac_error "install-from-source: project 'antcrate' not registered. Run: antcrate --register antcrate <path-to-skill-source>"
+        return 1
+    fi
+    local path; path=$(ac_registry_get antcrate path)
+    # install.sh can live at the project root OR nested at assets/code/install.sh
+    # (the skill layout has source code under assets/code/). Probe both.
+    local installer=""
+    for candidate in "$path/install.sh" "$path/assets/code/install.sh"; do
+        if [[ -f "$candidate" ]]; then installer="$candidate"; break; fi
+    done
+    if [[ -z "$installer" ]]; then
+        ac_error "install-from-source: install.sh not found at $path/install.sh or $path/assets/code/install.sh"
+        return 1
+    fi
+    if [[ ! -x "$installer" ]]; then
+        ac_error "install-from-source: $installer is not executable"
+        return 1
+    fi
+    bash "$installer"
+}
+
 ac_devops_selftest() {
     local pattern="${1:-}" src
     src=$(ac_devops_selfsrc) || return 1
