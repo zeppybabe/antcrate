@@ -1,4 +1,4 @@
-%% antcrate tree — generated 2026-05-25T20:01:02Z
+%% antcrate tree — generated 2026-05-26T19:08:16Z
 graph TD
   root(["antcrate"])
   1["CONTRIBUTING.md"]
@@ -125,6 +125,8 @@ graph TD
   6a8 --> 6a8ac
   6a8ad["watch.sh"]
   6a8 --> 6a8ad
+  6a8ae["watch_window.sh"]
+  6a8 --> 6a8ae
   6a9[/systemd/]
   6a --> 6a9
   6a9a["antcrated.service"]
@@ -209,24 +211,30 @@ graph TD
   6a11 --> 6a11o
   6a11p["ingest.bats"]
   6a11 --> 6a11p
-  6a11q["lifecycle.bats"]
+  6a11q["install_from_source.bats"]
   6a11 --> 6a11q
-  6a11r["md_scaffold.bats"]
+  6a11r["lifecycle.bats"]
   6a11 --> 6a11r
-  6a11s["profile.bats"]
+  6a11s["md_scaffold.bats"]
   6a11 --> 6a11s
-  6a11t["propose.bats"]
+  6a11t["profile.bats"]
   6a11 --> 6a11t
-  6a11u["register.bats"]
+  6a11u["propose.bats"]
   6a11 --> 6a11u
-  6a11v["registry.bats"]
+  6a11v["register.bats"]
   6a11 --> 6a11v
-  6a11w["scaffold.bats"]
+  6a11w["registry.bats"]
   6a11 --> 6a11w
-  6a11x["schema.bats"]
+  6a11x["scaffold.bats"]
   6a11 --> 6a11x
-  6a11y["watch.bats"]
+  6a11y["schema.bats"]
   6a11 --> 6a11y
+  6a11z["watch.bats"]
+  6a11 --> 6a11z
+  6a11aa["watch_smoke.bats"]
+  6a11 --> 6a11aa
+  6a11ab["watch_window.bats"]
+  6a11 --> 6a11ab
   6b[/docs/]
   6 --> 6b
   6b1["AntCrate_blueprint_v0.pdf"]
