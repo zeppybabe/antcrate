@@ -4,6 +4,57 @@ Append-only log. Newest entries on top. ISO-8601 dates. Never delete.
 
 ---
 
+## 2026-05-26 — Quickwins trio: --install-from-source + --watch-smoke + --watch-window
+
+User opened the session with: "let's go ahead and see what we need to do for antcrate. For analyzing and planning to delegating tasks - to testing and uploading, it shall all be done in batches with agents being allowed to do mostly everything whilst also using antcrate." Explicit batch-pipeline framing: analyze → plan → delegate → test → upload.
+
+**Sweep + batch selection:** clean working tree at HEAD `d112844` (2026-05-25 public flip already pushed). 17 open proposals clustered as quick-wins / gh-pipeline / infrastructure / C++ Wave 1. Surfaced 4 batch options via AskUserQuestion; user picked **Quick-wins trio** (Recommended), bundling `--install-from-source` + `--watch-window` + `--watch-smoke`.
+
+**Pipeline:**
+
+1. **Plan agent (one)** designed the trio as a coherent 1500-word spec — per-flag deliverables, function signatures, bin-dispatch additions, 21 bats test outlines, PATTERNS.md + SKILL.md doc updates, required headline-metrics report format. Spec build order: install-from-source → watch-smoke → watch-window (smallest to riskiest).
+2. **Clyde validated** function names against actual lib code before handing to Cody (Plan used `ac_events_emit` — correct; globals `EVENT_KIND/TTL/LABEL/AGENT` already declared at bin/antcrate:320 — reusable).
+3. **Cody delegation registered** via `antcrate --delegate antcrate --key quickwins-trio --task "..."` (attempt 1/3). Handoff block printed; Cody subagent spawned with the full Plan spec embedded.
+4. **Cody delivered** all 9 file changes (4 new, 5 modified) + 21 tests + --ci PASS green on first internal run. Self-invoked `simplify` per the brief.
+5. **Cody's report-back drifted for the THIRD consecutive session** (2026-05-14 → 2026-05-25 → 2026-05-26). Returned ONLY the simplify JSON findings; no Task / Files / Tests / --ci / Smoke headline. Pattern is confirmed: multi-deliverable Cody runs default to nit-summary-first regardless of explicit format-spec in the brief.
+6. **simplify caught two real bugs:**
+   - `ac_watch_smoke` would create ghost JSONL files for unknown projects because render_once's validation fires after emit. Fixed: pre-emit `ac_registry_has` guard + regression test #329.
+   - `ac_watch_window` bin fallback resolved to `/bin/antcrate` (nonexistent) when both `command -v antcrate` and `$ANTCRATE_SELFSRC` failed. Fixed: post-resolution `[[ -x "$bin" ]]` check + regression test #341 (uses isolated PATH via inline `bash -c` to bypass the system-installed antcrate that the standard src() helper would let through).
+7. **Live smoke caught a THIRD real bug** that Plan, Cody, AND simplify all missed: `--install-from-source` resolved `<path>/install.sh` per spec, but the antcrate skill's install.sh lives at `<path>/assets/code/install.sh`. Spec and impl agreed with each other; both wrong against the live layout. Fixed: two-candidate probe (root + nested) + regression test "probes nested assets/code/install.sh when root install.sh absent." **Carry forward as a permanent lesson: agent-spec verification against actual on-disk reality is a SEPARATE gate from spec-verification. Pass both before commit.**
+8. **Re-ran --ci** after each fix; final state 341/341 PASS, shellcheck clean. **Test count delta: 316 → 341 = +25 tests** (+21 from Cody, +4 from Clyde regression coverage for the three caught bugs).
+9. **Bundled commit per user choice.** `bin/antcrate` + `PATTERNS.md` + `SKILL.md` each had interleaved per-flag wiring; a clean lib-boundary split would have produced commits 1 & 2 with lib functions present but not wrapper-exposed — fails bisect. Pragmatic-over-planned: one commit `164d9df feat(trio): --install-from-source + --watch-smoke + --watch-window` covering all 9 files + 579 inserts.
+10. **--commit syntax gotcha:** first attempt was `antcrate --commit antcrate -m "..." --all -y`, expecting `--all` as a stage-everything flag. The wrapper silently printed help text and exited 0 instead of erroring on the unknown flag. Wasted one verify cycle. Corrected to `--all-tracked`. **Filed proposal `commit-loud-on-bad-flag`** to reject unknown --commit flags loudly OR accept `--all` as an alias.
+11. **Pushed via `antcrate --pp antcrate -y`:** post-commit hook generated a tree.mmd diagram regen → auto-commit `7136b72`. Origin/master synced; `verify: origin/master in sync at 7136b72`.
+12. **System wrapper at `~/.local/bin/antcrate` auto-refreshed mid-session** by invoking `bash assets/code/bin/antcrate --install-from-source` from the source tree — confirms the flag's primary use case end-to-end. Subsequent `antcrate --watch-smoke antcrate --no-color --depth 1` (via system PATH) rendered the anchor correctly.
+
+**Commits on origin/master:**
+
+```
+7136b72  antcrate: auto-commit 2026-05-26T19:08:22Z   ← antcrate --pp internal sync (tree.mmd diagram regen)
+164d9df  feat(trio): --install-from-source + --watch-smoke + --watch-window
+```
+
+**Non-obvious decisions worth remembering:**
+
+- **Plan-agent-then-Cody-then-simplify-then-Clyde-live-smoke is the right pipeline for multi-flag batches.** Each layer caught bugs the previous layers missed: Plan didn't validate `ac_events_emit`'s actual name → Clyde caught pre-handoff. Cody implemented per spec → simplify caught two semantic bugs. Cody + simplify both passed → Clyde live smoke caught the install.sh layout mismatch. Three independent gates, three classes of bug.
+- **Cody's report-format drift is structurally chronic, not solvable via brief-clause stipulation.** Three sessions of explicit format spec in the brief → three sessions of drift. The only fix that would actually work is mechanical: a Cody-side hook that lints the first paragraph for the required metric strings before sending the report. Until that ships, Clyde's verification pattern stays the same (direct git status + git diff + Read + --ci, trust nothing in Cody's summary).
+- **PID-file design choice: store the TERMINAL PID, not the inner antcrate PID.** Rationale: the user-visible contract is "one window per project," so the user-meaningful entity to track is the window, not the inner watch loop. Terminal-PID lets `kill $PID` close the whole window cleanly; inner-PID would leave orphan windows on rare crash paths. Documented in `lib/watch_window.sh` header.
+- **Isolated-PATH bats test pattern.** For test #341 (refuses when antcrate not on PATH and SELFSRC empty), the standard `src()` helper that prepends `$BATS_TEST_TMPDIR/bin:$PATH` couldn't be used because the real `~/.local/bin/antcrate` was still findable through the appended system PATH. Solution: bypass src() with an inline `bash -c '...'` that sets `export PATH="$BATS_TEST_TMPDIR/bin:/usr/bin:/bin"` (no system-user-bin). Pattern worth carrying forward for any test that needs to assert "this binary is unreachable."
+- **install.sh layout assumption was a Plan-spec mismatch with the live tree, not a Cody implementation bug.** The Plan agent inferred `<path>/install.sh` from reading `assets/code/install.sh` without checking what the registry's `antcrate.path` field actually pointed at. The fix (two-candidate probe) is also forward-compatible — if antcrate's layout ever flattens, the root-install.sh probe still works.
+
+**Test count: 316 → 341. Audit baseline still 301; next audit at 401.** No audit-trigger this session.
+
+**Resume next session at one of:**
+- C++ migration Wave 1 (wrapper guards, compaction canary first; Plan agent before Cody).
+- `--gh-publish` (composite gh flag from 2026-05-25 proposal).
+- `--ci-snapshot` (audit cadence automation).
+- `--audit` (programmatic codebase audit).
+- `--ci-core` (scoped --ci skipping bats for C++).
+- Composite pre-commit umbrella (HOOK_PLAN.md final item).
+- Newly-proposed: `commit-loud-on-bad-flag` (quick UX win, ~30min).
+
+---
+
 ## 2026-05-25 — Public-release flip: zeppybabe/antcrate is now PUBLIC
 
 User opened with two intertwined directives: "continue where we left off" + "for the next push, we will be making antcrate open via github. Ensure the repo looks neat and good and includes all the command basics and how antcrate works." Plus an enabling clause: "use agents for almost anything so that we can have more data on agents + antcrate." Session became pure public-prep (Wave 1 deferred per user's AskUserQuestion answer).

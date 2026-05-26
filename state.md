@@ -1,10 +1,40 @@
 # AntCrate — Current State
 
-_Last updated: 2026-05-25_
+_Last updated: 2026-05-26_
 
 ## Top of mind
 
-**Session-Close Protocol active (codified in `~/CLAUDE.md` on 2026-05-11).** Three parts that fire before every end-of-session statement: (1) command-sweep; (2) codebase audit every +100 bats tests since last baseline; (3) end-of-session learning. **Audit baseline: 301 bats / shellcheck clean / sha `80385c3`. Next audit due at 401 bats tests** (or when `--audit` itself ships and can be invoked manually).
+**Session-Close Protocol active (codified in `~/CLAUDE.md` on 2026-05-11).** Three parts: command-sweep, codebase audit every +100 bats tests since last baseline, end-of-session learning. **Audit baseline: 301 bats / shellcheck clean / sha `80385c3`. Next audit due at 401 bats tests** (or when `--audit` itself ships).
+
+**Quickwins trio shipped (2026-05-26):** three antcrate flags landed in one bundled commit (`164d9df`), pushed cleanly (origin/master `7136b72` with auto-commit diagram regen). Test count 316 → **341** (+25 tests, all bats green, shellcheck clean). System wrapper at `~/.local/bin/antcrate` auto-refreshed mid-session via the new `--install-from-source`.
+
+- **`--install-from-source`** — resolves antcrate skill path via registry, runs install.sh from there. Probes BOTH `<path>/install.sh` AND `<path>/assets/code/install.sh` (the skill layout nests source under assets/code/; live smoke caught this layout assumption between Cody-impl and commit). Closes the "just shipped a flag, system wrapper is stale" loop. Live-smoked end-to-end in this same session.
+- **`--watch-smoke`** — emit synthetic event + render-once in one call. Defaults: kind=modify, relpath=".", ttl=60000ms, label=smoke (hard-coded so downstream filters can identify smoke events). Pre-validates project registration via `ac_registry_has` BEFORE emit (prevents ghost JSONL files for unknown projects — caught by simplify self-review).
+- **`--watch-window`** — spawn `antcrate --watch <project>` in detached Alacritty window. PID-file-gated dedup at `~/.antcrate/watch/<project>.pid` (tracks **terminal** PID, not inner watch PID — terminal PID is the user-meaningful "one window per project" entity). Stale PID files cleaned silently. Wayland-friendly via `--class ac-watch-<project>`. Validates antcrate binary resolution before spawn (also caught by simplify).
+
+**Agent-orchestrator third end-to-end run (2026-05-26 session):**
+
+- **One Plan agent** designed the trio as a coherent spec (1500 words: per-flag deliverables, function signatures, bin-dispatch additions, bats test outlines, doc updates, headline-metrics report format Cody should follow). Clyde validated function names against actual lib code before handing to Cody (`ac_events_emit` correct, not `ac_events_append`).
+- **One Cody invocation** via `antcrate --delegate antcrate --key quickwins-trio --task "..."` (attempt 1/3). Delivered all 9 file changes (4 created, 5 modified) + 21 tests + --ci green on first internal pass. Self-invoked `simplify`.
+- **Cody's "lead-with-headline" report-back drifted for the THIRD time** (2026-05-14 → 2026-05-25 → 2026-05-26). Returned ONLY the simplify JSON findings — no Task/Files/Tests/--ci/Smoke headline despite the brief specifying the exact format. Pattern is now CONFIRMED: multi-deliverable Cody runs DEFAULT to nit-summary-first regardless of explicit format spec in the brief. Saved to memory for cross-session continuity. Possible next step: enforce via a Cody-side hook (lint first paragraph for required metric strings before sending) — not yet filed as a proposal.
+- **simplify caught two real bugs** before they shipped: (1) `ac_watch_smoke` would create ghost JSONL files for unknown projects since render_once validation fired after emit → fixed with pre-emit `ac_registry_has` guard + regression test #329; (2) `ac_watch_window` bin fallback resolved to `/bin/antcrate` (nonexistent) when both `command -v antcrate` and `$ANTCRATE_SELFSRC` failed → fixed with executable-check + regression test #341 (uses isolated PATH to bypass the system-installed antcrate). Both fixes Clyde-implemented (5 lines each); simplify paid for itself.
+- **Live smoke caught one MORE real bug all three layers missed** (Plan + Cody + simplify): `--install-from-source` resolved `<path>/install.sh` per spec, but the antcrate skill's install.sh actually lives at `<path>/assets/code/install.sh`. Spec and impl agreed with each other; both wrong against the live layout. Fixed with two-candidate probe + regression test "probes nested assets/code/install.sh when root install.sh absent." **Lesson: agent-spec verification against actual on-disk reality is a separate gate from spec-verification — pass both before commit.**
+- **One bundled commit (`164d9df`) per user choice** instead of three feature-boundary commits. `bin/antcrate` + `PATTERNS.md` + `SKILL.md` each contained interleaved per-flag wiring; clean lib-boundary split would have left commits 1/2 with lib functions present but not wrapper-exposed (fails bisect). Pragmatic-over-planned: bundle wins when split granularity is hunk-level.
+- **One propose filed:** `commit-loud-on-bad-flag` — `antcrate --commit` silently prints help text on unknown flags (e.g. `--all` typo instead of `--all-tracked`); should reject with exit 2 or accept `--all` as alias. Surfaced after one wasted verify cycle this session.
+
+**Resume next session at one of (user's choice — multiple parallel tracks):**
+
+- **C++ migration Wave 1** — wrapper guards. Compaction canary first (Cat 4), then `--no-verify` strip (Cat 7), then `$HOME`-expansion detect on `rm` (Cat 1.2), then compound-command splitter (Cat 10.2), then bulk-delete count gate (Cat 1.4). Pre-implementation Plan agent.
+- **`--gh-publish`** — composite flag from 2026-05-25 proposal. One-shot for visibility flip + description + topics. Gateway-Law gated (visibility flip is irreversible in practice). ~90min.
+- **`--ci-snapshot`** — persist baseline after --ci PASS so audit cadence is automated, not eyeballed. ~60min.
+- **`--audit`** — programmatic codebase audit. Medium-large pass. Companion to --propose.
+- **`--ci-core`** — scoped --ci skipping bats for C++ iteration.
+- **Composite pre-commit umbrella** — last item on `HOOK_PLAN.md`. ~2hr.
+- **Newly-proposed today:** `commit-loud-on-bad-flag` — quick win, ~30min.
+
+---
+
+## Earlier (2026-05-25) — Public-release flip: zeppybabe/antcrate is now PUBLIC
 
 **Public-release flip landed (2026-05-25):** `zeppybabe/antcrate` is now **PUBLIC** on GitHub — https://github.com/zeppybabe/antcrate. MIT license recognized, description set ("Bash, jq, and inotify. One controllable surface for solo-developer project ops."), 10 topics added (bash, cli, jq, inotify, scaffolding, devops, project-management, agent-orchestration, ci, mit-license). Repo metadata polished, README rewritten for a public landing page (937 words, 12 anchor flags across 4 buckets, no badges, no emojis), SECURITY.md + CONTRIBUTING.md shipped. Five literal `/home/twntydotsix/` references sanitized to `~/`-prefixed forms; tracked-file grep for that path now returns zero hits.
 
@@ -12,16 +42,9 @@ _Last updated: 2026-05-25_
 
 - **Three Explore-agent invocations** (one for the public-readiness audit producing a 7-bucket punch list with "SAFE TO FLIP" verdict + 2 minor cleanups; one for the full 69-flag command-surface inventory used as Plan input; one Plan agent for the 935-word README outline with anchor-flag cut list and Cody pitfalls). All three returned usable structured output in single shot.
 - **One Cody invocation** for the four deliverables (LICENSE, README rewrite, SECURITY.md, CONTRIBUTING.md, path sanitization). Cody self-invoked `simplify` mid-task; removed one redundant phrase from README's Contributing teaser ("state.md Top of mind alignment" duplicated detail already in CONTRIBUTING.md).
-- **Cody's "lead-with-headline" report-back drifted again.** Returned with the simplify findings as the lead paragraph instead of the explicit headline metrics (Task / Files created / Files modified / --ci result / grep count / wc / simplify). The format works when narrowly stipulated AND the task is single-purpose, but multi-deliverable Cody runs still default to nit-summary-first. Clyde verified deliverables via direct git status + git diff + Read instead of trusting Cody's summary at face value — same pattern as 2026-05-14. **Carry forward:** Cody's report format may need an enforcement mechanism (lint? checksum on the first paragraph?) rather than just a brief clause. Filed mentally; not a proposal yet.
-- **Two file-level commits** (`7ee2de0` catch-up + `a024771` public-prep), one auto-commit sync (`249a2a2`). Bundle split worked cleanly via `antcrate --commit antcrate -- <files...>` — confirms the file-level `--` argument list works in practice (state.md note from 2026-05-14 said "interleaved-section split via --commit is impossible," which remains true at hunk level but file-level splits are clean).
-- **`--gh-publish` proposed.** Three `gh repo edit` + one `gh repo view` calls became the catalyst. Logged in proposals.log + appended to `GH_PIPELINE_PLAN.md` "Observed gh usage" section.
-
-**Resume next session at one of (user's choice — multiple parallel tracks now):**
-
-- **C++ migration Wave 1** — wrapper guards. Compaction canary first (Cat 4 of the PDF, the most structurally-Bash-impossible guard); then `--no-verify` strip via outer PATH-shim (Cat 7); then `$HOME`-expansion detect on `rm` (Cat 1.2); then compound-command splitter (Cat 10.2); then bulk-delete count gate (Cat 1.4). Pre-implementation design pass via Plan agent.
-- **--gh-publish** — newly proposed today. One-shot composite for visibility flip + description + topics. Gateway-Law gated since visibility-flip is functionally irreversible. ~90min.
-- **--watch-window** — queued before C++ pivot, still valid. Spawn-wrapper around `antcrate --watch <project>` in detached Alacritty with PID file dedup. ~60min.
-- **Other queued:** --ci-snapshot, --watch-smoke, --audit, --install-from-source, --ci-core, composite pre-commit umbrella.
+- **Cody's "lead-with-headline" report-back drifted again.** Returned with the simplify findings as the lead paragraph instead of the explicit headline metrics. Same pattern as 2026-05-14. **Carry forward:** Cody's report format may need an enforcement mechanism (lint? checksum on the first paragraph?) rather than just a brief clause. Filed mentally; not a proposal yet. (Confirmed again 2026-05-26 — third occurrence.)
+- **Two file-level commits** (`7ee2de0` catch-up + `a024771` public-prep), one auto-commit sync (`249a2a2`). Bundle split worked cleanly via `antcrate --commit antcrate -- <files...>` — file-level `--` argument list works in practice.
+- **`--gh-publish` proposed.** Three `gh repo edit` + one `gh repo view` calls became the catalyst.
 
 ---
 
