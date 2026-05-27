@@ -61,6 +61,15 @@ ac_safety_guard_destructive() {
     local project="$1" op="$2" target="$3"
     AC_LAST_BACKUP_PATH=""
 
+    # 0. compaction-canary gate (Wave 1) — runs before path/backup/approval
+    # so stale safety-context aborts cost zero disk I/O.
+    if [[ "${ANTCRATE_CANARY_DISABLE:-0}" != "1" ]]; then
+        if ! ac_canary_gate_check; then
+            ac_error "safety: refusing $op — compaction canary gate failed (see above)"
+            return 1
+        fi
+    fi
+
     # 1. path must be inside allowed zones
     ac_safety_guard "$op" "$target" || return 1
 

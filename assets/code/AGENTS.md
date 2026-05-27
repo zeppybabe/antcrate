@@ -59,6 +59,15 @@ These rules govern any AI agent (Claude Code, Cursor, etc.) operating on or with
     - The agent NEVER uses `git commit --no-verify`, `git push --no-verify`, or any other `--no-verify` variant. That bypasses the hook *without* the audit log entry, which is strictly worse than `--hook-bypass`.
     - If the agent observes a stale `.git/antcrate-hook-bypass` flag (left over from a prior bypass that wasn't consumed), it surfaces the discovery to the human but does NOT delete the flag itself — deletion is also a human-only action (it discards a pending sanctioned bypass).
 
+15. **Compaction canary is non-bypassable.** The Wave 1 canary gate (`antcrate-core canary gate-check`, fired from `ac_safety_guard_destructive`) protects rule #1 from context-compaction-induced safety-rule loss. When the gate refuses a destructive op with the framed `COMPACTION CANARY GATE` message, the agent MUST: (a) re-read `~/CLAUDE.md` in full — specifically Write Zones, Rule #1, the Gateway Law; (b) run `antcrate --canary-verify <TOKEN>` with the token from `~/CLAUDE.md` "## Safety Canary" section; (c) re-issue the destructive command. Agents MUST NOT mutate `~/.antcrate/canary/state.json` directly. Agents MUST NOT `unset` or `export ANTCRATE_CANARY_DISABLE=1` outside of CI/test contexts (the env exists only for those). Agents MUST NOT call `antcrate-core canary verify <TOKEN>` to short-circuit the re-read — the re-read is the whole point of the gate.
+
+    **Why:** Long sessions trigger summary-compaction; safety rules get paraphrased away; the next destructive op fires against stale safety context (the Meta OpenClaw inbox-deletion incident is the canonical example). The canary's freshness check (wall-clock TTL + invocation count) is a wrapper-side mechanical proxy for "have you re-read the rules recently?" — bypassing it via env-flipping or direct token verification defeats the gate's only purpose.
+
+    **How to apply:**
+    - When you see the framed gate message, treat it as a structural signal that safety context is stale, not as an annoyance. Re-read `~/CLAUDE.md` actually, not performatively.
+    - If `~/.antcrate/canary/state.json` is missing on a fresh install, the gate exits 2 (treated as stale). Run `antcrate --canary-init [--with-claudemd]` once at setup.
+    - For CI: set `ANTCRATE_CANARY_DISABLE=1` in the CI environment's setup. Bats tests do this by default in `setup()`.
+
 ## Soft rules (proceed but log to ledger)
 
 - New project creation via `--start` or `--branch` — fine, log path to ledger.

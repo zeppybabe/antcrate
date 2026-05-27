@@ -2,6 +2,7 @@
 # tests for lib/schema.sh
 
 setup() {
+    export ANTCRATE_CANARY_DISABLE=1
     LIB="$BATS_TEST_DIRNAME/../lib"
     # shellcheck disable=SC1091
     . "$LIB/log.sh"

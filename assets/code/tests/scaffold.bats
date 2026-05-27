@@ -2,6 +2,7 @@
 # end-to-end: scaffold + subbranch atomicity (no git push, no daemon)
 
 setup() {
+    export ANTCRATE_CANARY_DISABLE=1
     LIB="$BATS_TEST_DIRNAME/../lib"
     export ANTCRATE_HOME="$BATS_TEST_TMPDIR/.antcrate"
     export ANTCRATE_REGISTRY="$ANTCRATE_HOME/registry.json"

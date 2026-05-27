@@ -2,6 +2,7 @@
 # tests for lib/address.sh — layered positional addressing
 
 setup() {
+    export ANTCRATE_CANARY_DISABLE=1
     LIB="$BATS_TEST_DIRNAME/../lib"
     export ANTCRATE_LOG_LEVEL="error"
     export ANTCRATE_HOME="$BATS_TEST_TMPDIR/.antcrate"

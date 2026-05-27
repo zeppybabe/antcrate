@@ -114,6 +114,17 @@ Disable with `export ANTCRATE_AUTO_DIAGRAMS=0` (e.g. for batch scripted mutation
 |---|---|---|
 | Run shellcheck + full bats suite | `antcrate --ci` | One command, fail-fast on either. Use before any change. |
 
+## Safety canary (Wave 1 compaction-canary gate — see AGENTS.md rule #15)
+
+| Intent | Command | Notes |
+|---|---|---|
+| Initialize canary state | `antcrate --canary-init [--ttl-seconds N] [--max-invocations N] [--with-claudemd]` | Generates 32-hex token, writes `~/.antcrate/canary/state.json`. With `--with-claudemd`, interactively patches the `__CANARY_TOKEN__` placeholder in `~/CLAUDE.md`. Without it, prints the snippet to add manually. Defaults: TTL=3600s, MAX=30 invocations. |
+| Verify canary (after re-reading rules) | `antcrate --canary-verify <TOKEN>` | Bumps `last_verified_ts`, resets `invocations_since_verify`. Required when the gate fires. Token lives in `~/CLAUDE.md` "## Safety Canary" section. |
+| Show canary state | `antcrate --canary-status` | Human-readable: initialized?, masked token, last verify, invocations / max, TTL. |
+| Debug: standalone gate check | `antcrate --canary-gate-check` | Exit 0 fresh, 4 stale, 2 missing state. Increments invocation counter. |
+
+The gate runs inside `ac_safety_guard_destructive` (rule #1 chokepoint) — so every destructive op (`--rename`, `--archive`, `--remove`, `--cleanup --apply`, `--ingest` supersedes, `--resume --expand` subbranch) is gated. Opt-out via `ANTCRATE_CANARY_DISABLE=1` is for CI/bats only; agents must not flip it (AGENTS.md rule #15).
+
 ## Hooks (read-only today; install/remove/bypass queued — see `HOOK_PLAN.md`)
 
 | Intent | Command | Notes |

@@ -2,6 +2,7 @@
 # tests for lib/propose.sh — pattern-proposal escape valve
 
 setup() {
+    export ANTCRATE_CANARY_DISABLE=1
     LIB="$BATS_TEST_DIRNAME/../lib"
     export ANTCRATE_HOME="$BATS_TEST_TMPDIR/.antcrate"
     export ANTCRATE_PROPOSALS_LOG="$ANTCRATE_HOME/proposals.log"

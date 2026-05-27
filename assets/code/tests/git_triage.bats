@@ -2,6 +2,7 @@
 # tests for lib/git_triage.sh — git is mocked via PATH shim
 
 setup() {
+    export ANTCRATE_CANARY_DISABLE=1
     LIB="$BATS_TEST_DIRNAME/../lib"
     export ANTCRATE_HOME="$BATS_TEST_TMPDIR/.antcrate"
     export ANTCRATE_CONFLICT_LOG="$BATS_TEST_TMPDIR/conflict.log"

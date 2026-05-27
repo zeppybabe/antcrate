@@ -82,6 +82,8 @@ LIB_DIR="$SCRIPT_DIR/../lib"
 . "$LIB_DIR/lifecycle.sh"
 # shellcheck disable=SC1091
 . "$LIB_DIR/delegate.sh"
+# shellcheck disable=SC1091
+. "$LIB_DIR/canary.sh"
 
 : "${ANTCRATE_HOME:=$HOME/.antcrate}"
 : "${ANTCRATE_ROOT:=$HOME/projects}"
@@ -344,6 +346,7 @@ PROFILE_RAW=""
 ENV_APPLY=""
 HOOK_AUTO_DRY=""
 DELEGATE_KEY="" DELEGATE_TASK="" DELEGATE_FILE=""
+CANARY_TTL="" CANARY_MAX="" CANARY_WITH_CLAUDEMD="" CANARY_TOKEN=""
 ACTION=""
 while (( $# > 0 )); do
     case "$1" in
@@ -551,6 +554,21 @@ while (( $# > 0 )); do
         --selfsrc)           ACTION="selfsrc"; shift ;;
         --selfinstall)       ACTION="selfinstall"; shift ;;
         --install-from-source) ACTION="install-from-source"; shift ;;
+        --canary-init)
+            ACTION="canary-init"; shift
+            CANARY_TTL=""; CANARY_MAX=""; CANARY_WITH_CLAUDEMD=""
+            while (( $# > 0 )); do
+                case "${1:-}" in
+                    --ttl-seconds)     CANARY_TTL="$2"; shift 2 ;;
+                    --max-invocations) CANARY_MAX="$2"; shift 2 ;;
+                    --with-claudemd)   CANARY_WITH_CLAUDEMD="--with-claudemd"; shift ;;
+                    --*) break ;;
+                    *)   shift ;;
+                esac
+            done ;;
+        --canary-verify)      ACTION="canary-verify"; CANARY_TOKEN="${2:-}"; shift 2 ;;
+        --canary-status)      ACTION="canary-status"; shift ;;
+        --canary-gate-check)  ACTION="canary-gate-check"; shift ;;
         --selftest)
             ACTION="selftest"
             if [[ $# -ge 2 && -n "${2:-}" && "${2:0:2}" != "--" ]]; then NAME="$2"; shift 2
@@ -909,6 +927,15 @@ case "$ACTION" in
         args=( "$NAME" "$HOOK_NAME" )
         [[ -n "$HOOK_FORCE" ]] && args+=( "$HOOK_FORCE" )
         ac_with_lock ac_hook_remove "${args[@]}" ;;
+    canary-init)
+        ac_canary_init ${CANARY_TTL:+--ttl-seconds "$CANARY_TTL"} \
+                       ${CANARY_MAX:+--max-invocations "$CANARY_MAX"} \
+                       $CANARY_WITH_CLAUDEMD ;;
+    canary-verify)
+        [[ -z "$CANARY_TOKEN" ]] && { ac_error "--canary-verify requires <token>"; exit 2; }
+        ac_canary_verify "$CANARY_TOKEN" ;;
+    canary-status)      ac_canary_status ;;
+    canary-gate-check)  ac_canary_gate_check ;;
     pipe-file) cmd_pipe_file "$NAME" ;;
     "")        usage; exit 2 ;;
 esac
