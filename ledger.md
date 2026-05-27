@@ -4,6 +4,56 @@ Append-only log. Newest entries on top. ISO-8601 dates. Never delete.
 
 ---
 
+## 2026-05-26/27 — Wave 1: Compaction canary shipped (first real C++ workload in antcrate-core)
+
+User asked to do C++ Wave 1 next, after the quickwins trio shipped earlier in the same day. State.md's Wave 1 sequence calls for compaction canary first (Cat 4 from the PDF, "the most structurally-Bash-impossible guard") as the milestone proof that C++ can do what Bash structurally can't.
+
+**Scope selection:** AskUserQuestion offered three Wave 1 scopes (canary only / canary + --no-verify strip / canary + design specs for the other 4). User picked **canary only** (Recommended) — heaviest single-feature pass, prove the C++ binary's worth before lighter guards ship.
+
+**Pipeline:**
+
+1. **Pre-flight backup** at `~/.antcrate/backups/antcrate/antcrate-20260526T191842Z.tar.gz` (Gateway Law for any C++ contract change).
+2. **Plan agent** produced a 2500-word coherent spec — C++ side (canary.hpp/cpp + json.hpp vendoring + 15 doctest cases + main.cpp routing + CMake), Bash side (lib/canary.sh + 12 bats cases + safety.sh integration + bats sweep across 29 existing files), docs (AGENTS.md rule #15 + PATTERNS.md section + SKILL.md), 6 open design questions with recommendations, and the headline-metrics report format.
+3. **User pre-confirmed two key decisions** via AskUserQuestion: (a) **nlohmann/json single-header vendored** at `core/include/json.hpp` v3.11.3 (~900 KB, MIT, clean under `-Werror`); (b) **`--with-claudemd` opt-in flag** (Gateway-Law honored without nagging — without the flag, wrapper prints the snippet for manual paste). Other 4 questions took recommended defaults (ANTCRATE_CANARY_DISABLE=1 default in tests; freshness defaults 3600s/30; no auto-fire; token mirrored in state.json + ~/CLAUDE.md).
+4. **Cody invocation** via `antcrate --delegate antcrate --key wave1-canary --task "..."` (attempt 1/3). Mid-run, Cody hit the session limit. ALL 6 new files + 9 modified files + bats sweep across 29 files were already on disk when the limit fired — Cody never delivered a report. Clyde resumed verification on the partial state.
+5. **Clyde verification caught 4 real bugs** in Cody's output before commit:
+   - `tests/canary.bats::run_canary` helper used `bash -c '... '"$@"'` interpolation, which splits multi-arg invocations (`--canary-verify <token>`) across bash positional args, breaking the heredoc with `unexpected EOF while looking for matching '"'`. Fixed: rewrote `run_canary` as direct `"$WRAPPER" "$@"` call. The env vars are already exported by `setup()` so the indirection wasn't needed.
+   - `lib/canary.sh::ac_canary_init` documented env-var defaults (`ANTCRATE_CANARY_TTL_SECONDS` / `MAX_INVOCATIONS`) but didn't actually wire them through to the C++ init. Tests that set `TTL=0` then ran init (without `--ttl-seconds 0` CLI flag) wrote state.json with the C++ default 3600, then gate-check ran against 3600 and returned fresh. Fixed: added env-default fallback in `ac_canary_init` before constructing the `--ttl-seconds`/`--max-invocations` args.
+   - `core/src/canary.cpp::is_fresh` used strict `>` for TTL comparison: `now - last_verified_ts > ttl`. With TTL=0 and same-second check, `0 > 0` is false → fresh (wrong). Changed to `>=` so TTL=0 means "stale on the very next check." For non-zero TTL the boundary is unchanged in practice (sub-second operations are dominated by other latency).
+   - `core/src/canary.cpp::cmd_gate_check` read state-stored TTL/MAX values only, ignoring env-var overrides at runtime. Test #51 changes TTL via env between init and check; expected stale on second check. Fixed: `cmd_gate_check` now reads `ANTCRATE_CANARY_TTL_SECONDS` / `ANTCRATE_CANARY_MAX_INVOCATIONS` env vars and overrides state values for the freshness check (lets users tighten freshness at runtime without re-init).
+6. **Added 1 regression test** (test #46 needed `ANTCRATE_REMOVAL_PREAPPROVED=1` in the rename invocation — test bug, not impl bug).
+7. **Docs missing from Cody's run:** AGENTS.md rule #15, PATTERNS.md "## Safety canary" section, SKILL.md `canary.sh`/`core/` entries — Clyde added all three post-Cody.
+8. **End-to-end live smoke confirmed** the full chain: registered project + canary init + `--rename` with `ANTCRATE_CANARY_TTL_SECONDS=0` → framed gate UX printed, rename refused with `error [wrapper] safety: refusing rename to '<new>' — compaction canary gate failed (see above)`.
+9. **Pre-existing bug surfaced via smoke:** `bin/antcrate` multi-step dispatch ignores return codes — the rename gate fired and refused, but the wrapper still exited 0 because subsequent `ac_diagrams_auto_regen` + `ac_lifecycle_treatment` ran and overwrote the exit code. Filed proposal `wrapper-exit-on-substep-fail`. NOT fixed in Wave 1 (out of scope) but worth a quick follow-up — silent failure on a refused destructive op is the worst case for a safety gate.
+
+**Commits on origin/master:**
+
+```
+c88cbe5  antcrate: auto-commit 2026-05-27T01:20:44Z   ← antcrate --pp internal sync (tree.mmd diagram regen)
+271d2a3  feat(canary): Wave 1 compaction canary — antcrate-core + lib/canary.sh
+```
+
+(Plus the trailing session-close docs commit landing after this ledger entry.)
+
+**Test count: bats 341 → 353 (+12), doctest 2 → 17 (+15). Audit baseline still 301; next audit at 401.** 
+
+**Non-obvious decisions worth remembering:**
+
+- **`>=` for TTL, increment-then-check for invocations.** Both are off-by-one decisions that the Plan agent left implicit. The test expectations forced the resolution. For TTL: `>=` so TTL=0 = "stale on next check" (otherwise TTL=0 needs at least 1 second elapsed to fire). For invocations: increment-then-check so max=N means "every gate-check costs one slot, expires after N." Both choices are documented inline in `is_fresh` and `cmd_gate_check`.
+- **Env-var override at runtime (option b) chosen over init-time-defaults-only (option a).** The Plan agent recommended option (a) — init reads env, state persists, runtime uses state. Tests #48/#51 forced option (b) too — gate-check needs to read env at runtime so users can tighten freshness without re-init. Final design: both layers honor env vars — init writes them to state as defaults, gate-check overrides state with env at check time.
+- **`--with-claudemd` is opt-in, NOT prompt-by-default.** Gateway-Law gating without nagging. The user's home CLAUDE.md is out-of-bounds for any agent (rule from `~/CLAUDE.md` Write Zones). The patcher logic exists in `lib/canary.sh`; live invocation against `~/CLAUDE.md` is a Clyde+user interactive decision, not session-auto.
+- **The bats sweep was 29-file mandatory.** Default behavior of "state missing = stale = gate fires" + safety.sh integration in `ac_safety_guard_destructive` means every existing test that hits a destructive op would fail without `ANTCRATE_CANARY_DISABLE=1` in setup. Skipping the sweep is not an option; it's the cost of the secure default. Pattern: `tests/ingest.bats` uses `ANTCRATE_INGEST_OFFLINE=1` the same way.
+- **Cody's report-back is now FOUR-of-FOUR drift** (2026-05-14, 2026-05-25, 2026-05-26 trio, 2026-05-26/27 canary). With the canary run, Cody also hit a session limit and never returned ANY report (not even the simplify findings). The pattern is now: trust nothing in Cody's summary, verify deliverables directly. The pipeline (Plan → Cody → simplify → Clyde live smoke) still pays off — Clyde verification caught 4 real bugs Cody and simplify didn't. The orchestration model is robust to summary drift as long as Clyde always runs the verify gate.
+- **Direct `"$WRAPPER" "$@"` beats `bash -c '... '"$@"'` interpolation for test helpers.** When env vars are already set by `setup()`, there's no need for the bash -c indirection. The interpolation pattern has a subtle bug: `"$@"` inside outer quoting expands to multiple bash positional args, which bash -c treats as `$1`, `$2` etc, NOT as continuation of the script. Use direct calls; let setup() handle env. Carry forward as a test-pattern lesson.
+
+**Resume next session at one of:**
+- Optional 5-min follow-up: `antcrate --canary-init --with-claudemd` to patch `~/CLAUDE.md` (Clyde+user interactive).
+- C++ Wave 1 continued (4 remaining wrapper guards, each can ride canary's infrastructure).
+- `wrapper-exit-on-substep-fail` quick fix (~30min, high safety-UX value).
+- `--gh-publish` / `--ci-snapshot` / `--audit` / `--ci-core` / composite pre-commit umbrella / `commit-loud-on-bad-flag`.
+
+---
+
 ## 2026-05-26 — Quickwins trio: --install-from-source + --watch-smoke + --watch-window
 
 User opened the session with: "let's go ahead and see what we need to do for antcrate. For analyzing and planning to delegating tasks - to testing and uploading, it shall all be done in batches with agents being allowed to do mostly everything whilst also using antcrate." Explicit batch-pipeline framing: analyze → plan → delegate → test → upload.

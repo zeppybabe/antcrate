@@ -1,36 +1,58 @@
 # AntCrate — Current State
 
-_Last updated: 2026-05-26_
+_Last updated: 2026-05-27_
 
 ## Top of mind
 
 **Session-Close Protocol active (codified in `~/CLAUDE.md` on 2026-05-11).** Three parts: command-sweep, codebase audit every +100 bats tests since last baseline, end-of-session learning. **Audit baseline: 301 bats / shellcheck clean / sha `80385c3`. Next audit due at 401 bats tests** (or when `--audit` itself ships).
 
-**Quickwins trio shipped (2026-05-26):** three antcrate flags landed in one bundled commit (`164d9df`), pushed cleanly (origin/master `7136b72` with auto-commit diagram regen). Test count 316 → **341** (+25 tests, all bats green, shellcheck clean). System wrapper at `~/.local/bin/antcrate` auto-refreshed mid-session via the new `--install-from-source`.
+**Wave 1 compaction canary SHIPPED (2026-05-26/27 session):** first real C++ workload landed in `antcrate-core`. Bundled commit `271d2a3` + auto-commit diagram regen `c88cbe5`, origin/master synced. **Test count: bats 341 → 353 (+12), doctest 2 → 17 (+15). Total surface +27 tests.** Same session also shipped the quickwins trio earlier (see "Earlier (2026-05-26 morning)" below).
 
-- **`--install-from-source`** — resolves antcrate skill path via registry, runs install.sh from there. Probes BOTH `<path>/install.sh` AND `<path>/assets/code/install.sh` (the skill layout nests source under assets/code/; live smoke caught this layout assumption between Cody-impl and commit). Closes the "just shipped a flag, system wrapper is stale" loop. Live-smoked end-to-end in this same session.
-- **`--watch-smoke`** — emit synthetic event + render-once in one call. Defaults: kind=modify, relpath=".", ttl=60000ms, label=smoke (hard-coded so downstream filters can identify smoke events). Pre-validates project registration via `ac_registry_has` BEFORE emit (prevents ghost JSONL files for unknown projects — caught by simplify self-review).
-- **`--watch-window`** — spawn `antcrate --watch <project>` in detached Alacritty window. PID-file-gated dedup at `~/.antcrate/watch/<project>.pid` (tracks **terminal** PID, not inner watch PID — terminal PID is the user-meaningful "one window per project" entity). Stale PID files cleaned silently. Wayland-friendly via `--class ac-watch-<project>`. Validates antcrate binary resolution before spawn (also caught by simplify).
+- **`antcrate-core canary {init,verify,gate-check,status}`** — POSIX.1-2024 C++17 helper. Token gen via `/dev/urandom` (16 bytes → 32 hex), atomic state I/O via temp+rename at `~/.antcrate/canary/state.json`, freshness check uses `>=` for TTL so TTL=0 means "stale on next check." `cmd_gate_check` increments invocations counter BEFORE checking (so max=1 → first gate-check is stale, semantically "every gate-check costs one slot"). Runtime env-var overrides: `ANTCRATE_CANARY_TTL_SECONDS` / `MAX_INVOCATIONS` take precedence over state-stored values for the freshness check (lets users tighten without re-init).
+- **nlohmann/json v3.11.3 vendored** at `core/include/json.hpp` (~900 KB, MIT). Builds clean under `-Wall -Wextra -Wpedantic -Werror`. State.json schema_version=1.
+- **`lib/canary.sh`** — Bash wrapper for the four C++ subcommands + the framed UX (`COMPACTION CANARY GATE` box) on stale gate. `ac_canary_init` reads env defaults if no `--ttl-seconds`/`--max-invocations` flag passed. `ac_canary_patch_claudemd` does in-place sed substitution of `__CANARY_TOKEN__` in `$ANTCRATE_CLAUDEMD` (default `~/CLAUDE.md`), interactive preview-diff + y/N prompt (Gateway-Law honored).
+- **`lib/safety.sh` integration** — single 5-line insert at the top of `ac_safety_guard_destructive` gates every destructive op in one shot (rename/archive/unarchive/remove/cleanup/ingest/subbranch). Opt-out via `ANTCRATE_CANARY_DISABLE=1` (CI/test only — AGENTS.md rule #15 forbids agents from flipping it).
+- **bin/antcrate** — 4 new flags: `--canary-init [--ttl-seconds N] [--max-invocations N] [--with-claudemd]`, `--canary-verify <TOKEN>`, `--canary-status`, `--canary-gate-check` (debug aid).
+- **Bats sweep** — added `export ANTCRATE_CANARY_DISABLE=1` to every `setup()` in all 29 existing bats files so destructive-op tests stay green by default.
+- **AGENTS.md rule #15** — canary is non-bypassable; agents MUST re-read on gate, MUST NOT mutate state.json / flip DISABLE outside CI / call `canary verify` to short-circuit re-read.
 
-**Agent-orchestrator third end-to-end run (2026-05-26 session):**
+**Agent-orchestrator fourth end-to-end run (2026-05-26/27 Wave 1):**
 
-- **One Plan agent** designed the trio as a coherent spec (1500 words: per-flag deliverables, function signatures, bin-dispatch additions, bats test outlines, doc updates, headline-metrics report format Cody should follow). Clyde validated function names against actual lib code before handing to Cody (`ac_events_emit` correct, not `ac_events_append`).
-- **One Cody invocation** via `antcrate --delegate antcrate --key quickwins-trio --task "..."` (attempt 1/3). Delivered all 9 file changes (4 created, 5 modified) + 21 tests + --ci green on first internal pass. Self-invoked `simplify`.
-- **Cody's "lead-with-headline" report-back drifted for the THIRD time** (2026-05-14 → 2026-05-25 → 2026-05-26). Returned ONLY the simplify JSON findings — no Task/Files/Tests/--ci/Smoke headline despite the brief specifying the exact format. Pattern is now CONFIRMED: multi-deliverable Cody runs DEFAULT to nit-summary-first regardless of explicit format spec in the brief. Saved to memory for cross-session continuity. Possible next step: enforce via a Cody-side hook (lint first paragraph for required metric strings before sending) — not yet filed as a proposal.
-- **simplify caught two real bugs** before they shipped: (1) `ac_watch_smoke` would create ghost JSONL files for unknown projects since render_once validation fired after emit → fixed with pre-emit `ac_registry_has` guard + regression test #329; (2) `ac_watch_window` bin fallback resolved to `/bin/antcrate` (nonexistent) when both `command -v antcrate` and `$ANTCRATE_SELFSRC` failed → fixed with executable-check + regression test #341 (uses isolated PATH to bypass the system-installed antcrate). Both fixes Clyde-implemented (5 lines each); simplify paid for itself.
-- **Live smoke caught one MORE real bug all three layers missed** (Plan + Cody + simplify): `--install-from-source` resolved `<path>/install.sh` per spec, but the antcrate skill's install.sh actually lives at `<path>/assets/code/install.sh`. Spec and impl agreed with each other; both wrong against the live layout. Fixed with two-candidate probe + regression test "probes nested assets/code/install.sh when root install.sh absent." **Lesson: agent-spec verification against actual on-disk reality is a separate gate from spec-verification — pass both before commit.**
-- **One bundled commit (`164d9df`) per user choice** instead of three feature-boundary commits. `bin/antcrate` + `PATTERNS.md` + `SKILL.md` each contained interleaved per-flag wiring; clean lib-boundary split would have left commits 1/2 with lib functions present but not wrapper-exposed (fails bisect). Pragmatic-over-planned: bundle wins when split granularity is hunk-level.
-- **One propose filed:** `commit-loud-on-bad-flag` — `antcrate --commit` silently prints help text on unknown flags (e.g. `--all` typo instead of `--all-tracked`); should reject with exit 2 or accept `--all` as alias. Surfaced after one wasted verify cycle this session.
+- **Plan agent** produced a 2500-word coherent spec (C++ + Bash + tests + docs + 6 open questions + headline-metrics format). User pre-confirmed two key decisions via AskUserQuestion: nlohmann/json vendored + `--with-claudemd` opt-in (other 4 questions took recommended defaults).
+- **Cody invocation** hit a session limit mid-run; ALL 6 new files + 9 modified files were already on disk when the limit fired (bats sweep complete, C++ + Bash + tests all written). Cody never delivered a report. Clyde resumed verification on the partial state.
+- **Cody's drift is now FOUR-of-FOUR** (2026-05-14, 2026-05-25, 2026-05-26 trio, 2026-05-26/27 canary). With the session-limit-interrupted run, Cody never even attempted the report — but the deliverables themselves were sound. Clyde verification stays the only reliable feedback path.
+- **Clyde caught FOUR real bugs in Cody's output** during verify:
+  1. `tests/canary.bats::run_canary` helper used `bash -c '... '"$@"'` interpolation which splits multi-arg invocations across bash positional args, breaking the heredoc on any verify-with-token call. Fixed: rewritten as direct `"$WRAPPER" "$@"` call (env vars already exported by setup).
+  2. `lib/canary.sh::ac_canary_init` documented `ANTCRATE_CANARY_TTL_SECONDS` / `MAX_INVOCATIONS` env vars but didn't pass them through to the C++ init. Fixed: added env-default fallback before constructing `--ttl-seconds`/`--max-invocations` args.
+  3. `core/src/canary.cpp::is_fresh` used strict `>` for TTL comparison; with TTL=0 + same-second check, returned fresh (wrong). Fixed: changed to `>=`.
+  4. `core/src/canary.cpp::cmd_gate_check` read state-stored TTL/MAX only, ignored env-var overrides. Fixed: env vars now override state values at runtime for the freshness check.
+- **Docs missing from Cody's run:** AGENTS.md rule #15, PATTERNS.md "## Safety canary" section, SKILL.md `canary.sh`/`core/` entries — Clyde added all three post-Cody.
+- **End-to-end live smoke confirmed:** registered project + canary init + `--rename` with `ANTCRATE_CANARY_TTL_SECONDS=0` → framed gate UX printed, rename refused with `error [wrapper] safety: refusing rename to '<new>' — compaction canary gate failed`.
+- **Pre-existing bug surfaced via smoke:** `bin/antcrate` multi-step dispatch (rename → diagrams_auto_regen → lifecycle_treatment) ignores return codes; if the first step fails, the script's exit code is the last step's, masking the gate refusal. Filed proposal `wrapper-exit-on-substep-fail`. NOT fixed in Wave 1 (out of scope) but worth a quick follow-up since silent failure on a refused destructive op is the worst case for a safety gate.
 
 **Resume next session at one of (user's choice — multiple parallel tracks):**
 
-- **C++ migration Wave 1** — wrapper guards. Compaction canary first (Cat 4), then `--no-verify` strip (Cat 7), then `$HOME`-expansion detect on `rm` (Cat 1.2), then compound-command splitter (Cat 10.2), then bulk-delete count gate (Cat 1.4). Pre-implementation Plan agent.
-- **`--gh-publish`** — composite flag from 2026-05-25 proposal. One-shot for visibility flip + description + topics. Gateway-Law gated (visibility flip is irreversible in practice). ~90min.
-- **`--ci-snapshot`** — persist baseline after --ci PASS so audit cadence is automated, not eyeballed. ~60min.
-- **`--audit`** — programmatic codebase audit. Medium-large pass. Companion to --propose.
+- **Optional follow-up: patch `~/CLAUDE.md` with the canary section.** Run `antcrate --canary-init --with-claudemd` interactively; preview the diff; type `y` to substitute `__CANARY_TOKEN__` in the user's home CLAUDE.md. This is Gateway-Law gated (user's home file) so Clyde+user decision, not agent-auto. ~5min.
+- **C++ migration Wave 1 continued** — remaining 4 wrapper guards: `--no-verify` strip via outer PATH-shim (Cat 7), `$HOME`-expansion detect on `rm` (Cat 1.2), compound-command splitter (Cat 10.2), bulk-delete count gate (Cat 1.4). Each can ride the canary's infrastructure (lib/canary.sh pattern + C++ subcommand pattern). ~2-3hr each.
+- **`wrapper-exit-on-substep-fail`** — quick fix (~30min) for the multi-step dispatch silent-failure bug. High UX/safety value.
+- **`--gh-publish`** — composite flag from 2026-05-25 proposal. ~90min.
+- **`--ci-snapshot`** — automate audit cadence. ~60min.
+- **`--audit`** — programmatic codebase audit. Medium-large pass.
 - **`--ci-core`** — scoped --ci skipping bats for C++ iteration.
 - **Composite pre-commit umbrella** — last item on `HOOK_PLAN.md`. ~2hr.
-- **Newly-proposed today:** `commit-loud-on-bad-flag` — quick win, ~30min.
+- **`commit-loud-on-bad-flag`** — quick UX win from 2026-05-26 trio session.
+
+---
+
+## Earlier (2026-05-26 morning) — Quickwins trio shipped
+
+**Quickwins trio shipped (2026-05-26):** three antcrate flags landed in one bundled commit (`164d9df`), pushed cleanly (origin/master `7136b72` with auto-commit diagram regen). Test count 316 → 341 (+25 tests, all bats green, shellcheck clean). System wrapper at `~/.local/bin/antcrate` auto-refreshed mid-session via the new `--install-from-source`.
+
+- **`--install-from-source`** — resolves antcrate skill path via registry, runs install.sh from there. Probes BOTH `<path>/install.sh` AND `<path>/assets/code/install.sh`. Live smoke caught the layout assumption between Cody-impl and commit.
+- **`--watch-smoke`** — emit synthetic event + render-once in one call. Pre-validates project registration via `ac_registry_has` BEFORE emit (caught by simplify self-review).
+- **`--watch-window`** — spawn `antcrate --watch <project>` in detached Alacritty window. PID-file-gated dedup (tracks terminal PID — user-meaningful "one window per project" entity). Validates antcrate binary resolution before spawn (also caught by simplify).
+
+Cody's report-back drifted for the THIRD time. Pattern confirmed (and now confirmed FOUR times with Wave 1). Lesson: agent-spec verification against actual on-disk reality is a SEPARATE gate from spec-verification — pass both before commit. Filed propose: `commit-loud-on-bad-flag`.
 
 ---
 
