@@ -46,6 +46,7 @@ Designed to be the **single controllable surface** for solo-developer ops — ev
   - `watch.sh` — colored tree renderer over the active event overlay; `--watch` loops, `--once` for scripts; `--watch-smoke` emits + renders in one call
   - `watch_window.sh` — detached terminal window management; `--watch-window` spawns alacritty with PID-file dedup
   - `cleanup.sh` — classifier + apply for test-tmp / empty-dir candidates; `--cleanup <project> [--apply <id>...]`
+  - `hygiene.sh` — registry hygiene; `--ghosts` (read-only list of entries whose path is missing) + `--deregister <project>` (capture-first registry-only drop of a ghost; refuses if path exists → `--archive`). See AGENTS.md rule #19.
   - `git_init.sh` — local-only `git init` for a registered project (idempotent + `core.hooksPath` wire); `--git-init <project>`
   - `bootstrap.sh` — one-liner: `--git-init` + default `.gitignore` + first commit; `--bootstrap <project> [-m] [--with-remote --public/--private]`
   - `propose.sh` — `--propose` / `--proposals` (escape valve when no flag fits)

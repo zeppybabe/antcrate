@@ -67,6 +67,33 @@ ad-hoc is a candidate for absorption. The `gh` CLI is dual-use:
 
 **Pattern observed:** the public-flip is exactly the kind of one-shot composite the gh pipeline should absorb. Three `gh repo edit` calls (description, topics, visibility) plus pre/post `gh repo view` for verification = five gh invocations for what is conceptually one action. `--gh-publish` collapses to one command + audit row + Gateway-Law approval. The earlier "Deferred" `--gh-public` line is now superseded by this richer proposal.
 
+### Session: 2026-05-30 (plugin layer attached — `github` + `commit-commands` plugins installed)
+
+No raw `gh` command this session, but a structural event for this plan: the
+**`github`** and **`commit-commands`** plugins were installed, plus the
+Obsidian + Google Drive MCP servers. The plugins overlap directly with the
+surface this doc tracks (`commit-commands` → commit/push/PR; `github` →
+repo/issue/PR/run ops).
+
+**Mediation stance (not absorption-by-force):** AntCrate does not race the
+plugins to wrap `gh`. Instead the boundary is *who the gate is for a
+registered project*:
+
+- For a **registered project**, `--commit` / `--pp` stay mandatory — they
+  carry the secret-pattern guard, push-rejection triage, private-by-default,
+  and Gateway-Law preview that a bare plugin commit/push does not. Filed
+  proposal `plugin-commit-gate` (2026-05-30) to codify this as a guideline.
+- For **non-registered trees** and **read-only GitHub-API queries**, let the
+  plugin do it — that is exactly the "let the plugin run it locally" case the
+  user described. These are no longer flag candidates; the plugin is the
+  answer.
+- The earlier "Proposed flag set" below (`--runs`, `--watch-run`, `--run-log`,
+  `--issues`, `--prs`) is now **partially obsoleted by the `github` plugin**.
+  Re-scope before implementing: only build an antcrate flag where the action
+  must pass through an antcrate invariant (project-name → remote resolution,
+  config defaults, Gateway-Law gate). Pure passthrough reads should defer to
+  the plugin.
+
 ---
 
 ## Proposed flag set (first implementation pass)

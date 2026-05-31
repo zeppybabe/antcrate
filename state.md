@@ -1,10 +1,84 @@
 # AntCrate — Current State
 
-_Last updated: 2026-05-27_
+_Last updated: 2026-05-30_
 
 ## Top of mind
 
-**Session-Close Protocol active (codified in `~/CLAUDE.md` on 2026-05-11).** Three parts: command-sweep, codebase audit every +100 bats tests since last baseline, end-of-session learning. **Audit baseline: 301 bats / shellcheck clean / sha `80385c3`. Next audit due at 401 bats tests** (or when `--audit` itself ships).
+**2026-05-30 (post-restart) — Permission question SETTLED: background subagents cannot write; use FOREGROUND.** Three-tier build chain locked: **Clyde (Opus) orchestrates + documents → Cody (Haiku) builds → Claudia (Sonnet) reviews + tests.** New agent file `~/.claude/agents/claudia.md` written (Claudia = the Sonnet review/test specialist, supersedes `cody-tester.md` which stays on disk dormant). Cody dispatched at `model: haiku` per-spawn (memory `feedback_cody_haiku_model`).
+
+**Background-agent WRITE blocker — RESOLVED EMPIRICALLY (post-restart probes, 2026-05-30):** the "single-slash // path fix would unblock background writes after a restart" theory is **DISPROVEN.** Definitive test this session, fresh post-restart with `settings.local.json` carrying `Edit(//abs/**)`+`Write(//abs/**)` + `defaultMode: acceptEdits` + `additionalDirectories: [abs]`: **background Cody-Haiku nested write = BLOCKED; foreground Cody-Haiku identical task = OK (write+edit+delete all succeeded).** Because `acceptEdits` auto-accepts with no prompt, the "background can't prompt" explanation is refuted — it's a genuine background-mode limitation. **RULE GOING FORWARD: dispatch every editing agent (Cody, Claudia) in the FOREGROUND (omit `run_in_background`). Parallelism for editing = multiple FOREGROUND agents in one message, NOT background.** Do not restart again to chase this — it is not a config bug. Settings (`//` rules, bats rule, source-wrapper rule) are correct and stay. Memory `feedback_permissions_session_restart.md` rewritten with the settled conclusion.
+
+**DONE THIS POST-RESTART SESSION:**
+1. ~~Re-probe background write~~ — DONE: background BLOCKED, foreground OK. Settled (see above).
+2. ~~Confirm Claudia dispatchable~~ — DONE: dispatched FOREGROUND, reviewed + added 5 tests + fixed manifest. Loads post-restart.
+3. ~~BUILD registry-hygiene~~ — SHIPPED. `--ghosts` + `--deregister` via `lib/hygiene.sh` + `tests/hygiene.bats` (14 tests). **bats 370 → 384, --ci PASS.** AGENTS.md #19 (three fates), PATTERNS.md + SKILL.md updated. Cody(Haiku,fg) built test-first → Claudia(Sonnet,fg) reviewed.
+4. ~~Apply hygiene pass~~ — DONE (Gateway-Law, user-approved). Deregistered 3 ghosts (dlg_smoke/hookrm_smoke/md_test_proj → captured to `deregistered/`), archived 2 fixtures (test-scaffold/ac-livetest → `.archive/`). Registry 9→6, `--ghosts` clean. Pre-snapshot at `~/.antcrate/registry.json.pre-hygiene-<ts>`.
+5. **CANARY NOW LIVE.** Plain `--canary-init` run (token `7d7b…`, TTL 3600s/30 inv, NO `--with-claudemd`) to unblock the archives — the gate fails-closed on an uninitialized canary. Every destructive op is now gated. `wrapper-exit-on-substep-fail` bug confirmed live (`--canary-gate-check` masked rc=2 as exit 0).
+
+**RESUME NEXT (no restart needed; foreground agents only):**
+1. **Commit boundaries + push** — hygiene feature is uncommitted alongside held 2026-05-30 Obsidian + 2026-05-29 quarantine stubs + diagrams.sh/GH_PIPELINE_PLAN edits. Last commit `bab24dc`. Decide commit split (suggest: one `feat(hygiene): --ghosts + --deregister` commit for the new feature, separate commits for the pre-existing held work), then `antcrate --pp antcrate`. `--install-from-source` afterward so the system wrapper picks up `--ghosts`/`--deregister`.
+2. **Pending decision: `--canary-init --with-claudemd`** — patch the canary token into `~/CLAUDE.md` (Gateway-Law gated, interactive). Deferred this session.
+3. Stray `~/projects/scripts/test-scaffold2` (unregistered dir) — future cleanup.
+4. Wave 1 proper (quarantine pivot units A→B/C/D) still pending — note background-parallel is OFF the table; use multiple FOREGROUND agents per the settled permission rule.
+
+**Registry-hygiene feature — APPROVED DESIGN (build target):** user chose "registry hygiene first," then steered it into an implementation. Two new flags, test-first (bats before impl), Cody builds → Claudia reviews+tests:
+- **`--deregister <project>`** — registry-ONLY removal for GHOST entries (registered project whose on-disk `path` no longer exists). REFUSES if the path still exists (redirect to `--archive`, so it can't backdoor the safety guard). Capture-first: writes the entry's JSON + a manifest to a **dedicated `~/.antcrate/deregistered/<project>/<UTC-ts>/` dir** (user's explicit choice — kept SEPARATE from `~/.antcrate/quarantine/` so registry-deregistration is visibly different from actual data removal), THEN `ac_registry_delete` (atomic, linked_nodes-aware, already in registry.sh). Proposal `deregister` filed in proposals.log.
+- **`--ghosts`** — read-only sibling listing all registry entries whose `path` is MISSING.
+- Apply the hygiene pass: **3 true ghosts → `--deregister`** (`dlg_smoke` /tmp/ac_delegate_smoke, `hookrm_smoke` /tmp/ac_hookrm_smoke, `md_test_proj` /tmp/ac_test_md — all verified MISSING, linked_nodes empty, zero cross-refs). **2 existing test fixtures → `--archive`** (`test-scaffold`, `ac-livetest` — exist on disk; user rule: test-purpose scripts get archived to `old_projects`, never removed). `ac-validation-renamed` already in `.archive` — leave it.
+- **User's removal philosophy (carry into AGENTS.md):** three distinct fates — `--deregister`→`deregistered/` (stale registry entry, files already gone), quarantine→`quarantine/` (actual data removal = archive+move, only user deletes), archive→`old_projects` (live-but-retired project). "Anything that needs to be removed is basically quarantine."
+
+**Pre-existing uncommitted work still in tree (do NOT lose):** 2026-05-30 Obsidian + plugin-commit-gate (verified, bats 370/PASS, held pending user go) + 2026-05-29 quarantine stubs. Last commit `bab24dc`. The registry-hygiene work will add to this; decide commit boundaries before `--pp`.
+
+**2026-05-30 — Obsidian FEED-IT layer + plugin-commit-gate landed.** `--obsidian-mirror [project] [--with-docs]` (`lib/obsidian.sh`) — one-way read-only mirror of registry graph + per-project tree/ledger/docs into `<vault>/AntCrate/`; ghost-skip (missing-path entries filtered); `ANTCRATE_OBSIDIAN_AUTO=1` opt-in auto-regen. bats 353 → **370**, --ci PASS. Built by **Cody-on-Haiku** (foreground — NOTE: background Cody does NOT inherit Edit perms). User has set `ANTCRATE_OBSIDIAN_VAULT` in config; vault populated + ghost-free; antcrate mirrored with 36 doc notes (graph cross-links resolve in Obsidian). **`plugin-commit-gate` → AGENTS.md rule #18** (policy: registered-project commits/pushes stay on `--commit`/`--pp`, not plugins/bare-git); #16/#17 reserved for Wave 1. PATTERNS.md got a let-it/feed-it/gate-it section. **Committed/pushed? NO — held pending user go** (plus pre-existing uncommitted 2026-05-29 quarantine work). **Open: registry hygiene (Gateway-Law)** — purge ghost entries `dlg_smoke`/`hookrm_smoke`/`md_test_proj` + decide on fixtures `ac-livetest`/`test-scaffold`/`ac-validation-renamed`. Open proposals: `drive-bundle`, `obsidian-prune` (mirror sync-delete). Cody Haiku-eligible (model picked at dispatch; `cody.md` "Model selection").
+
+**Session-Close Protocol active (codified in `~/CLAUDE.md` on 2026-05-11).** Three parts: command-sweep, codebase audit every +100 bats tests since last baseline, end-of-session learning. **Audit baseline: 301 bats / shellcheck clean / sha `80385c3`. Next audit due at 401 bats tests** (or when `--audit` itself ships). Current: 353 bats.
+
+**RESUME NEXT SESSION:** Restart Claude Code FIRST. Settings + agent-frontmatter changes made 2026-05-29 (`permissionMode: acceptEdits` in `cody.md` + `cody-tester.md`; `defaultMode: acceptEdits` + Edit/Write allow rules in `settings.local.json`) only reach subagents in a fresh session. Confirmed via smoke test: 4 Cody-A launches denied even with `Edit(*)` blanket; the parent session snapshots the permission context at start.
+
+**Wave 1 quarantine pivot DESIGNED (2026-05-29):** mid-session reframe from "guard the existing destructive ops" → "eliminate destructive ops entirely." All user-data deletion becomes archive+compress+timestamp+label → `mv` to user-managed quarantine folder. NO antcrate flag may delete user data; only the user deletes the quarantine root. Quarantine path: `~/.antcrate/quarantine/<project>/<UTC-ts>__<op>__<sanitized-label>/`. Driver: variables-paired-with-`rm` is bad practice; safest fix is to remove the `rm` verb from user-data paths entirely. See ledger 2026-05-29 entry for full audit findings.
+
+**4 Wave 1 units (A sequential before B/C/D parallel):**
+
+- **A. Quarantine pivot (Cody-A)** — Build `lib/quarantine.sh` exposing `_ac_quarantine_capture <project> <src> <op> <label>` (mkdir + tar.gz + mv + sha256 manifest.json) and `_ac_unlink_internal <path>` (path-zone-checked rm for `~/.antcrate/` + `.git/` only — the ONLY rm-with-var site post-pivot). Replace 5 user-data rm sites: `lib/safety.sh:113` (label `safe-rm`), `lib/cleanup.sh:226` (`cleanup-$category`), `lib/devops.sh:192` (`remove`), `lib/ingest.sh:505` (`ingest-supersedes`), `lib/ingest.sh:512` (`ingest-supersedes-skill`). Centralize 3 housekeeping rm sites: `lib/lock.sh:24`, `bin/antcrated:52`, `lib/hooks.sh:158` → `_ac_unlink_internal`. Wire wrapper flags `--quarantine-list <project>` (read-only desc-ts list) + `--quarantine-restore <project> --at <ts>` (mv back, refuse if dest exists). **NO `--quarantine-purge` flag** — user manual cleanup only. AGENTS.md rule #16: "No `rm $VAR` outside `_ac_unlink_internal`." Update rule #1 to note backup is now implicit. **Stubs already on disk** at `lib/quarantine.sh` + `tests/quarantine.bats` — Cody fills via Edit, not Write.
+- **B. `--dry` standard contract (Cody-B, after A merges)** — `lib/dry.sh` with `ac_dry_active` / `ac_dry_emit`. Add `--dry-run` to all 5 destructive flags (`--remove`, `--cleanup --apply`, `--rename`, `--archive`, `--unarchive`). AGENTS.md rule #17: **no `2>/dev/null` or `>/dev/null` inheritance under `--dry`** (agents must see errors raw). Ride-along: `commit-loud-on-bad-flag` (`--commit` parser rejects unknown flags with exit 2 + "unknown commit arg" message; today it silently prints help).
+- **C. Cat 7 `--no-verify` strip (Cody-C, parallel with B+D)** — `lib/git_shim.sh` with `ac_git_safe` stripping `--no-verify` from internal git invocations. Log attempts to `~/.antcrate/git-shim.log`. AGENTS.md rule extension: agents may NOT pass `--no-verify`. Ride-along: `wrapper-exit-on-substep-fail` (multi-step dispatch chain wraps each step with `|| { ac_error "step failed at <name>"; exit 1; }` — currently exit code is last step's, masking earlier failures).
+- **D. Cat 10.2 compound-command splitter (Cody-D, parallel with B+C)** — `lib/splitter.sh` detecting `&&`/`||`/`;` in agent-issued commands. Ride-along: `--ci-core` collapses to `--ci --only=core` (scope modifier on existing param per "no new flag names" rule).
+
+**Wave 2 (4 cody-tester agents in parallel after Wave 1 merges):** test-with-purpose contract — for each failing test, diagnose root cause + apply code fix + re-run; **no retry-verbatim, no output suppression, three diagnose-fix attempts then escalate**. Full taxonomy per unit: unit + smoke + SUT + e2e + regression. `cody-tester.md` written 2026-05-29 at `~/.claude/agents/cody-tester.md` (Sonnet, `permissionMode: acceptEdits`).
+
+**Audit findings dissolved 5 proposals into modifiers/aftermath (no new flag surface):**
+
+- `--ci-core` → `--ci --only=core` (Wave 1D ride-along)
+- `--install-from-source` → auto-aftermath of `--commit antcrate` (Clyde-direct post-Wave-1)
+- `--ci-snapshot` → auto-aftermath of `--ci` PASS (Clyde-direct post-Wave-1)
+- `wrapper-exit-on-substep-fail` → internal dispatch fix (Wave 1C ride-along)
+- `commit-loud-on-bad-flag` → `--commit` parser fix (Wave 1B ride-along)
+
+**Persistent fixes already on disk:**
+
+- `~/.claude/agents/cody.md` — `permissionMode: acceptEdits` in frontmatter
+- `~/.claude/agents/cody-tester.md` — NEW; Sonnet, test-with-purpose contract, `permissionMode: acceptEdits`
+- `~/.claude/settings.local.json` — `permissions.defaultMode: "acceptEdits"` + explicit Edit/Write allow rules on antcrate tree
+- `lib/quarantine.sh` + `tests/quarantine.bats` — header-only stubs
+
+**Resume sequence next session:**
+
+1. **Restart Claude Code** (mandatory).
+2. Smoke-ping Cody with a trivial "ack permissions" task to confirm Edit/Write live.
+3. Launch Cody-A on the Unit A brief (above). Use `subagent_type: "cody"`, `run_in_background: true`, **no worktree isolation** (A is solo).
+4. Verify Cody-A's diff: `bash bin/antcrate --ci` PASS, smoke `--quarantine-list` + `--quarantine-restore` end-to-end against a fixture project.
+5. Commit A as its own feature commit (`feat(quarantine): replace user-data rm with capture-and-move`).
+6. Launch Cody-B + Cody-C + Cody-D in parallel — each in `isolation: "worktree"` from post-A master, single Agent message with 3 parallel calls.
+7. Verify each, merge sequentially, `--ci` between merges.
+8. Launch 4 cody-tester agents in parallel (`subagent_type: "cody-tester"`) — one per A/B/C/D regression.
+9. Collate `antcrate --propose` outputs from all 8 agents, dedupe against `~/.antcrate/proposals.log`, surface NEW for joint Clyde+user approval per Gateway Law.
+10. Aftermath wiring (Clyde-direct, post-Wave-1): `--install-from-source` auto-fire after `--commit antcrate`; ci-snapshot auto-fire after `--ci` PASS.
+11. `antcrate --pp antcrate -y` for the bundle commit.
+12. Session-close protocol.
+
+---
+
+## Earlier (2026-05-26/27) — Wave 1 compaction canary shipped
 
 **Wave 1 compaction canary SHIPPED (2026-05-26/27 session):** first real C++ workload landed in `antcrate-core`. Bundled commit `271d2a3` + auto-commit diagram regen `c88cbe5`, origin/master synced. **Test count: bats 341 → 353 (+12), doctest 2 → 17 (+15). Total surface +27 tests.** Same session also shipped the quickwins trio earlier (see "Earlier (2026-05-26 morning)" below).
 

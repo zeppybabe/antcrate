@@ -29,6 +29,8 @@ Goal of this file: Claude Code (or any agent) reads this **before** reaching for
 | Archive a project | `antcrate --archive <project>` | Backup + approval; moves to `~/projects/.archive/<project>`, marks parent=`_archived`, stores `previous_parent`. |
 | Restore an archived project | `antcrate --unarchive <project>` | Backup + approval; reads `previous_parent` and moves back to `~/projects/<previous_parent>/<name>`. |
 | Permanently delete a project | `antcrate --remove <project>` | Backup + approval + loud "PERMANENT DELETE" banner. `rm -rf` + registry purge. Recovery only via the printed backup tarball. Prefer `--archive` if uncertain. |
+| List ghost entries (registered but path gone) | `antcrate --ghosts` | Read-only. Lists every registry entry whose on-disk `path` no longer exists. Run before a hygiene pass. |
+| Drop a ghost registry entry (registry-only) | `antcrate --deregister <project>` | For a GHOST only — capture-first to `~/.antcrate/deregistered/<project>/<ts>/` (`entry.json`+`registry.json`+`manifest.json`), then `ac_registry_delete`. **REFUSES (exit 1) if the path still exists** → use `--archive` instead. No `rm` of user data; not the canary/safety-guard path. See AGENTS.md #19 (three fates). |
 | Create a file inside a project | `antcrate --touch <project> <relpath>` | Auto-mkdirs parents. Refuses overwrite, absolute paths, `..` traversal. Stdout = absolute path (composes with `Write` / `$EDITOR`). |
 | Create a directory inside a project | `antcrate --mkdir <project> <relpath>` | `mkdir -p`. Same path-safety rules as `--touch`. Stdout = absolute path. |
 
@@ -238,6 +240,16 @@ antcrate --propose env-rotate "Rotate .env values; backup the prior file under ~
 Inspect: `antcrate --proposals` or `cat ~/.antcrate/proposals.log`.
 
 The user reviews proposals and decides which become real flags. Until that happens, the bare command remains off-limits — the proposal log is how Claude says "I would have needed this" without bypassing the safety boundary.
+
+## Plugins & external tools (let-it / feed-it / gate-it)
+
+AntCrate is a **mediator, not a dominator**. It supplements tools so work can run locally; when a plugin/MCP already does that, AntCrate stays out of the way. It only steps in when something is missing or an AntCrate guideline is at stake. Every external surface sorts into one of three buckets:
+
+- **🟢 LET IT** — pure capability that touches no AntCrate invariant. Use freely; no antcrate involvement. Examples: `context7` (live library docs), `clangd-lsp` + the `cpp-check` skill (C++ for `antcrate-core`), `security-guidance` / `security-review`, `superpowers` method-skills (TDD, brainstorming, systematic-debugging — the *how*; AGENTS.md is the *what-you-may-touch*), `code-review` (cloud, opt-in deeper pass — `--ci` stays the must-pass LOCAL gate), `claude-code-setup`.
+- **🔵 FEED IT** — AntCrate generates, the surface renders; AntCrate stays the source of truth. **Obsidian** is the local read view-layer: `antcrate --obsidian-mirror [project] [--with-docs]` mirrors the registry graph + per-project tree/ledger/docs into `<vault>/AntCrate/` (one-way, read-only, never writes back). **Google Drive** is the research/producer side of `BUNDLE_SPEC` (proposal `drive-bundle`).
+- **🟡 GATE IT** — overlaps an AntCrate guideline, so the gate-bearing flag stays mandatory **for registered projects** (AGENTS.md rule #18). The `commit-commands` + `github` plugins overlap `--commit` / `--pp`: those flags own the commit/push step for any registered project (secret-guard, push-triage, private-default, Gateway-Law). The plugins handle non-registered trees + read-only GitHub queries.
+
+When a new plugin/MCP arrives, classify it into one of these buckets before reaching for it; if it would touch a registered project's structure, commits, or destructive ops, it's GATE-IT and the antcrate flag wins.
 
 ## Quick index by verb
 

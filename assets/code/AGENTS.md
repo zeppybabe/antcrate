@@ -68,6 +68,23 @@ These rules govern any AI agent (Claude Code, Cursor, etc.) operating on or with
     - If `~/.antcrate/canary/state.json` is missing on a fresh install, the gate exits 2 (treated as stale). Run `antcrate --canary-init [--with-claudemd]` once at setup.
     - For CI: set `ANTCRATE_CANARY_DISABLE=1` in the CI environment's setup. Bats tests do this by default in `setup()`.
 
+16–17. _**Reserved** for in-flight Wave 1 (designed 2026-05-29, not yet shipped): **#16** — no `rm $VAR` outside `_ac_unlink_internal` (user-data destruction routes through `_ac_quarantine_capture`); **#17** — no output-suppression (`2>/dev/null` / `>/dev/null`) inherited under `--dry`. These numbers are claimed by the quarantine pivot + `--dry` contract; do not reuse._
+
+18. **Registered-project commits and pushes route through `antcrate --commit` / `--pp` — never through plugins or bare git.** With the `commit-commands` and `github` Claude Code plugins installed (and `gh` / bare `git` always present), there are now several ways to commit and push. For any project IN THE REGISTRY, the antcrate flags remain the mandatory path: `--commit` carries the secret-pattern guard + Gateway-Law preview/prompt; `--pp` carries push-rejection triage + the in-sync verify; created remotes default to private (see `feedback_private_by_default`). A bare `git commit` / `git push`, the `commit-commands` skill (`/commit`, `/commit-push-pr`), or the `github` plugin's write operations bypass all of that.
+
+    **Why:** the entire value of `--commit` / `--pp` is the guards bolted onto them. A second, ungated commit path silently reintroduces the exact risks those flags exist to prevent — leaked secrets, un-triaged push rejections, accidental public remotes. The plugins are additive capability for everything OUTSIDE the registered set; inside it, the gate is the gate. This is mediation, not domination: antcrate neither wraps nor disables the plugins.
+
+    **How to apply:**
+    - Agents (Clyde, Cody) MUST use `antcrate --commit <project>` / `antcrate --pp <project>` for any registered project. Do NOT invoke the `commit-commands` plugin skills or the `github` plugin's commit/push/merge operations against a registered project's tree.
+    - The plugins ARE fine for: trees that are NOT registered AntCrate projects, and read-only GitHub queries (issue/PR/run listing, `repo view`) where no antcrate invariant applies.
+    - The durable local backstop is the antcrate pre-commit hook (`--hook-install`, or the opt-in `.githooks/pre-commit`): even if a human drives a commit via a plugin, an installed hook still runs the secret-scan + `--ci`. Keep the hook installed on registered projects so the gate holds regardless of the commit path. Hook bypass stays rule #14 (human-only).
+
+19. **Three fates for "removing" a project — match the fate to the situation; `--deregister` is registry-only and may NOT touch live data.** "Anything that needs to be removed is basically quarantine." The three distinct outcomes:
+    - **Deregister → `~/.antcrate/deregistered/<project>/<UTC-ts>/`** (`antcrate --deregister <project>`): for a GHOST — a registered entry whose on-disk `path` no longer exists. Drops the stale registry entry ONLY. Capture-first (writes `entry.json` + full `registry.json` + `manifest.json`), then `ac_registry_delete` (atomic, `linked_nodes`-aware). **REFUSES with exit 1 if the path still exists on disk**, redirecting to `--archive` — this is the invariant that stops `--deregister` becoming a backdoor around rule #1 / the Gateway Law. Read-only sibling: `--ghosts` lists all entries whose path is missing. Deregister is deliberately SEPARATE from quarantine so a registry-cleanup is visibly different from data removal.
+    - **Quarantine → `~/.antcrate/quarantine/`** (Wave 1, rule #16): actual user-data removal = archive + compress + timestamp + move. Only the user deletes the quarantine root; no `--quarantine-purge`.
+    - **Archive → `~/projects/.archive/`** (`antcrate --archive`, `_archived` parent in registry): a live-but-retired project, fully recoverable via `--unarchive`. Test-purpose fixtures are archived, never removed.
+    Agents pick the fate by inspecting on-disk reality first (`--ghosts`, `find <path>`). When unsure between archive and any removal, default to archive (compress-or-remove default under rule #12).
+
 ## Soft rules (proceed but log to ledger)
 
 - New project creation via `--start` or `--branch` — fine, log path to ledger.
