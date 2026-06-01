@@ -33,15 +33,13 @@ ac_gh_init_repo() {
         ac_error "gh: failed to fetch authenticated user"; return 1; }
     local https_url="https://github.com/${user}/${project}.git"
 
-    cd "$path" || return 1
-
     # ensure local repo has at least one commit
-    if [[ ! -d .git ]]; then
-        git init -q
+    if [[ ! -d "$path/.git" ]]; then
+        git -C "$path" init -q
     fi
-    if ! git rev-parse HEAD >/dev/null 2>&1; then
-        git add -A
-        git commit -qm "antcrate: initial commit ($project)" || true
+    if ! git -C "$path" rev-parse HEAD >/dev/null 2>&1; then
+        git -C "$path" add -A
+        git -C "$path" commit -qm "antcrate: initial commit ($project)" || true
     fi
 
     # create remote (idempotent — if it exists, gh exits non-zero; we tolerate)
@@ -50,7 +48,7 @@ ac_gh_init_repo() {
         ac_warn "gh: repo ${user}/${project} already exists — skipping create"
     else
         gh repo create "${user}/${project}" "--${visibility}" \
-            --source=. --remote=origin --push 2>&1 | sed 's/^/  gh: /' || {
+            --source "$path" --remote=origin --push 2>&1 | sed 's/^/  gh: /' || {
             ac_error "gh: repo create failed"; return 1; }
         # gh repo create with --source already wires the origin; no further work needed
         ac_registry_set_remote "$project" "$https_url"
@@ -58,18 +56,20 @@ ac_gh_init_repo() {
         return 0
     fi
 
-    # repo existed; just wire origin if missing and push
-    if ! git remote get-url origin >/dev/null 2>&1; then
-        git remote add origin "$https_url"
+    # repo existed; just wire origin if missing and push through the gateway
+    if ! git -C "$path" remote get-url origin >/dev/null 2>&1; then
+        git -C "$path" remote add origin "$https_url"
     fi
     ac_registry_set_remote "$project" "$https_url"
 
-    # push current branch tracking
-    local branch; branch=$(git rev-parse --abbrev-ref HEAD)
-    git push -u origin "$branch" 2>&1 | sed 's/^/  git: /' || {
-        ac_warn "gh: initial push failed (the triage flow will engage on next --pp)"
-        return 1; }
-    ac_info "gh: $project pushed to $https_url"
+    # route through ac_git_push: upstream-auto-set handles the first-push upstream,
+    # and a rejection now engages the conflict triage instead of a bare warn.
+    if ac_git_push "$project" "$path"; then
+        ac_info "gh: $project pushed to $https_url"
+    else
+        ac_warn "gh: initial push triaged — see $ANTCRATE_CONFLICT_LOG"
+        return 1
+    fi
 }
 
 # ac_gh_login_hint — print onboarding instructions

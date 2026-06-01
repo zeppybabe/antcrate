@@ -50,15 +50,24 @@ ac_triage_dispatch() {
     fi
 }
 
-# ac_git_push <project>  — wraps git push, engages triage on rejection
-# Operates in $PWD; caller is expected to cd into the project dir.
+# ac_git_push <project> [path]  — wraps git push, engages triage on rejection.
+# Operates on <path> (default $PWD) via `git -C`; no cwd mutation. If the current
+# branch has no upstream, the push sets it (-u origin <branch>) so first-pushes
+# route through the same triage instead of a bare hand-rolled push.
 ac_git_push() {
-    local project="$1"
+    local project="$1" path="${2:-$PWD}"
     local stderr_file; stderr_file=$(mktemp)
     local rc=0
 
-    # capture stderr
-    git push 2> "$stderr_file"; rc=$?
+    # upstream-aware push (auto set-upstream on first push), stderr captured
+    local up branch
+    up=$(git -C "$path" rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null || true)
+    if [[ -z "$up" ]]; then
+        branch=$(git -C "$path" rev-parse --abbrev-ref HEAD 2>/dev/null || echo main)
+        git -C "$path" push -u origin "$branch" 2> "$stderr_file"; rc=$?
+    else
+        git -C "$path" push 2> "$stderr_file"; rc=$?
+    fi
 
     if (( rc == 0 )); then
         rm -f "$stderr_file"
@@ -71,10 +80,10 @@ ac_git_push() {
         # One extra ref read; no extra network beyond what `git push`
         # already updated locally.
         local local_head remote_head upstream
-        local_head=$(git rev-parse HEAD 2>/dev/null || true)
-        upstream=$(git rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null || true)
+        local_head=$(git -C "$path" rev-parse HEAD 2>/dev/null || true)
+        upstream=$(git -C "$path" rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null || true)
         if [[ -n "$upstream" ]]; then
-            remote_head=$(git rev-parse "$upstream" 2>/dev/null || true)
+            remote_head=$(git -C "$path" rev-parse "$upstream" 2>/dev/null || true)
             if [[ -n "$local_head" && "$local_head" == "$remote_head" ]]; then
                 printf 'verify: %s in sync at %s\n' "$upstream" "${local_head:0:7}"
             else
@@ -86,11 +95,11 @@ ac_git_push() {
 
     ac_warn "push rejected ($project, rc=$rc) — engaging triage"
 
-    # determine remote-tracking ref
+    # determine remote-tracking ref (reuse pre-push upstream; fall back to origin/<branch>)
     local upstream
-    upstream=$(git rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null || true)
+    upstream="$up"
     if [[ -z "$upstream" ]]; then
-        local branch; branch=$(git rev-parse --abbrev-ref HEAD)
+        local branch; branch=$(git -C "$path" rev-parse --abbrev-ref HEAD)
         upstream="origin/$branch"
     fi
 
@@ -103,7 +112,7 @@ ac_git_push() {
         printf '\n=== git push stderr ===\n'
         cat "$stderr_file"
         printf '\n=== git diff %s..HEAD ===\n' "$upstream"
-        git diff "${upstream}..HEAD" 2>&1 || true
+        git -C "$path" diff "${upstream}..HEAD" 2>&1 || true
     } > "$ANTCRATE_CONFLICT_LOG"
 
     # truncated body for email

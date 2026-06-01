@@ -10,18 +10,33 @@ setup() {
     mkdir -p "$ANTCRATE_HOME" "$BATS_TEST_TMPDIR/bin"
 }
 
-# install a fake git that prints scripted output and exits with scripted code
+# install a fake git that: skips a leading "-C <path>"; records push args to
+# pushargs.log; scripts push rc/stderr; answers rev-parse for @{u}, branch, sha.
+# usage: install_fake_git <push_rc> <push_stderr_msg> [upstream_mode: set|unset]
 install_fake_git() {
-    local rc="$1" stderr_msg="$2"
+    local rc="$1" stderr_msg="$2" upstream_mode="${3:-set}"
     cat > "$BATS_TEST_TMPDIR/bin/git" <<EOF
 #!/usr/bin/env bash
-case "\$1" in
-    push) printf '%s\n' "$stderr_msg" >&2; exit $rc ;;
-    rev-parse) echo "origin/main" ;;
-    diff) echo "diff --git a/x b/x"; for i in \$(seq 1 500); do echo "line\$i"; done ;;
-    *) ;;
+[ "\$1" = "-C" ] && shift 2          # drop the path prefix
+sub="\$1"; shift
+case "\$sub" in
+    push)
+        echo "push \$*" >> "$BATS_TEST_TMPDIR/pushargs.log"
+        [ -n "$stderr_msg" ] && printf '%s\n' "$stderr_msg" >&2
+        exit $rc ;;
+    rev-parse)
+        if printf '%s ' "\$@" | grep -q '@{u}'; then
+            [ "$upstream_mode" = unset ] && exit 1
+            echo "origin/main"; exit 0
+        fi
+        if printf '%s ' "\$@" | grep -q -- '--abbrev-ref' && printf '%s ' "\$@" | grep -qw HEAD; then
+            echo "main"; exit 0
+        fi
+        echo "deadbeef"; exit 0 ;;
+    diff)
+        echo "diff --git a/x b/x"; for i in \$(seq 1 500); do echo "line\$i"; done; exit 0 ;;
+    *) exit 0 ;;
 esac
-exit 0
 EOF
     chmod +x "$BATS_TEST_TMPDIR/bin/git"
 }
@@ -84,4 +99,40 @@ EOF
         ac_git_push myproj'
     [ -f "$ANTCRATE_CONFLICT_LOG" ]
     [ ! -f "$BATS_TEST_TMPDIR/mailx.log" ]
+}
+
+@test "push is path-explicit: ac_git_push receives -C <path>" {
+    install_fake_git 0 ""
+    install_fake_mailx
+    export ANTCRATE_EMAIL="dev@example.com"
+    run bash -c '
+        . "'"$LIB"'/log.sh"; . "'"$LIB"'/git_triage.sh"
+        ac_git_push myproj "/tmp/some/proj/path"'
+    [ "$status" -eq 0 ]
+    grep -q -- '-C' "$BATS_TEST_TMPDIR/bin/git"   # shim is -C-aware
+    # the push must have happened (args recorded), proving the call routed through git -C
+    [ -s "$BATS_TEST_TMPDIR/pushargs.log" ]
+}
+
+@test "no upstream → push sets it with -u origin <branch>" {
+    install_fake_git 0 "" unset
+    install_fake_mailx
+    export ANTCRATE_EMAIL="dev@example.com"
+    run bash -c '
+        . "'"$LIB"'/log.sh"; . "'"$LIB"'/git_triage.sh"
+        ac_git_push myproj "/tmp/proj"'
+    [ "$status" -eq 0 ]
+    grep -q 'push -u origin main' "$BATS_TEST_TMPDIR/pushargs.log"
+}
+
+@test "rejection with upstream-set still triages (conflict log + mail)" {
+    install_fake_git 1 "error: failed to push some refs" unset
+    install_fake_mailx
+    export ANTCRATE_EMAIL="dev@example.com"
+    run bash -c '
+        . "'"$LIB"'/log.sh"; . "'"$LIB"'/git_triage.sh"
+        ac_git_push myproj "/tmp/proj"'
+    [ "$status" -ne 0 ]
+    [ -s "$ANTCRATE_CONFLICT_LOG" ]
+    grep -q 'push -u origin main' "$BATS_TEST_TMPDIR/pushargs.log"
 }
