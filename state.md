@@ -1,8 +1,48 @@
 # AntCrate — Current State
 
-_Last updated: 2026-05-30_
+_Last updated: 2026-06-01_
 
 ## Top of mind
+
+**2026-06-01 (latest) — 3 auditor rule-violations FIXED + whole tree COMMITTED in 3 logical commits.** The `agents-rule-auditor` findings from the live `/session-close` run are resolved and the long-held uncommitted tree is finally landed.
+
+- **Fix (Cody, Sonnet, foreground; Clyde-verified by direct diff read):** `ac_git_push <project> [path]` is now path-explicit (`git -C "$path"`, no cwd mutation) + upstream-auto-set (`-u origin <branch>` on first push, routed through the SAME triage). `lib/gh.sh` drops its bare `cd` (#10) + bare `git push -u` (#12) → routes through `ac_git_push`; `--source "$path"` kills the last cwd dep. `cmd_pp` drops its bare `cd` (#10). Fake-git bats shim taught to skip `-C <path>`. **bats 441 → 444, --ci PASS.** Cody made one explained extra change (`upstream="$up"` triage optimization — verified correct). Skipped Claudia (small, green, diff read line-by-line).
+- **Commits (3 logical, via `antcrate --commit -y`):** `d83e2ce` feat(quarantine) [held 2026-05-29 pivot + the shared bin/antcrate, so cmd_pp rode along — file-level intermingling, see commit-patch-mode proposal], `e127d72` feat(hooks) harness layer, `73e97c6` fix(git) gateway violations. **bin/antcrate intermingling** (quarantine flags + cmd_pp) forced cmd_pp into the quarantine commit — the `commit-patch-mode` proposal is the durable fix.
+- **RESUME NEXT:** (1) **`antcrate --pp antcrate`** — 3 commits ahead of origin, NOT pushed yet (the next action). (2) `--install-from-source` after push so the system wrapper picks up `--quarantine-*` + the git-C ac_git_push. (3) Auditor's 2 minor disable smells still open: `lib/subbranch.sh:70` dead `_ignore`, `lib/watch.sh:267` undocumented SC2086. (4) Out-of-repo harness artifacts (`~/.claude/agents/agents-rule-auditor.md`, `~/.claude/skills/session-close/`, `~/.claude/settings.json` hooks block) are live but unversioned — consider a mirror/backup. (5) **Quarantine pivot shipped but was NOT deep-reviewed this session** (prior held work, green on --ci) — a safety-critical feature worth a dedicated review/smoke of `--quarantine-list`/`--quarantine-restore` + the 5 replaced rm sites.
+
+**Earlier this session (kept) ↓**
+
+**2026-06-01 — Harness-Enforcement Layer SHIPPED (all 6 components + wired).** Promoted four honor-system protocols from `~/CLAUDE.md` into real Claude Code harness automations, per the approved spec `docs/specs/2026-05-31-harness-enforcement-layer.md`. Built directly by Clyde (harness-config artifacts, outside any registered project — not routed through Cody/Claudia, as the spec mandates). Test-first where code exists.
+
+- **`hooks/claude/_zones.sh` + `gateway-guard.sh`** (PreToolUse/Bash) — tiered whole-system colony perimeter. Hard-block critical zone (system dirs, identity files, `~/.antcrate` control plane) + dangerous-command class (dd/mkfs/fdisk/modprobe/systemctl enable·start·disable/recursive chmod·chown off-project/fork-bomb/`>/dev/...`); block registered-root + recursive-in-tree deletes (→ `--remove`/`--rename`/`--ghosts`/`--quarantine-*`); warn neutral-zone rm/mv + bare `git push`. **Fail-open**: registry-dependent rules fall open on a broken registry, but static critical + dangerous rules still fire. `tests/gateway_guard.bats` = **20 tests**.
+- **`hooks/claude/shellcheck-on-save.sh`** (PostToolUse/Edit|Write) — block-style (exit 2) `shellcheck -x` on `.sh` under the code tree; clean = silent; missing-binary = skip. `tests/shellcheck_on_save.bats` = **5 tests**.
+- **`~/.claude/agents/agents-rule-auditor.md`** — read-only Sonnet subagent (AGENTS hard-rule grep + Shipped-claim doc drift). Not yet live-smoked (user declined the pre-wire smoke; dispatch foreground on next `/session-close`).
+- **`~/.claude/skills/session-close/SKILL.md`** — user-only (`disable-model-invocation`) 3-part sweep skill.
+- **`~/.claude/settings.json`** — `hooks` block ADDED (user-approved via update-config). Both guards validated (`jq -e` + synthetic-payload pipe-tests pass). Live this session; `/hooks` reloads if ever stale.
+- **4 proposals filed** (`--gateway-guard`, `--shellcheck-gate`, `--rule-audit`, `--session-close`) — recorded in `proposals.log`, not shipped.
+
+**bats 384 → 441 (+31 from these two test files).** `bash bin/antcrate --ci` = PASS (shellcheck clean incl. the new hook scripts, cmake/ctest green).
+
+**First live `/session-close` run (2026-06-01) hardened the guard — it BLOCKED its OWN commands twice, both real false-positive bugs, both fixed test-first:**
+1. `2>/dev/null` → critical-zone `/dev` redirect. Fix: `_is_safe_dev` allowlist (`/dev/null|zero|full|tty|std*|random|urandom|/dev/fd/*`) excluded from `_is_critical`; `> /dev/sda` still blocks. +3 tests.
+2. Redirect/pipe operators **inside quoted args** (proposal text, commit messages) parsed as real ops. Fix: `_neutralize_quoted` blanks `|&;<>` inside quotes before splitting; `_resolve` strips one quote layer per token (so `rm "/etc/foo"` still blocks). +3 tests.
+**Lesson (ledger): a PreToolUse Bash guard MUST be quote-aware + pseudo-device-aware or it wedges normal work.** Also note: the shellcheck-on-save gate correctly fired SC2317 on `_neutralize_quoted` while it was defined-but-not-yet-called — the gate works.
+
+**Auditor (`agents-rule-auditor`) first live dispatch — clean drift, 3 real rule violations to fix (NEXT session, Gateway-Law/pragmatic):**
+- [#12] `lib/gh.sh:69` — bare `git push -u origin` in `ac_gh_init_repo` bypasses `ac_git_push` triage → proposal `git-push-initial-mode` filed.
+- [#10] `lib/gh.sh:36` — bare non-subshell `cd "$path"` into a project path (should be subshell or `git -C`).
+- [#10] `bin/antcrate:301` — bare `cd "$p"` in `cmd_pp` (authorized push path, but should be subshell-isolated / `git -C`).
+- Minor disables: `lib/subbranch.sh:70` `local _ignore="$project"` dead-assignment hiding SC2034; `lib/watch.sh:267` SC2086 missing justification comment.
+- **0 doc-drift** — every Shipped claim in HOOK_PLAN/state.md resolves to a real flag + lib fn.
+
+**Proposals filed this session (6 total):** `--gateway-guard`, `--shellcheck-gate`, `--rule-audit`, `--session-close`, `--claude-hook-smoke`, `git-push-initial-mode`.
+
+**RESUME NEXT (this layer):**
+1. **NOT YET COMMITTED.** In-repo parts: `hooks/claude/*.sh`, `tests/{gateway_guard,shellcheck_on_save}.bats`, `docs/specs/2026-05-31-...md`. OUT of repo: `~/.claude/agents/agents-rule-auditor.md`, `~/.claude/skills/session-close/`, `~/.claude/settings.json`. Decide boundary: `feat(hooks): harness-enforcement layer` for in-repo parts. Held 2026-05-30 Obsidian + 2026-05-29 quarantine + hygiene work STILL uncommitted alongside (last commit `bab24dc`). Untangle split → `antcrate --pp antcrate` → `--install-from-source`.
+2. **Live-smoke the auditor** + dry-run `/session-close` (spec's manual-smoke step, deferred).
+3. **Audit is DUE** — 435 bats past the 401 threshold (baseline 301). `/session-close` part 2 now dispatches the auditor.
+
+**Earlier top-of-mind (2026-05-30, kept for continuity) ↓**
 
 **2026-05-30 (post-restart) — Permission question SETTLED: background subagents cannot write; use FOREGROUND.** Three-tier build chain locked: **Clyde (Opus) orchestrates + documents → Cody (Haiku) builds → Claudia (Sonnet) reviews + tests.** New agent file `~/.claude/agents/claudia.md` written (Claudia = the Sonnet review/test specialist, supersedes `cody-tester.md` which stays on disk dormant). Cody dispatched at `model: haiku` per-spawn (memory `feedback_cody_haiku_model`).
 

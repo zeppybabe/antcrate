@@ -1,4 +1,4 @@
-%% antcrate tree — generated 2026-05-27T01:20:38Z
+%% antcrate tree — generated 2026-06-01T19:01:52Z
 graph TD
   root(["antcrate"])
   1["CONTRIBUTING.md"]
@@ -59,16 +59,24 @@ graph TD
   6a5e --> 6a5e4
   6a6[/hooks/]
   6a --> 6a6
-  6a6a[/templates/]
+  6a6a[/claude/]
   6a6 --> 6a6a
-  6a6a1["pre-commit-ci"]
+  6a6a1["_zones.sh"]
   6a6a --> 6a6a1
-  6a6a2["pre-commit-secrets"]
+  6a6a2["gateway-guard.sh"]
   6a6a --> 6a6a2
-  6a6a3["pre-commit-stack-bash"]
+  6a6a3["shellcheck-on-save.sh"]
   6a6a --> 6a6a3
-  6a6a4["pre-push-tests"]
-  6a6a --> 6a6a4
+  6a6b[/templates/]
+  6a6 --> 6a6b
+  6a6b1["pre-commit-ci"]
+  6a6b --> 6a6b1
+  6a6b2["pre-commit-secrets"]
+  6a6b --> 6a6b2
+  6a6b3["pre-commit-stack-bash"]
+  6a6b --> 6a6b3
+  6a6b4["pre-push-tests"]
+  6a6b --> 6a6b4
   6a7["install.sh"]
   6a --> 6a7
   6a8[/lib/]
@@ -109,34 +117,40 @@ graph TD
   6a8 --> 6a8q
   6a8r["hooks.sh"]
   6a8 --> 6a8r
-  6a8s["ingest.sh"]
+  6a8s["hygiene.sh"]
   6a8 --> 6a8s
-  6a8t["lifecycle.sh"]
+  6a8t["ingest.sh"]
   6a8 --> 6a8t
-  6a8u["lock.sh"]
+  6a8u["lifecycle.sh"]
   6a8 --> 6a8u
-  6a8v["log.sh"]
+  6a8v["lock.sh"]
   6a8 --> 6a8v
-  6a8w["md_scaffold.sh"]
+  6a8w["log.sh"]
   6a8 --> 6a8w
-  6a8x["profile.sh"]
+  6a8x["md_scaffold.sh"]
   6a8 --> 6a8x
-  6a8y["propose.sh"]
+  6a8y["obsidian.sh"]
   6a8 --> 6a8y
-  6a8z["registry.sh"]
+  6a8z["profile.sh"]
   6a8 --> 6a8z
-  6a8aa["safety.sh"]
+  6a8aa["propose.sh"]
   6a8 --> 6a8aa
-  6a8ab["scaffold.sh"]
+  6a8ab["quarantine.sh"]
   6a8 --> 6a8ab
-  6a8ac["schema.sh"]
+  6a8ac["registry.sh"]
   6a8 --> 6a8ac
-  6a8ad["subbranch.sh"]
+  6a8ad["safety.sh"]
   6a8 --> 6a8ad
-  6a8ae["watch.sh"]
+  6a8ae["scaffold.sh"]
   6a8 --> 6a8ae
-  6a8af["watch_window.sh"]
+  6a8af["schema.sh"]
   6a8 --> 6a8af
+  6a8ag["subbranch.sh"]
+  6a8 --> 6a8ag
+  6a8ah["watch.sh"]
+  6a8 --> 6a8ah
+  6a8ai["watch_window.sh"]
+  6a8 --> 6a8ai
   6a9[/systemd/]
   6a --> 6a9
   6a9a["antcrated.service"]
@@ -213,40 +227,50 @@ graph TD
   6a11 --> 6a11k
   6a11l["events.bats"]
   6a11 --> 6a11l
-  6a11m["git_init.bats"]
+  6a11m["gateway_guard.bats"]
   6a11 --> 6a11m
-  6a11n["git_triage.bats"]
+  6a11n["git_init.bats"]
   6a11 --> 6a11n
-  6a11o["hook_autoinstall.bats"]
+  6a11o["git_triage.bats"]
   6a11 --> 6a11o
-  6a11p["hooks.bats"]
+  6a11p["hook_autoinstall.bats"]
   6a11 --> 6a11p
-  6a11q["ingest.bats"]
+  6a11q["hooks.bats"]
   6a11 --> 6a11q
-  6a11r["install_from_source.bats"]
+  6a11r["hygiene.bats"]
   6a11 --> 6a11r
-  6a11s["lifecycle.bats"]
+  6a11s["ingest.bats"]
   6a11 --> 6a11s
-  6a11t["md_scaffold.bats"]
+  6a11t["install_from_source.bats"]
   6a11 --> 6a11t
-  6a11u["profile.bats"]
+  6a11u["lifecycle.bats"]
   6a11 --> 6a11u
-  6a11v["propose.bats"]
+  6a11v["md_scaffold.bats"]
   6a11 --> 6a11v
-  6a11w["register.bats"]
+  6a11w["obsidian.bats"]
   6a11 --> 6a11w
-  6a11x["registry.bats"]
+  6a11x["profile.bats"]
   6a11 --> 6a11x
-  6a11y["scaffold.bats"]
+  6a11y["propose.bats"]
   6a11 --> 6a11y
-  6a11z["schema.bats"]
+  6a11z["quarantine.bats"]
   6a11 --> 6a11z
-  6a11aa["watch.bats"]
+  6a11aa["register.bats"]
   6a11 --> 6a11aa
-  6a11ab["watch_smoke.bats"]
+  6a11ab["registry.bats"]
   6a11 --> 6a11ab
-  6a11ac["watch_window.bats"]
+  6a11ac["scaffold.bats"]
   6a11 --> 6a11ac
+  6a11ad["schema.bats"]
+  6a11 --> 6a11ad
+  6a11ae["shellcheck_on_save.bats"]
+  6a11 --> 6a11ae
+  6a11af["watch.bats"]
+  6a11 --> 6a11af
+  6a11ag["watch_smoke.bats"]
+  6a11 --> 6a11ag
+  6a11ah["watch_window.bats"]
+  6a11 --> 6a11ah
   6b[/docs/]
   6 --> 6b
   6b1["AntCrate_blueprint_v0.pdf"]
@@ -323,6 +347,16 @@ graph TD
   8 --> 8a
   8a1["tree.mmd"]
   8a --> 8a1
+  8b[/plans/]
+  8 --> 8b
+  8b1["2026-06-01-gateway-rule-violations-fix.md"]
+  8b --> 8b1
+  8c[/specs/]
+  8 --> 8c
+  8c1["2026-05-31-harness-enforcement-layer.md"]
+  8c --> 8c1
+  8c2["2026-06-01-gateway-rule-violations-fix-design.md"]
+  8c --> 8c2
   9["ledger.md"]
   root --> 9
   10["stack.md"]

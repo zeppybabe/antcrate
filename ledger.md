@@ -4,6 +4,75 @@ Append-only log. Newest entries on top. ISO-8601 dates. Never delete.
 
 ---
 
+## 2026-06-01 — 3 auditor rule-violations fixed (path-explicit ac_git_push) + whole tree committed in 3 logical commits
+
+Acted on the `agents-rule-auditor` findings. Brainstormed → spec (`docs/specs/2026-06-01-gateway-rule-violations-fix-design.md`) → plan (`docs/plans/2026-06-01-gateway-rule-violations-fix.md`) → delegated to Cody (Sonnet, foreground) → Clyde-verified → committed.
+
+**Root-cause fix.** All three violations traced to one design: `ac_git_push` "operated in `$PWD`," forcing callers to `cd` (the two #10 sites) and offering no set-upstream mode (forcing gh.sh's bare `git push -u`, the #12 site). Fix: `ac_git_push <project> [path]` uses `git -C "$path"` everywhere (chosen over subshell `( cd )` for per-project versatility — the user's call) and auto-sets upstream when `@{u}` is empty, routing first-pushes through the same conflict triage. `lib/gh.sh` and `cmd_pp` now call it with an explicit path; `gh repo create --source "$path"` removes the final cwd dependency. bats 441 → 444 (path-explicit, no-upstream set-upstream, rejection-with-upstream triage). `--ci` PASS.
+
+**Non-obvious decisions worth remembering.**
+- **The fake-git bats shim switches on `$1`** — once `ac_git_push` uses `git -C <path> push`, `$1` becomes `-C`. The shim MUST `shift 2` past `-C <path>` before matching the subcommand, or every existing git_triage test silently breaks. This was the single highest-risk detail and was called out in the plan + covered test-first.
+- **Cody's one unrequested change was correct:** in the triage path it replaced a redundant `git rev-parse @{u}` re-query with `upstream="$up"` (the value captured at function entry). A rejected push does not alter local upstream config, so `up` equals the re-query; the empty→`origin/$branch` fallback is preserved. Verified by reading the diff, not the report.
+- **Skipped a Claudia review** for this change — small (3 functions), fully green, and I read the entire diff line-by-line. The chronic-drift lesson is about not trusting Cody's *report* at face value (it again led with simplify-findings instead of the headline); reading the actual diff satisfies that without a second agent spawn.
+
+**Whole-tree commit (user: "finally commit all").** The tree held three tangled feature-sets; `bin/antcrate` carried BOTH the quarantine pivot's `--quarantine-*` flags AND the `cmd_pp` fix, so whole-file `--commit` staging could not separate them (the exact `commit-patch-mode` gap; AGENTS #18 forbids the bare `git add -p` that would slice it). User chose 3 logical commits:
+- `d83e2ce` **feat(quarantine)** — the held 2026-05-29 user-data-rm → capture-and-move pivot (lib/{cleanup,devops,ingest,lock,safety,quarantine}.sh, bin/antcrated, 4 test files) + the shared `bin/antcrate` (so the cmd_pp hunk rode along — noted in the message).
+- `e127d72` **feat(hooks)** — the harness-enforcement layer (hooks/claude/ + 2 bats + the 05-31 spec).
+- `73e97c6` **fix(git)** — gh.sh + git_triage.sh + git_triage.bats + the 06-01 spec/plan.
+- (docs housekeeping — state.md/ledger.md/tree.mmd — in a follow-up commit.)
+
+**Caveat recorded:** the quarantine pivot shipped green but was NOT deep-reviewed this session (prior held work, safety-critical). Flagged in state.md for a dedicated review pass. Not yet pushed — `antcrate --pp antcrate` is the next action.
+
+---
+
+## 2026-06-01 — First live `/session-close` run hardened the gateway-guard (2 self-block bugs fixed) + first `agents-rule-auditor` dispatch (3 rule violations, 0 drift)
+
+Ran the freshly-built `/session-close` skill for the first time. It immediately earned its keep: the live gateway-guard **blocked the skill's own commands twice**, each a genuine false-positive class, each fixed test-first before continuing.
+
+**Bug 1 — `/dev/null` redirect blocked.** Part-2's baseline jq used `2>/dev/null`; the guard classified any redirect target under `/dev` as critical-zone and blocked it. `2>/dev/null` is the most common idiom in the shell — an unacceptable wedge. Fix: `_is_safe_dev` allowlist (`/dev/null|/dev/zero|/dev/full|/dev/tty|/dev/stdin|/dev/stdout|/dev/stderr|/dev/random|/dev/urandom|/dev/fd/*`) consulted at the top of `_is_critical`, returning not-critical. `> /dev/sda` (raw block device, not on the list) still blocks. Regression tests: stderr→/dev/null silent, stdout+stderr→/dev/null silent, `> /dev/sda`→exit 2.
+
+**Bug 2 — operators inside quoted args parsed as real ops.** Re-filing the `--claude-hook-smoke` proposal blocked because its rationale text literally contained `2>/dev/null` and a `|` inside `{command|file_path}` — the guard tokenized without respecting shell quoting, so string content looked like redirects/pipes. Fix: `_neutralize_quoted` walks the command char-by-char tracking single/double-quote state and blanks `| & ; < >` that occur INSIDE quotes (to spaces) before segment-splitting and redirect detection; the quote characters themselves are preserved so `_resolve` (now stripping one surrounding quote layer per token) still classifies quoted targets like `rm "/etc/foo"` → block. Regression tests: quoted destructive text → allow, commit message mentioning `rm -rf /etc` → not blocked, quoted `/etc/foo` rm → still blocked.
+
+**Non-obvious decisions worth remembering.**
+- **A PreToolUse Bash guard MUST be quote-aware and pseudo-device-aware or it wedges normal work.** Naive whitespace tokenization + blanket `/dev` critical match are the two traps. Both surfaced within one session of real use — the bats fixtures alone did NOT catch them because the fixtures used clean unquoted inputs; only live dogfooding hit the realistic cases. Carry forward: fixture suites for input-classifying guards must include quoted-arg and common-idiom cases, not just the textbook block/allow pairs.
+- **The shellcheck-on-save gate fired correctly mid-edit** with SC2317 (`_neutralize_quoted` defined-but-unreachable) because I added the function before its call site. Confirms the PostToolUse gate is live and block-style as designed; resolved by wiring the call.
+- **Chose `_neutralize_quoted` over the simpler per-token quote-strip** because the latter cannot handle a spaced redirect inside quotes (`"writes > /etc/passwd here"`); the char-walk is ~15 lines but correctly covers the whole class. Kept the tree disable-free so the new auditor stays quiet.
+
+**Auditor first live dispatch (foreground, Sonnet).** `agents-rule-auditor` ran the AGENTS-rule + drift scan: **0 doc-drift** (every Shipped claim in HOOK_PLAN.md / state.md resolves to a real `bin/antcrate` flag + `lib/*.sh` function — verified ~20 claims), and **3 real rule violations** in pre-existing code: `lib/gh.sh:69` bare `git push -u origin` bypassing `ac_git_push` (#12); `lib/gh.sh:36` bare non-subshell `cd` into a project path (#10); `bin/antcrate:301` bare `cd "$p"` in `cmd_pp` (#10). Plus two minor shellcheck-disable concerns (`lib/subbranch.sh:70` dead `_ignore` assignment, `lib/watch.sh:267` undocumented SC2086). Filed the auditor's recommended `git-push-initial-mode` proposal for the #12 fix (needs an initial-push mode in `ac_git_push`, not a simple swap). The other violations are queued for a Gateway-Law-ordered fix next session.
+
+**Verification.** `bash bin/antcrate --ci` = PASS — bats **441/441** (gateway_guard 20→26: +3 safe-dev, +3 quoting; shellcheck_on_save 5), shellcheck clean, cmake/ctest green. Both guard fixes confirmed live (the previously-blocked `2>/dev/null` baseline and the quoted-text propose both run clean now).
+
+**Proposals filed this session (6):** `--gateway-guard`, `--shellcheck-gate`, `--rule-audit`, `--session-close`, `--claude-hook-smoke`, `git-push-initial-mode`.
+
+---
+
+## 2026-06-01 — Harness-Enforcement Layer shipped: gateway-guard + shellcheck-on-save hooks, rule-auditor subagent, /session-close skill, settings.json wired
+
+Built the layer designed in `docs/specs/2026-05-31-harness-enforcement-layer.md` (status was Approved/pending-review). Promotes four prose-only `~/CLAUDE.md` protocols into mechanical harness enforcement. **Built directly by Clyde**, not delegated — these are harness-config artifacts outside any registered project's tree, as the spec's non-goals explicitly require. TDD for the two Bash hook scripts (test → RED → impl → GREEN → shellcheck).
+
+**Components.**
+- `hooks/claude/_zones.sh` — the auditable security surface: env-aware registered-root resolver (`zones_registered_roots`, reads `.projects[].path`), static `zones_critical_paths` (system dirs + identity/shell files + `${ANTCRATE_HOME:-~/.antcrate}` control plane), `ZONES_DANGEROUS_ARGV0` catalogue.
+- `hooks/claude/gateway-guard.sh` (PreToolUse/Bash) — reads `.tool_input.command`, splits on `; && || | &`, classifies each segment most-protective-wins. BLOCK(exit 2): dangerous-cmd class (any zone), critical-zone rm/mv/redirect, registered-root delete, recursive-in-tree delete. WARN(exit 0 + stderr): neutral-zone rm/mv, bare `git push`. ALLOW(silent): single-file rm in a tree, reads. Fail-open on unreadable registry for registry-dependent rules ONLY — static critical + dangerous rules still fire (verified by test). `tests/gateway_guard.bats` 20 tests.
+- `hooks/claude/shellcheck-on-save.sh` (PostToolUse/Edit|Write) — `.sh` under `${ANTCRATE_CODE_ROOT:-~/.claude/skills/antcrate/assets/code}` only; `shellcheck -x` → exit 2 + report on findings, silent on clean, exit 0 + note when the binary (`${ANTCRATE_SHELLCHECK:-shellcheck}`) is absent. `tests/shellcheck_on_save.bats` 5 tests.
+- `~/.claude/agents/agents-rule-auditor.md` — read-only Sonnet subagent (AGENTS-rule grep #2/#3/#10/#12/#13/#14 + new-disable review + Shipped-claim doc-drift). Never edits; recommends `--propose` text, doesn't file.
+- `~/.claude/skills/session-close/SKILL.md` — user-only (`disable-model-invocation`) 3-part sweep; part 2 dispatches the auditor foreground when bats-delta ≥ 100.
+- `~/.claude/settings.json` — `hooks` block added via the update-config skill after explicit user approval (AskUserQuestion → "Apply now"). All other keys preserved.
+
+**Non-obvious decisions worth remembering.**
+- **`# shellcheck`-prefixed comment = parsed as a directive.** The hook's first comment line `# shellcheck-on-save (...)` tripped SC1072/SC1073 (shellcheck tried to parse it as a directive). Reworded to `# Hook: shellcheck-on-save`. Carry forward: never start a comment line with the token `shellcheck` in a `.sh` file.
+- **`"~/"` literal trips SC2088 even on the RHS of a test.** `_resolve` originally cased on `"~/"*`; shellcheck flagged it as "tilde does not expand." Restructured to detect the tilde by first char via a `tilde='~'` variable so no literal `~/` appears. Chose this over a `# shellcheck disable` because the new agents-rule-auditor flags unjustified disables — keeping the tree disable-free keeps the auditor quiet.
+- **`x=1; ls $x` is NOT a shellcheck finding** — shellcheck knows a literal-integer assignment can't word-split, so the dirty-fixture test had to use `echo $UNSET_VAR` (SC2086) to reliably trip exit 2.
+- **Guard sees only the command string, not subprocesses.** `antcrate --rename` etc. do their internal `mv …/registry.json` inside the binary, invisible to the PreToolUse hook — so the critical-zone `~/.antcrate` block does NOT wedge normal antcrate ops; it only catches a *raw* hand-written `mv`/redirect into the control plane (exactly rule #3's intent).
+- **Fail-open is asymmetric by design** — system protection (critical + dangerous) is static and registry-independent; only the project-scoped niceties degrade if the registry is broken. A corrupt registry can never disable system protection.
+
+**Verification.** `bash bin/antcrate --ci` = PASS — shellcheck clean across all `.sh` (incl. the three new hook scripts), cmake/ctest green, **bats 435/435** (was 384; +20 gateway_guard +5 shellcheck_on_save). Settings validated via `jq -e` selectors + synthetic-payload pipe-tests of both hooks (dd→exit2, ls→exit0 silent, non-code-tree edit→exit0 silent).
+
+**Filed 4 proposals** (record-only): `--gateway-guard`, `--shellcheck-gate`, `--rule-audit`, `--session-close` — CLI wrappers to manage/inspect each surface, consistent with the gh/obsidian fold-in pattern.
+
+**Not yet committed/pushed** — in-repo artifacts sit alongside the held 2026-05-30 Obsidian + 2026-05-29 quarantine + 2026-05-30 hygiene work (last commit `bab24dc`); commit-boundary decision deferred to next session. The out-of-repo artifacts (`~/.claude/agents/`, `~/.claude/skills/session-close/`, `~/.claude/settings.json`) are not under antcrate version control.
+
+---
+
 ## 2026-05-30 (post-restart) — `--ghosts` + `--deregister` shipped (registry hygiene); 3 ghosts dropped + 2 fixtures archived; canary activated; background-agent-write question SETTLED
 
 Resume session after the restart that was meant to fix background-subagent writes.
