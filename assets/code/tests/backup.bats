@@ -27,6 +27,7 @@ src() {
         . "'"$LIB"'/registry.sh"
         . "'"$LIB"'/backup.sh"
         . "'"$LIB"'/safety.sh"
+        . "'"$LIB"'/quarantine.sh"
         . "'"$LIB"'/scaffold.sh"
         . "'"$LIB"'/subbranch.sh"
         '"$1"

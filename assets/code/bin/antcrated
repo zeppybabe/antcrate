@@ -37,6 +37,8 @@ ANTCRATE_BIN="$SCRIPT_DIR/antcrate"
 . "$LIB_DIR/devops.sh"
 # shellcheck disable=SC1091
 . "$LIB_DIR/diagrams.sh"
+# shellcheck disable=SC1091
+. "$LIB_DIR/quarantine.sh"
 
 : "${ANTCRATE_HOME:=$HOME/.antcrate}"
 : "${ANTCRATE_ROOT:=$HOME/projects}"
@@ -49,7 +51,7 @@ ANTCRATE_BIN="$SCRIPT_DIR/antcrate"
 
 PID_FILE="$ANTCRATE_HOME/daemon.pid"
 
-cleanup() { rm -f "$PID_FILE"; ac_info "stopped"; }
+cleanup() { _ac_unlink_internal "$PID_FILE"; ac_info "stopped"; }
 trap cleanup EXIT
 trap 'ac_info "SIGTERM received"; exit 0' TERM INT
 

@@ -223,8 +223,8 @@ ac_cleanup_apply() {
                 ac_error "cleanup: id $id refused (rule #1 gate)"
                 return 1
             fi
-            rm -rf -- "$path"
-            ac_info "cleanup: removed id=$id $category $rel (backup at $AC_LAST_BACKUP_PATH)"
+            _ac_quarantine_capture "$project" "$path" "cleanup-$category" "$rel"
+            ac_info "cleanup: quarantined id=$id $category $rel (backup at $AC_LAST_BACKUP_PATH)"
 
             # tombstone event
             if declare -f ac_events_emit >/dev/null 2>&1; then

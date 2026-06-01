@@ -189,11 +189,12 @@ ac_devops_remove() {
 
     ac_safety_guard_destructive "$project" "PERMANENT remove" "$p" || return 1
 
-    rm -rf -- "$p" || { ac_error "remove: rm failed (registry NOT modified)"; return 1; }
+    _ac_quarantine_capture "$project" "$p" remove "$project" \
+        || { ac_error "remove: quarantine capture failed (registry NOT modified)"; return 1; }
     ac_registry_delete "$project"
-    ac_info "remove: '$project' deleted from disk and registry (backup=$AC_LAST_BACKUP_PATH)"
-    printf '\n  Recovery: antcrate --restore %s --at <ts>  (tarball: %s)\n\n' \
-        "$project" "$AC_LAST_BACKUP_PATH" >&2
+    ac_info "remove: '$project' quarantined and removed from registry (backup=$AC_LAST_BACKUP_PATH)"
+    printf '\n  Recovery: antcrate --quarantine-restore %s --at <ts>\n\n' \
+        "$project" >&2
 }
 
 # ---------- touch / mkdir (file/dir creation through the wrapper) ----------

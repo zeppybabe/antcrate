@@ -502,15 +502,15 @@ ac_ingest_handle_relationships_pre() {
                 ac_error "ingest: supersedes refused (backup+approval gate failed)"
                 return 1
             fi
-            rm -rf "$existing_path"
-            ac_info "ingest: superseded project tree removed (backup at $AC_LAST_BACKUP_PATH)"
+            _ac_quarantine_capture "$sup_target" "$existing_path" ingest-supersedes "$sup_target"
+            ac_info "ingest: superseded project tree quarantined (backup at $AC_LAST_BACKUP_PATH)"
         fi
         # also back up the existing per-project skill, if present
         local existing_skill="$ANTCRATE_SKILLS_DIR/$AC_INGEST_SKILL_NAME"
         if [[ -d "$existing_skill" ]]; then
             local sb; sb=$(ac_backup_create "${AC_INGEST_SKILL_NAME}-skill" "$existing_skill") || true
-            rm -rf "$existing_skill"
-            ac_info "ingest: superseded skill removed (backup at ${sb:-none})"
+            _ac_quarantine_capture "${AC_INGEST_SKILL_NAME}-skill" "$existing_skill" ingest-supersedes-skill "$AC_INGEST_SKILL_NAME"
+            ac_info "ingest: superseded skill quarantined (backup at ${sb:-none})"
         fi
         AC_INGEST_MODE="supersedes"
         return 0

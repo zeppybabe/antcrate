@@ -37,6 +37,7 @@ src() {
         . "'"$LIB"'/registry.sh"
         . "'"$LIB"'/backup.sh"
         . "'"$LIB"'/safety.sh"
+        . "'"$LIB"'/quarantine.sh"
         . "'"$LIB"'/events.sh"
         . "'"$LIB"'/cleanup.sh"
         '"$1"

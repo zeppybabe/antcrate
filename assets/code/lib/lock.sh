@@ -21,7 +21,11 @@ ac_pause_pipe() {
 
 # ac_resume_pipe — clear pause flag
 ac_resume_pipe() {
-    rm -f "$ANTCRATE_HOME/pipe.paused"
+    if declare -f _ac_unlink_internal >/dev/null 2>&1; then
+        _ac_unlink_internal "$ANTCRATE_HOME/pipe.paused"
+    else
+        rm -f "$ANTCRATE_HOME/pipe.paused"
+    fi
 }
 
 # ac_pipe_paused — exit 0 if paused, 1 otherwise

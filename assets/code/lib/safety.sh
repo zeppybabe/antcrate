@@ -110,7 +110,7 @@ ac_safety_guard_destructive() {
 ac_safety_safe_rm() {
     local target="$1"
     ac_safety_guard "rm" "$target" || return 1
-    rm -rf -- "$target"
+    _ac_quarantine_capture _generic "$target" safe-rm "$(basename "$target")"
 }
 
 # ac_safety_safe_mv <src> <dst>  — both src and dst must be inside allowed zones

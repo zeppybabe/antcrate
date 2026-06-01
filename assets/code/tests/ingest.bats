@@ -33,6 +33,7 @@ src() {
         . "'"$LIB"'/registry.sh"
         . "'"$LIB"'/backup.sh"
         . "'"$LIB"'/safety.sh"
+        . "'"$LIB"'/quarantine.sh"
         . "'"$LIB"'/ingest.sh"
         '"$1"
 }

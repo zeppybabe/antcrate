@@ -88,6 +88,8 @@ LIB_DIR="$SCRIPT_DIR/../lib"
 . "$LIB_DIR/obsidian.sh"
 # shellcheck disable=SC1091
 . "$LIB_DIR/hygiene.sh"
+# shellcheck disable=SC1091
+. "$LIB_DIR/quarantine.sh"
 
 : "${ANTCRATE_HOME:=$HOME/.antcrate}"
 : "${ANTCRATE_ROOT:=$HOME/projects}"
@@ -223,6 +225,11 @@ Commands:
   --hook-audit <project> [N]          unified view of three hook audit sinks (global JSONL filtered
                                       to project, per-project plain, human-readable hook log). N
                                       caps lines per sink (default 20). Read-only.
+  --quarantine-list <project>         list quarantine entries for a project (read-only, DESC by timestamp)
+  --quarantine-restore <project> --at <ts>
+                                      restore a quarantined entry to its original_path;
+                                      REFUSES (exit 1) if original_path already exists.
+                                      No --quarantine-purge: only the user manually deletes the quarantine root.
   --ghosts                            list all registry entries whose path no longer exists (read-only)
   --deregister <project>              drop a ghost entry from registry (capture-first; refuses if
                                       path exists — use --archive instead)
@@ -291,16 +298,15 @@ cmd_pp() {
     local p; p=$(ac_registry_get "$project" path)
     [[ -d "$p" ]] || { ac_error "pp: path missing: $p"; exit 1; }
 
-    cd "$p"
-    if [[ -n "$(git status --porcelain 2>/dev/null)" ]]; then
+    if [[ -n "$(git -C "$p" status --porcelain 2>/dev/null)" ]]; then
         if [[ "$auto_yes" != "-y" ]]; then
             read -r -p "Uncommitted changes in $project. Commit & push? [y/N] " ans
             [[ "${ans,,}" == "y" ]] || { ac_warn "pp: aborted by user"; exit 0; }
         fi
-        git add -A
-        git commit -qm "antcrate: auto-commit $(date -u +%Y-%m-%dT%H:%M:%SZ)" || true
+        git -C "$p" add -A
+        git -C "$p" commit -qm "antcrate: auto-commit $(date -u +%Y-%m-%dT%H:%M:%SZ)" || true
     fi
-    ac_git_push "$project" || true
+    ac_git_push "$project" "$p" || true
 }
 
 cmd_resume_expand() {
@@ -357,6 +363,7 @@ HOOK_AUTO_DRY=""
 DELEGATE_KEY="" DELEGATE_TASK="" DELEGATE_FILE=""
 CANARY_TTL="" CANARY_MAX="" CANARY_WITH_CLAUDEMD="" CANARY_TOKEN=""
 OBSIDIAN_PROJECT="" OBSIDIAN_WITH_DOCS=0
+QUARANTINE_PROJECT="" QUARANTINE_TS=""
 ACTION=""
 while (( $# > 0 )); do
     case "$1" in
@@ -618,6 +625,20 @@ while (( $# > 0 )); do
             if [[ $# -ge 3 && "${3:-}" =~ ^[0-9]+$ ]]; then LOGS_LINES="$3"; shift 3
             elif [[ $# -ge 2 ]]; then shift 2
             else shift; fi ;;
+        --quarantine-list)
+            ACTION="quarantine-list"; QUARANTINE_PROJECT="${2:-}"; shift
+            [[ $# -gt 0 ]] && shift ;;
+        --quarantine-restore)
+            ACTION="quarantine-restore"; QUARANTINE_PROJECT="${2:-}"; shift
+            [[ $# -gt 0 ]] && shift
+            QUARANTINE_TS=""
+            while (( $# > 0 )); do
+                case "${1:-}" in
+                    --at) QUARANTINE_TS="${2:-}"; shift 2 ;;
+                    --*)  break ;;
+                    *)    break ;;
+                esac
+            done ;;
         --ghosts)            ACTION="ghosts"; shift ;;
         --deregister)        ACTION="deregister"; NAME="${2:-}"; shift; [[ $# -gt 0 ]] && shift ;;
         --hook-install)
@@ -959,6 +980,13 @@ case "$ACTION" in
         args=( "$NAME" "$HOOK_NAME" )
         [[ -n "$HOOK_FORCE" ]] && args+=( "$HOOK_FORCE" )
         ac_with_lock ac_hook_remove "${args[@]}" ;;
+    quarantine-list)
+        [[ -z "$QUARANTINE_PROJECT" ]] && { ac_error "--quarantine-list requires <project>"; exit 2; }
+        ac_quarantine_list "$QUARANTINE_PROJECT" ;;
+    quarantine-restore)
+        [[ -z "$QUARANTINE_PROJECT" ]] && { ac_error "--quarantine-restore requires <project>"; exit 2; }
+        [[ -z "$QUARANTINE_TS"      ]] && { ac_error "--quarantine-restore requires --at <ts>"; exit 2; }
+        ac_quarantine_restore "$QUARANTINE_PROJECT" "$QUARANTINE_TS" ;;
     ghosts)     ac_hygiene_ghosts ;;
     deregister)
         [[ -z "$NAME" ]] && { ac_error "--deregister requires <project>"; exit 2; }
