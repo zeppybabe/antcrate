@@ -95,7 +95,7 @@ reload_registry_cache() {
         [[ -z "$name" || -z "$path" ]] && continue
         REG_NAMES+=("$name")
         REG_PATHS+=("${path%/}")
-    done < <(jq -r '.projects | to_entries[] | "\(.key)\t\(.value.path)"' "$rfile" 2>/dev/null)
+    done < <(jq -r '.projects | to_entries[] | select(.value.daemon_ignore != true) | "\(.key)\t\(.value.path)"' "$rfile" 2>/dev/null)
     ac_debug "registry cache reloaded (${#REG_NAMES[@]} projects)"
 }
 

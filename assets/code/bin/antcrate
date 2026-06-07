@@ -49,6 +49,8 @@ LIB_DIR="$SCRIPT_DIR/../lib"
 # shellcheck disable=SC1091
 . "$LIB_DIR/devops.sh"
 # shellcheck disable=SC1091
+. "$LIB_DIR/relocate.sh"
+# shellcheck disable=SC1091
 . "$LIB_DIR/diagrams.sh"
 # shellcheck disable=SC1091
 . "$LIB_DIR/hooks.sh"
@@ -182,6 +184,8 @@ Commands:
   --archive <project>                 backup-protected move to ~/projects/.archive/
   --unarchive <project>               restore an archived project to its previous parent
   --remove <project>                  PERMANENT delete (backup + approval; recovery via tarball only)
+  --relocate <project> [--no-watch]   move a project out of ~/.claude into ~/projects (symlink left
+                                      behind; --no-watch keeps the daemon off it)
   --touch <project> <relpath>         create a file via wrapper (auto-mkdir parents); echoes abs path
   --mkdir <project> <relpath>         create a directory via wrapper (mkdir -p); echoes abs path
   --logs [project] [lines]            tail wrapper/daemon/conflict logs (+git log if project)
@@ -364,6 +368,7 @@ DELEGATE_KEY="" DELEGATE_TASK="" DELEGATE_FILE=""
 CANARY_TTL="" CANARY_MAX="" CANARY_WITH_CLAUDEMD="" CANARY_TOKEN=""
 OBSIDIAN_PROJECT="" OBSIDIAN_WITH_DOCS=0
 QUARANTINE_PROJECT="" QUARANTINE_TS=""
+RELOCATE_NO_WATCH=0
 ACTION=""
 while (( $# > 0 )); do
     case "$1" in
@@ -553,6 +558,10 @@ while (( $# > 0 )); do
         --archive)           ACTION="archive"; NAME="${2:-}"; shift 2 ;;
         --unarchive)         ACTION="unarchive"; NAME="${2:-}"; shift 2 ;;
         --remove)            ACTION="remove"; NAME="${2:-}"; shift 2 ;;
+        --relocate)
+            ACTION="relocate"; NAME="${2:-}"
+            if [[ $# -ge 2 ]]; then shift 2; else shift; fi
+            while [[ "${1:-}" == "--no-watch" ]]; do RELOCATE_NO_WATCH=1; shift; done ;;
         --touch)             ACTION="touch"; NAME="${2:-}"; RELPATH="${3:-}"
                              if [[ $# -ge 3 ]]; then shift 3
                              elif [[ $# -ge 2 ]]; then shift 2
@@ -906,6 +915,11 @@ case "$ACTION" in
         [[ -z "$NAME" ]] && { ac_error "--remove requires <project>"; exit 2; }
         ac_with_lock ac_devops_remove "$NAME"
         ac_diagrams_auto_regen "" ;;
+    relocate)
+        [[ -z "$NAME" ]] && { ac_error "--relocate requires <project>"; exit 2; }
+        relocate_args=( "$NAME" )
+        (( RELOCATE_NO_WATCH == 1 )) && relocate_args+=( --no-watch )
+        ac_with_lock ac_relocate "${relocate_args[@]}" ;;
     touch)
         [[ -z "$NAME" || -z "$RELPATH" ]] && { ac_error "--touch requires <project> <relpath>"; exit 2; }
         ac_devops_touch "$NAME" "$RELPATH"
