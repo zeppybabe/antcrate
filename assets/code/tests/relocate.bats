@@ -9,7 +9,9 @@ setup() {
     export ANTCRATE_ROOT="$BATS_TEST_TMPDIR/projects"
     export ANTCRATE_REGISTRY="$ANTCRATE_HOME/registry.json"
     export ANTCRATE_LOG_LEVEL="error"
-    mkdir -p "$ANTCRATE_HOME" "$ANTCRATE_ROOT"
+    # the "claude config tree" stand-in: relocate only moves projects out of this
+    export ANTCRATE_RELOCATE_SRC_PREFIX="$BATS_TEST_TMPDIR/claudeconfig"
+    mkdir -p "$ANTCRATE_HOME" "$ANTCRATE_ROOT" "$ANTCRATE_RELOCATE_SRC_PREFIX"
 }
 
 src() {
@@ -20,6 +22,7 @@ src() {
         export ANTCRATE_LOG_LEVEL='$ANTCRATE_LOG_LEVEL'
         export ANTCRATE_CANARY_DISABLE='1'
         export ANTCRATE_REMOVAL_PREAPPROVED='1'
+        export ANTCRATE_RELOCATE_SRC_PREFIX='$ANTCRATE_RELOCATE_SRC_PREFIX'
         . '$LIB/log.sh'
         . '$LIB/registry.sh'
         . '$LIB/backup.sh'
@@ -30,11 +33,11 @@ src() {
     "
 }
 
-# helper: make a fake project OUTSIDE $ANTCRATE_ROOT but inside an allowed zone
-# ($ANTCRATE_HOME is an allowed safety zone), and register it.
+# helper: make a fake project under the relocatable prefix (the "claude" tree),
+# which is OUTSIDE $ANTCRATE_ROOT, and register it.
 mk_outside_project() {
     local name="$1"
-    local dir="$ANTCRATE_HOME/skilltree/$name"
+    local dir="$ANTCRATE_RELOCATE_SRC_PREFIX/skills/$name"
     mkdir -p "$dir"
     printf 'hello\n' > "$dir/file.txt"
     src "ac_registry_upsert '$name' '$dir' 'claude-skills' ''"
@@ -59,6 +62,15 @@ mk_outside_project() {
     run src 'ac_relocate already'
     [ "$status" -eq 1 ]
     [[ "$output" == *"already in the projects tree"* ]]
+}
+
+@test "relocate: source outside the claude prefix is refused" {
+    local dir="$ANTCRATE_HOME/elsewhere/stray"
+    mkdir -p "$dir"; printf 'x\n' > "$dir/f"
+    src "ac_registry_upsert 'stray' '$dir' 'misc' ''"
+    run src 'ac_relocate stray'
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"not under"* ]]
 }
 
 @test "relocate: refuses when destination already exists" {

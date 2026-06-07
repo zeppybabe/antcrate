@@ -13,6 +13,9 @@
 
 : "${ANTCRATE_ROOT:=$HOME/projects}"
 : "${ANTCRATE_HOME:=$HOME/.antcrate}"
+# Only projects living under this prefix may be relocated (the Claude config
+# tree is the reason relocate exists). Overridable for tests.
+: "${ANTCRATE_RELOCATE_SRC_PREFIX:=$HOME/.claude}"
 
 # ac_relocate <project> [--no-watch]
 ac_relocate() {
@@ -45,11 +48,26 @@ ac_relocate() {
             return 1 ;;
     esac
 
+    # Bounded source check: only relocate projects out of the Claude config tree.
+    # (Replaces the safety guard's path-zone check, which we override below
+    # because the antcrate root sits above the guard's narrow whitelisted zone.)
+    local prefix_abs; prefix_abs=$(realpath -m "$ANTCRATE_RELOCATE_SRC_PREFIX")
+    case "$src_abs" in
+        "$prefix_abs"|"$prefix_abs"/*) ;;
+        *)
+            ac_error "relocate: source ($src) is not under $ANTCRATE_RELOCATE_SRC_PREFIX — relocate only moves projects out of the Claude config tree"
+            return 1 ;;
+    esac
+
     local dst="$ANTCRATE_ROOT/$project"
     [[ -e "$dst" ]] && { ac_error "relocate: destination already exists: $dst"; return 1; }
 
-    # Gateway-Law: canary gate + path-zone check + mandatory backup + approval.
-    ac_safety_guard_destructive "$project" "relocate to '$dst'" "$src" || return 1
+    # Gateway-Law: canary gate + mandatory backup + approval. The path-zone check
+    # is overridden (ANTCRATE_ALLOW_OUTSIDE_ROOT=1) because relocate intentionally
+    # operates on a path outside $ANTCRATE_ROOT; the bounded source check above is
+    # the replacement guarantee.
+    ANTCRATE_ALLOW_OUTSIDE_ROOT=1 \
+        ac_safety_guard_destructive "$project" "relocate to '$dst'" "$src" || return 1
 
     mkdir -p "$ANTCRATE_ROOT" || { ac_error "relocate: cannot create $ANTCRATE_ROOT"; return 1; }
 

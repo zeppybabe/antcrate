@@ -18,8 +18,11 @@ Claude Code carves its own `~/.claude/` tree out of **non-interactive (backgroun
 ## Refusals (fail-closed, evaluated before any move)
 
 1. Project not registered → error.
-2. Registry `path` already under `$ANTCRATE_ROOT` → refuse ("already in the projects tree; nothing to relocate"). (The safety guard separately restricts the source to allowed zones — the skill tree, `$ANTCRATE_ROOT`, `$ANTCRATE_HOME` — so in practice only the `~/.claude` skill tree qualifies as a relocatable source.)
-3. Destination `$ANTCRATE_ROOT/<name>` already exists → refuse (no clobber).
+2. Registry `path` already under `$ANTCRATE_ROOT` → refuse ("already in the projects tree; nothing to relocate").
+3. Registry `path` not under `$ANTCRATE_RELOCATE_SRC_PREFIX` (default `$HOME/.claude`) → refuse. This is relocate's own bounded source check: it only moves projects out of the Claude config tree. It exists because relocate must invoke the safety guard with `ANTCRATE_ALLOW_OUTSIDE_ROOT=1` (the antcrate *root* `~/.claude/skills/antcrate` sits one level above the guard's whitelisted `.../assets` zone, so the narrow path-zone check would otherwise refuse it). The override disables only the path-zone check; backup + canary + approval still run, and this prefix check replaces the bounded-source guarantee.
+4. Destination `$ANTCRATE_ROOT/<name>` already exists → refuse (no clobber).
+
+> **Latent finding (file as proposal, not fixed here):** `lib/safety.sh::ac_safety_allowed_zones` derives the skill zone as `dirname($ANTCRATE_SELFSRC)` = `.../antcrate/assets`, but the comment claims `.../antcrate/`. Since `ANTCRATE_SELFSRC` is `.../antcrate/assets/code`, destructive ops on the antcrate *root* are outside all zones. Relocate works around it with the bounded override above; the zone derivation itself should be corrected separately.
 4. Gateway-Law: mandatory `--backup <project>` tarball first; canary gate applies; interactive `y/N` unless `-y`.
 
 ## Steps (with rollback)
