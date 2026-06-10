@@ -264,7 +264,7 @@ ac_watch_loop() {
     while :; do
         printf '\033[2J\033[H'   # clear + home
         ac_watch_render_once "$project" "${extra[@]}"
-        # shellcheck disable=SC2086
+        # shellcheck disable=SC2086  # $secs is an awk-formatted decimal with no whitespace; unquoted on purpose
         sleep $secs
     done
 }

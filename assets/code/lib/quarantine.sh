@@ -65,8 +65,9 @@ _ac_quarantine_capture() {
 
 # _ac_unlink_internal <path>
 # THE ONLY audited rm $VAR site post-pivot.
-# Allowed zones: under $ANTCRATE_HOME, or .git-resident AntCrate artifacts
-# (antcrate-hook-bypass inside a *.git/ directory).
+# Allowed zones: under $ANTCRATE_HOME, .git-resident AntCrate artifacts
+# (antcrate-hook-bypass inside a *.git/ directory), or antcrate-named
+# scratch under the system temp dir (mktemp -t antcrate-*).
 _ac_unlink_internal() {
     local path="$1"
     [[ -z "$path" ]] && { ac_error "unlink_internal: empty path refused"; return 1; }
@@ -84,6 +85,12 @@ _ac_unlink_internal() {
     case "${abs_path##*/}" in
         antcrate-hook-bypass)
             [[ "$abs_path" == */.git/* ]] && { rm -rf -- "$path"; return 0; } ;;
+    esac
+
+    # antcrate-named scratch under the system temp dir (mktemp -t antcrate-*)
+    local abs_tmp; abs_tmp=$(realpath -m "${TMPDIR:-/tmp}")
+    case "$abs_path" in
+        "$abs_tmp"/antcrate-*) rm -rf -- "$path"; return 0 ;;
     esac
 
     ac_error "unlink_internal: refusing to remove path outside ANTCRATE_HOME: $path"

@@ -23,6 +23,7 @@ src() {
         . "'"$LIB"'/registry.sh"
         . "'"$LIB"'/agent_init.sh"
         . "'"$LIB"'/md_scaffold.sh"
+        . "'"$LIB"'/quarantine.sh"
         . "'"$LIB"'/hooks.sh"
         . "'"$LIB"'/profile.sh"
         . "'"$LIB"'/env_scan.sh"

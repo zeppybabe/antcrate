@@ -4,6 +4,20 @@ Append-only log. Newest entries on top. ISO-8601 dates. Never delete.
 
 ---
 
+## 2026-06-09 — Codebase audit RUN (overdue since 401; 1 CRITICAL + 6 minor, 0 drift, 0 orphans, loop engine CLEAN) — all findings fixed; NEW BASELINE 498 bats
+
+**Audit** (foreground `agents-rule-auditor`, Sonnet, baseline 301/`80385c3` → current 495/`bd6b410`): rules #2/#3/#10/#12/#13/#14 all CLEAN (the 2026-06-01 gh.sh/cmd_pp fixes held); every Shipped claim in HOOK_PLAN.md/BUNDLE_SPEC.md/state.md resolves to a real flag + lib fn; no orphan state. **Loop engine (never fully reviewed after the interrupted Claudia pass) came back clean.**
+
+**CRITICAL fixed — `lib/hooks.sh:360` rule #16 violation.** `ac_hook_remove` did raw `cp -p` + `rm -f` on the hook file. First fix attempt (route through `_ac_unlink_internal` with a `.git/hooks/*` allowance) was KILLED BY THE TEST SUITE: `hook_remove: respects core.hooksPath` proved hook files can live anywhere (custom hooksPath), so a path-pattern allowance can't cover them. Final fix is better than the planned one: **remove-by-rename** — `mv -- "$target" "$bak"`; the backup IS the removed file, no delete verb exists at all (purest form of quarantine-over-destruction). The dead `.git/hooks` allowance was reverted, not shipped.
+
+**Also fixed:** `lib/hooks.sh:569` scratch-dir rm → `_ac_unlink_internal` with a new tight allowance (`antcrate-*` basename under `${TMPDIR:-/tmp}`; +3 bats incl. refusal of non-antcrate tmp names). All 6 minor disable findings resolved: subbranch.sh dead `_ignore` → `: "$project"`; justification comments added to watch.sh SC2086, git_triage.sh/scaffold.sh SC1091, hooks.sh 2× SC2016; block comments on the bin/antcrate + bin/antcrated mass-SC1091 source blocks. **Reverse-drift found by Cable (auditor scans Shipped→code, not Reserved→shipped): AGENTS.md still marked rule #16 "Reserved/not yet shipped" though the pivot landed 2026-06-01 — promoted #16 to live; #17 stays reserved (`--dry` genuinely unshipped).**
+
+**Guard false-positive noted (proposal due at session close):** gateway-guard blocked a heredoc whose BODY contained `rm -rf "$var"` test text — quote-aware but not heredoc-aware; same class as the 2026-06-01 quoted-args bug.
+
+**bats 495 → 498, `--ci` PASS.** **NEW AUDIT BASELINE: 498 bats — next audit due at 598.** (~/CLAUDE.md counter line still says 301/401 — user-owned file, flagged for update.)
+
+---
+
 ## 2026-06-09 — `--selfcheck` + daily backup timer SHIPPED (persistence insurance, item 1 of 4); Cable (Fable 5) takes the orchestrator seat
 
 **Persistence insurance for the ephemeral-path incident.** New `lib/selfcheck.sh` `ac_selfcheck [--quiet]`: verifies registry path on disk, skill link (`ANTCRATE_SKILL_LINK`, default `~/.claude/skills/antcrate`) resolving (symlink or real dir), `.git` present, unpushed commits (`@{u}..HEAD`), dirty tree, newest-backup age vs `ANTCRATE_SELFCHECK_BACKUP_MAX_AGE_HOURS` (default 48). Exit contract: 0 ok / 1 critical FAIL / 2 warnings only — timer/script friendly. Wired as `--selfcheck [--quiet]` + a `selfsrc` summary line in `cmd_status` (rc-guarded so warnings don't kill `--status` under `set -e`). `systemd/antcrate-backup.{service,timer}` (oneshot `--backup antcrate`, OnCalendar=daily, Persistent=true, RandomizedDelaySec=15m); install.sh now installs both units with `__BIN__` substitution. TDD: `tests/selfcheck.bats` 15 tests written first (RED 127 → GREEN 15/15). **bats 480 → 495, `--ci` PASS.** Live smoke: correctly WARNed on its own 6 uncommitted files. Note: a "session-limit reset" deleting a tree is still an unexplained cause — this is cheap defense, not a root-cause fix.

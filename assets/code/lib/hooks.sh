@@ -356,8 +356,9 @@ ac_hook_remove() {
     sha=$(sha256sum "$target" | cut -d' ' -f1)
     ts=$(date -u +%Y%m%dT%H%M%SZ)
     bak="$target.bak.$ts"
-    cp -p "$target" "$bak"
-    rm -f "$target"
+    # remove-by-rename: the backup IS the removed file — no delete verb at all
+    # (rule #16 / quarantine-over-destruction; works under any core.hooksPath)
+    mv -- "$target" "$bak"
 
     _ac_hooks_audit_append "$project" "$p" "hook-remove" "$hook_name" "$dir" "$sha" "$bak"
 
@@ -474,7 +475,7 @@ ac_hook_debug() {
             printf 'mode      : xtrace (BASH_XTRACEFD)\n'
         fi
         if [[ ! -x "$target" ]]; then
-            # shellcheck disable=SC2016
+            # shellcheck disable=SC2016  # backticks in the message are literal formatting, not command substitution
             printf '[note] hook is not executable; running via `bash <path>` anyway\n'
         fi
         printf '\n'
@@ -560,13 +561,13 @@ ac_hook_debug() {
         printf '=== exit %s ===\n' "$hook_exit"
         if (( pop_failed == 1 )); then
             printf '[warn] stash pop failed (likely conflict between staged + unstaged edits to the same file).\n'
-            # shellcheck disable=SC2016
+            # shellcheck disable=SC2016  # backticks in the message are literal formatting, not command substitution
             printf '[warn] stash preserved as: %s. resolve via `git -C %s stash list` / `git stash pop`.\n' \
                 "$stash_label" "$p"
         fi
     ) || true
 
-    rm -rf "$tmpdir"
+    _ac_unlink_internal "$tmpdir" || true
 
     # ac_info logs to stderr but we still wrap it: a downstream `2>&1 | head`
     # could close stderr too.

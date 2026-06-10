@@ -403,3 +403,31 @@ src() {
     '
     [ "$status" -ne 0 ]
 }
+
+@test "unlink_internal: still refuses non-hook .git internals" {
+    local git_dir="$BATS_TEST_TMPDIR/repo/.git"
+    mkdir -p "$git_dir"
+    local target="$git_dir/config"
+    echo "[core]" > "$target"
+
+    run src '_ac_unlink_internal "'"$target"'"'
+    [ "$status" -ne 0 ]
+    [ -e "$target" ]
+}
+
+@test "unlink_internal: allows antcrate-* scratch dir under system tmp" {
+    local scratch; scratch=$(mktemp -d -t antcrate-test.XXXXXX)
+    touch "$scratch/junk"
+
+    src '_ac_unlink_internal "'"$scratch"'"'
+    [ ! -e "$scratch" ]
+}
+
+@test "unlink_internal: refuses non-antcrate-named tmp dir" {
+    local scratch; scratch=$(mktemp -d -t other-test.XXXXXX)
+
+    run src '_ac_unlink_internal "'"$scratch"'"'
+    [ "$status" -ne 0 ]
+    [ -e "$scratch" ]
+    rmdir "$scratch"
+}

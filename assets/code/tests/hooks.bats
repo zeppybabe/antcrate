@@ -27,6 +27,7 @@ src() {
         export ANTCRATE_LOG_LEVEL="'"$ANTCRATE_LOG_LEVEL"'"
         . "'"$LIB"'/log.sh"
         . "'"$LIB"'/registry.sh"
+        . "'"$LIB"'/quarantine.sh"
         . "'"$LIB"'/hooks.sh"
         '"$1"
 }
@@ -812,6 +813,7 @@ run_hook_from_repo() {
         export ANTCRATE_LOG_LEVEL=error
         . "'"$LIB"'/log.sh"
         . "'"$LIB"'/registry.sh"
+        . "'"$LIB"'/quarantine.sh"
         . "'"$LIB"'/hooks.sh"
         ac_hook_debug proj --with-stash | head -2
     '

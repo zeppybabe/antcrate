@@ -67,8 +67,7 @@ ac_subbranch_expand() {
 # ac_subbranch_fix_links <project> <old_path> <new_path>
 ac_subbranch_fix_links() {
     local project="$1" old_path="$2" new_path="$3"
-    # shellcheck disable=SC2034
-    local _ignore="$project"
+    : "$project"   # param kept for call-site symmetry; not consumed yet
 
     # find any symlinks across registered projects that point inside old_path
     local p target newtgt

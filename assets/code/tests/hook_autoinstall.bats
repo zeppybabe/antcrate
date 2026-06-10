@@ -27,6 +27,7 @@ src() {
         export ANTCRATE_LOG_LEVEL="'"$ANTCRATE_LOG_LEVEL"'"
         . "'"$LIB"'/log.sh"
         . "'"$LIB"'/registry.sh"
+        . "'"$LIB"'/quarantine.sh"
         . "'"$LIB"'/hooks.sh"
         . "'"$LIB"'/profile.sh"
         . "'"$LIB"'/env_scan.sh"

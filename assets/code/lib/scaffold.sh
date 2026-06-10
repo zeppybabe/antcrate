@@ -29,7 +29,7 @@ ac_scaffold_remote_for() {
     local name="$1"
     local prefix=""
     if [[ -f "$HOME/.antcrate/config" ]]; then
-        # shellcheck disable=SC1091
+        # shellcheck disable=SC1091  # user config path resolved at runtime; not statically followable
         . "$HOME/.antcrate/config"
         prefix="${ANTCRATE_GIT_REMOTE_PREFIX:-}"
     fi

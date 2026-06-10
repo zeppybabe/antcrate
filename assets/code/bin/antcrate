@@ -20,6 +20,8 @@ AC_COMPONENT="wrapper"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LIB_DIR="$SCRIPT_DIR/../lib"
 
+# SC1091 disables below: $LIB_DIR is rewritten by install.sh at copy time,
+# so lib paths are runtime-resolved and not statically followable.
 # shellcheck disable=SC1091
 . "$LIB_DIR/log.sh"
 # shellcheck disable=SC1091
