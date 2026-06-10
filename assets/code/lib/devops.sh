@@ -351,8 +351,73 @@ ac_devops_selfedit() {
 
 # ---------- ci shim ----------
 
+: "${ANTCRATE_CI_BASELINE:=$ANTCRATE_HOME/ci-baseline.json}"
+
+# ac_devops_ci_resolve_src [path] — explicit --source override or config selfsrc.
+# An override must look like an antcrate code tree; refuses otherwise (so a
+# typo'd path can't silently CI the wrong tree). Proposal ci-source-override.
+ac_devops_ci_resolve_src() {
+    local p="${1:-}"
+    if [[ -z "$p" ]]; then
+        ac_devops_selfsrc
+        return
+    fi
+    if [[ ! -d "$p/lib" || ! -d "$p/tests" || ! -f "$p/bin/antcrate" ]]; then
+        ac_error "ci: --source '$p' does not look like an antcrate code tree (need lib/ tests/ bin/antcrate)"
+        return 2
+    fi
+    printf '%s\n' "$p"
+}
+
+# ac_devops_ci_record <bats_count> <src> [--snapshot] — update ci-baseline.json.
+# .last moves on every PASS; .baseline only via --snapshot (audit time). The
+# +100 audit cadence reads baseline.bats. Proposal ci-snapshot.
+ac_devops_ci_record() {
+    local bats_count="$1" src="$2" snap="${3:-}"
+    local sha branch ts existing='{}'
+    sha=$(git -C "$src" rev-parse --short HEAD 2>/dev/null) || sha="nogit"
+    branch=$(git -C "$src" rev-parse --abbrev-ref HEAD 2>/dev/null) || branch="-"
+    ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+    [[ -f "$ANTCRATE_CI_BASELINE" ]] && existing=$(cat "$ANTCRATE_CI_BASELINE")
+    printf '%s' "$existing" | jq \
+        --argjson bats "$bats_count" --arg sha "$sha" --arg branch "$branch" \
+        --arg ts "$ts" --arg snap "$snap" '
+        .last = {ts: $ts, bats: $bats, sha: $sha, branch: $branch}
+        | if $snap == "--snapshot" then .baseline = .last else . end' \
+        > "$ANTCRATE_CI_BASELINE.tmp" && mv "$ANTCRATE_CI_BASELINE.tmp" "$ANTCRATE_CI_BASELINE"
+}
+
+# one-liner for cmd_status: progress toward the every-+100-bats audit
+ac_devops_audit_status_line() {
+    if [[ ! -f "$ANTCRATE_CI_BASELINE" ]]; then
+        printf 'audit: no baseline — run --ci --snapshot\n'
+        return 0
+    fi
+    local last base due
+    last=$(jq -r '.last.bats // 0' "$ANTCRATE_CI_BASELINE")
+    base=$(jq -r '.baseline.bats // empty' "$ANTCRATE_CI_BASELINE")
+    if [[ -z "$base" ]]; then
+        printf 'audit: last ci %s bats; no baseline — run --ci --snapshot\n' "$last"
+        return 0
+    fi
+    due=$((base + 100))
+    if (( last >= due )); then
+        printf 'audit: %s/%s — AUDIT DUE (baseline %s)\n' "$last" "$due" "$base"
+    else
+        printf 'audit: %s/%s (baseline %s)\n' "$last" "$due" "$base"
+    fi
+}
+
 ac_devops_ci() {
-    local src; src=$(ac_devops_selfsrc) || return 1
+    local snap="" src_arg=""
+    while (( $# > 0 )); do
+        case "$1" in
+            --snapshot) snap="--snapshot"; shift ;;
+            --source)   src_arg="${2:-}"; shift 2 ;;
+            *)          shift ;;
+        esac
+    done
+    local src; src=$(ac_devops_ci_resolve_src "$src_arg") || return 2
     local rc=0
     printf '\n=== shellcheck ===\n'
     if command -v shellcheck >/dev/null 2>&1; then
@@ -393,5 +458,12 @@ ac_devops_ci() {
     fi
     printf '\n=== ci result: '
     if (( rc == 0 )); then printf 'PASS ===\n'; else printf 'FAIL ===\n'; fi
+    # auto-record the PASS (ci-snapshot): .last on every PASS, .baseline only
+    # when --snapshot was passed (audit time). FAIL records nothing.
+    if (( rc == 0 )) && command -v bats >/dev/null 2>&1; then
+        local cnt
+        cnt=$(bats --count "$src/tests/" 2>/dev/null) || cnt=0
+        ac_devops_ci_record "$cnt" "$src" ${snap:+"$snap"} || ac_warn "ci: baseline record failed (non-fatal)"
+    fi
     return $rc
 }

@@ -211,7 +211,10 @@ Commands:
   --tree-diagram <project> [out]      emit Mermaid graph of project's addressed tree
   --obsidian-mirror [project] [--with-docs]
                                       Mirror registry + project notes into the Obsidian vault (read-only)
-  --ci                                run shellcheck + bats; nonzero on any failure
+  --ci [--snapshot] [--source <path>] run shellcheck + cmake/ctest + bats; nonzero on any
+                                      failure. PASS updates ci-baseline.json .last;
+                                      --snapshot also sets .baseline (audit cadence);
+                                      --source CIs an alternate tree (e.g. a worktree)
   --hooks <project>                   list active git hooks for a project (read-only)
   --hook-log <project> [lines]        tail .git/antcrate-hook.log for debugging blocked commits
   --hook-install <project> <template> [hook-name] [--force]
@@ -374,6 +377,9 @@ cmd_status() {
     local intel_out
     intel_out=$(ac_intel_status_line 2>/dev/null) || true
     [[ -n "$intel_out" ]] && printf '  %s\n' "${intel_out/: /     : }"
+    local audit_out
+    audit_out=$(ac_devops_audit_status_line 2>/dev/null) || true
+    [[ -n "$audit_out" ]] && printf '  %s\n' "${audit_out/: /     : }"
 }
 
 cmd_list() {
@@ -407,6 +413,7 @@ MD_FORCE=""
 SELFCHECK_QUIET=""
 COST_SINCE="" COST_SESSION="" COST_PORCELAIN=""
 INTEL_SOURCE="" INTEL_QUIET="" INTEL_JSON="" INTEL_SHA=""
+CI_SNAPSHOT="" CI_SOURCE=""
 PROFILE_RAW=""
 ENV_APPLY=""
 HOOK_AUTO_DRY=""
@@ -695,7 +702,14 @@ while (( $# > 0 )); do
             fi
             ;;
 
-        --ci)                ACTION="ci"; shift ;;
+        --ci)
+            ACTION="ci"; shift
+            while [[ "${1:-}" == "--snapshot" || "${1:-}" == "--source" ]]; do
+                case "$1" in
+                    --snapshot) CI_SNAPSHOT="--snapshot"; shift ;;
+                    --source)   CI_SOURCE="${2:-}"; shift 2 ;;
+                esac
+            done ;;
         --hooks)             ACTION="hooks"; NAME="${2:-}"; shift 2 ;;
         --hook-log)
             ACTION="hook-log"; NAME="${2:-}"
@@ -1057,7 +1071,11 @@ case "$ACTION" in
         fi
         ;;
 
-    ci)        ac_devops_ci ;;
+    ci)
+        CI_ARGS=()
+        [[ -n "$CI_SNAPSHOT" ]] && CI_ARGS+=(--snapshot)
+        [[ -n "$CI_SOURCE" ]]   && CI_ARGS+=(--source "$CI_SOURCE")
+        ac_devops_ci "${CI_ARGS[@]+"${CI_ARGS[@]}"}" ;;
     hooks)
         [[ -z "$NAME" ]] && { ac_error "--hooks requires <project>"; exit 2; }
         ac_hooks_list "$NAME" ;;
