@@ -1,4 +1,4 @@
-%% antcrate tree — generated 2026-06-10T07:22:09Z
+%% antcrate tree — generated 2026-06-10T07:45:45Z
 graph TD
   root(["antcrate"])
   1["CONTRIBUTING.md"]
@@ -63,10 +63,12 @@ graph TD
   6a6 --> 6a6a
   6a6a1["_zones.sh"]
   6a6a --> 6a6a1
-  6a6a2["gateway-guard.sh"]
+  6a6a2["env-guard.sh"]
   6a6a --> 6a6a2
-  6a6a3["shellcheck-on-save.sh"]
+  6a6a3["gateway-guard.sh"]
   6a6a --> 6a6a3
+  6a6a4["shellcheck-on-save.sh"]
+  6a6a --> 6a6a4
   6a6b[/templates/]
   6a6 --> 6a6b
   6a6b1["pre-commit-ci"]
@@ -237,60 +239,62 @@ graph TD
   6a11 --> 6a11j
   6a11k["diagrams.bats"]
   6a11 --> 6a11k
-  6a11l["env_scan.bats"]
+  6a11l["env_guard.bats"]
   6a11 --> 6a11l
-  6a11m["events.bats"]
+  6a11m["env_scan.bats"]
   6a11 --> 6a11m
-  6a11n["gateway_guard.bats"]
+  6a11n["events.bats"]
   6a11 --> 6a11n
-  6a11o["git_init.bats"]
+  6a11o["gateway_guard.bats"]
   6a11 --> 6a11o
-  6a11p["git_triage.bats"]
+  6a11p["git_init.bats"]
   6a11 --> 6a11p
-  6a11q["hook_autoinstall.bats"]
+  6a11q["git_triage.bats"]
   6a11 --> 6a11q
-  6a11r["hooks.bats"]
+  6a11r["hook_autoinstall.bats"]
   6a11 --> 6a11r
-  6a11s["hygiene.bats"]
+  6a11s["hooks.bats"]
   6a11 --> 6a11s
-  6a11t["ingest.bats"]
+  6a11t["hygiene.bats"]
   6a11 --> 6a11t
-  6a11u["install_from_source.bats"]
+  6a11u["ingest.bats"]
   6a11 --> 6a11u
-  6a11v["lifecycle.bats"]
+  6a11v["install_from_source.bats"]
   6a11 --> 6a11v
-  6a11w["loop.bats"]
+  6a11w["lifecycle.bats"]
   6a11 --> 6a11w
-  6a11x["md_scaffold.bats"]
+  6a11x["loop.bats"]
   6a11 --> 6a11x
-  6a11y["obsidian.bats"]
+  6a11y["md_scaffold.bats"]
   6a11 --> 6a11y
-  6a11z["profile.bats"]
+  6a11z["obsidian.bats"]
   6a11 --> 6a11z
-  6a11aa["propose.bats"]
+  6a11aa["profile.bats"]
   6a11 --> 6a11aa
-  6a11ab["quarantine.bats"]
+  6a11ab["propose.bats"]
   6a11 --> 6a11ab
-  6a11ac["register.bats"]
+  6a11ac["quarantine.bats"]
   6a11 --> 6a11ac
-  6a11ad["registry.bats"]
+  6a11ad["register.bats"]
   6a11 --> 6a11ad
-  6a11ae["relocate.bats"]
+  6a11ae["registry.bats"]
   6a11 --> 6a11ae
-  6a11af["scaffold.bats"]
+  6a11af["relocate.bats"]
   6a11 --> 6a11af
-  6a11ag["schema.bats"]
+  6a11ag["scaffold.bats"]
   6a11 --> 6a11ag
-  6a11ah["selfcheck.bats"]
+  6a11ah["schema.bats"]
   6a11 --> 6a11ah
-  6a11ai["shellcheck_on_save.bats"]
+  6a11ai["selfcheck.bats"]
   6a11 --> 6a11ai
-  6a11aj["watch.bats"]
+  6a11aj["shellcheck_on_save.bats"]
   6a11 --> 6a11aj
-  6a11ak["watch_smoke.bats"]
+  6a11ak["watch.bats"]
   6a11 --> 6a11ak
-  6a11al["watch_window.bats"]
+  6a11al["watch_smoke.bats"]
   6a11 --> 6a11al
+  6a11am["watch_window.bats"]
+  6a11 --> 6a11am
   6b[/docs/]
   6 --> 6b
   6b1["AntCrate_blueprint_v0.pdf"]
