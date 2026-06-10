@@ -4,6 +4,31 @@ Append-only log. Newest entries on top. ISO-8601 dates. Never delete.
 
 ---
 
+## 2026-06-09 — Loop Engine `--loop` SHIPPED (480 bats); `~/projects/antcrate` proved EPHEMERAL and ate a session — recovered from backup, relocate reattempted
+
+**Shipped sub-project #1 of the 6-part "AntCrate as a swiss-army knife" roadmap** (from `~/Documents/PDF/Task List and How AntCrate fits in.pdf`): the durable, objective-driven orchestration loop. `lib/loop.sh` + `tests/loop.bats` (28 tests) + `bin/antcrate` wiring (`--loop/--loop-tick/--loop-signoff/--loop-status/--loop-list/--loop-resume/--loop-halt` + `--project/--max-iter/--budget/--porcelain/--reason`). Run-state in `~/.antcrate/loops/<id>.json` (atomic temp+mv, delegate.sh idiom). Three hard stops (max-iter 25 / no-progress 3× same tree-sha-or-error / budget wall-clock proxy → real $ in #2). Two-key verify gate: project `--ci` (Bash-run) AND Claudia `--loop-signoff` (Clyde-recorded). Safety-floor precondition: refuses to start unless canary armed + `gateway-guard.sh` present (`ANTCRATE_LOOP_ALLOW_UNSAFE=1` for tests). Halt = checkpoint (memory-file format) + ledger append + WIP quarantine. **Composes with Claude Code `/loop`** for cadence — the tick prints `RESCHEDULE` or `LOOP COMPLETE — do not reschedule`, so AntCrate's durable stops enforce by telling Claude not to reschedule. `--ci` PASS, **bats 452 → 480**. Installed to system wrapper via `--install-from-source`. Built via subagent-driven-development (Cody implement / Clyde verify; Claudia review cut short by the reset). Spec: `docs/specs/2026-06-09-loop-engine-harness-design.md`. New principle banked: **compose with Claude Code, don't duplicate — except at the security boundary** (memory `feedback_compose_not_duplicate`).
+
+**INCIDENT — `~/projects/antcrate` did NOT survive a session-limit reset.** Mid-build, the token limit hit; on resume the ENTIRE `~/projects/antcrate` tree was gone — working files, `.git`, and 8 in-session loop commits. Diagnosis (stable, verified): `~/.claude/**` and `~/.antcrate/**` persist across resets; `~/projects/antcrate` did not (other `~/projects/*` entries persist, but antcrate's relocated tree did not). **Recovery:** restored the Jun-6 backup tarball (`antcrate-20260607T034201Z.tar.gz`, carried full `.git` at `fcb4a75`) to `~/.claude/skills/antcrate` as a REAL directory (replaced the dangling symlink); rebuilt every line of the loop work from conversation context; repointed the three dead relocate breadcrumbs via sanctioned means — registry path (`ac_registry_set_path`), `~/.antcrate/config` `ANTCRATE_SELFSRC`, and `~/.claude/settings.json` hook paths (gateway-guard + shellcheck-on-save). **Casualty:** `env-guard.sh` hook (created in-session after the last backup) is unrecoverable; its settings.json entry was removed — rebuild if wanted. **Lesson:** push + backup BEFORE risking a reset; a working tree is not durable. Memory `project_2026_06_09_loop_engine_and_ephemeral_path_loss` holds the full account.
+
+**Closing actions:** pushed all commits via `antcrate --pp` (insurance on GitHub), fresh `antcrate --backup`, then **reattempted the relocate** to `~/projects/antcrate` following the Gateway Law sequence (backup + user approval + `--relocate`) — accepting that if it vanishes again, GitHub + the fresh backup make recovery trivial.
+
+## 2026-06-06 — Background-agent write blocker ROOT-CAUSED: the `~/.claude` carve-out (prior "settled" conclusion was a misdiagnosis)
+
+Re-investigated "background agents don't work / only one denial message ever shows" with the systematic-debugging skill instead of trusting the thrice-flipped memory. **Ran a controlled 6-probe experiment** (Claude Code v2.1.159), one variable per probe: background writes succeed everywhere under the cwd workspace (`~/…`, nested non-dot dirs, generic dot-dirs) but are hard-denied anywhere under `~/.claude/` — even with an explicit `Write(//…antcrate/**)` allow rule + `acceptEdits` + `additionalDirectories`. Foreground control to the same `.claude` path succeeded.
+
+**Root cause:** Claude Code carves its own `~/.claude/` tree out of *non-interactive* (background-subagent) file writes — a guard above the configurable permission layer, so no settings change overrides it. Background agents can't surface the "accept" prompt that foreground agents use to pass it. Every historical probe wrote into the antcrate tree (under `~/.claude/skills/antcrate/`), so they ALL failed → false "background can't write at all" generalization. The denial also extends to background Bash whose target is under `~/.claude` (probe BG-1's `rm` denied; identical `rm` outside `.claude` succeeded).
+
+**Ruled out:** background-mode in general, dot-dirs in general, nesting depth, symlinks (`~/.claude` is a real dir), user hooks (no Edit/Write PreToolUse hook exists — denial is Claude Code core).
+
+**Practical upshot (no config is broken):**
+- `~/projects/**` work is unaffected — background editing agents already work there.
+- Editing antcrate's own code via background agents is impossible while it lives under `~/.claude/`. Workaround that works today: dispatch editing agents FOREGROUND (parallelism = multiple foreground agents per message). Durable fix (Gateway-Law, backup + approval): relocate the dev tree to `~/projects/antcrate` and treat `~/.claude/skills/antcrate` as packaged output.
+- The `//` Edit/Write allow rules + `additionalDirectories` are inert for background agents but harmless; kept for foreground/main-session edits.
+
+Corrected `feedback_permissions_session_restart.md` + MEMORY.md index to the path-based truth. No code changes; diagnostic + documentation session.
+
+---
+
 ## 2026-06-01 — 3 auditor rule-violations fixed (path-explicit ac_git_push) + whole tree committed in 3 logical commits
 
 Acted on the `agents-rule-auditor` findings. Brainstormed → spec (`docs/specs/2026-06-01-gateway-rule-violations-fix-design.md`) → plan (`docs/plans/2026-06-01-gateway-rule-violations-fix.md`) → delegated to Cody (Sonnet, foreground) → Clyde-verified → committed.

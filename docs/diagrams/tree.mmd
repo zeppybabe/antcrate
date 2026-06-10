@@ -1,4 +1,4 @@
-%% antcrate tree — generated 2026-06-01T19:01:52Z
+%% antcrate tree — generated 2026-06-07T03:29:42Z
 graph TD
   root(["antcrate"])
   1["CONTRIBUTING.md"]
@@ -139,18 +139,20 @@ graph TD
   6a8 --> 6a8ab
   6a8ac["registry.sh"]
   6a8 --> 6a8ac
-  6a8ad["safety.sh"]
+  6a8ad["relocate.sh"]
   6a8 --> 6a8ad
-  6a8ae["scaffold.sh"]
+  6a8ae["safety.sh"]
   6a8 --> 6a8ae
-  6a8af["schema.sh"]
+  6a8af["scaffold.sh"]
   6a8 --> 6a8af
-  6a8ag["subbranch.sh"]
+  6a8ag["schema.sh"]
   6a8 --> 6a8ag
-  6a8ah["watch.sh"]
+  6a8ah["subbranch.sh"]
   6a8 --> 6a8ah
-  6a8ai["watch_window.sh"]
+  6a8ai["watch.sh"]
   6a8 --> 6a8ai
+  6a8aj["watch_window.sh"]
+  6a8 --> 6a8aj
   6a9[/systemd/]
   6a --> 6a9
   6a9a["antcrated.service"]
@@ -259,18 +261,20 @@ graph TD
   6a11 --> 6a11aa
   6a11ab["registry.bats"]
   6a11 --> 6a11ab
-  6a11ac["scaffold.bats"]
+  6a11ac["relocate.bats"]
   6a11 --> 6a11ac
-  6a11ad["schema.bats"]
+  6a11ad["scaffold.bats"]
   6a11 --> 6a11ad
-  6a11ae["shellcheck_on_save.bats"]
+  6a11ae["schema.bats"]
   6a11 --> 6a11ae
-  6a11af["watch.bats"]
+  6a11af["shellcheck_on_save.bats"]
   6a11 --> 6a11af
-  6a11ag["watch_smoke.bats"]
+  6a11ag["watch.bats"]
   6a11 --> 6a11ag
-  6a11ah["watch_window.bats"]
+  6a11ah["watch_smoke.bats"]
   6a11 --> 6a11ah
+  6a11ai["watch_window.bats"]
+  6a11 --> 6a11ai
   6b[/docs/]
   6 --> 6b
   6b1["AntCrate_blueprint_v0.pdf"]
@@ -351,12 +355,16 @@ graph TD
   8 --> 8b
   8b1["2026-06-01-gateway-rule-violations-fix.md"]
   8b --> 8b1
+  8b2["2026-06-06-relocate-command.md"]
+  8b --> 8b2
   8c[/specs/]
   8 --> 8c
   8c1["2026-05-31-harness-enforcement-layer.md"]
   8c --> 8c1
   8c2["2026-06-01-gateway-rule-violations-fix-design.md"]
   8c --> 8c2
+  8c3["2026-06-06-relocate-command-design.md"]
+  8c --> 8c3
   9["ledger.md"]
   root --> 9
   10["stack.md"]
