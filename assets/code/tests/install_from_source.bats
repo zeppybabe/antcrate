@@ -107,3 +107,25 @@ register_antcrate() {
     [ "$status" -eq 0 ]
     [[ "$output" == *"STUB-OK"* ]]
 }
+
+# ---- install.sh atomicity (proposal selfinstall-exec-guard, 2026-06-10) ----
+# A wrapper that invokes --install-from-source must never be truncated in
+# place mid-execution. Rename-replace gives the running process a stable
+# inode; the test asserts the installed files get a NEW inode on reinstall.
+
+@test "install.sh: reinstall replaces binaries and libs by rename, not in-place truncation" {
+    export HOME="$BATS_TEST_TMPDIR/home"
+    export PREFIX="$BATS_TEST_TMPDIR/prefix"
+    mkdir -p "$HOME"
+    SRCROOT="$BATS_TEST_DIRNAME/.."
+    run bash "$SRCROOT/install.sh"
+    [ "$status" -eq 0 ]
+    ino1=$(stat -c %i "$PREFIX/bin/antcrate")
+    lib_ino1=$(stat -c %i "$PREFIX/share/antcrate/lib/log.sh")
+    run bash "$SRCROOT/install.sh"
+    [ "$status" -eq 0 ]
+    ino2=$(stat -c %i "$PREFIX/bin/antcrate")
+    lib_ino2=$(stat -c %i "$PREFIX/share/antcrate/lib/log.sh")
+    [ "$ino1" != "$ino2" ]
+    [ "$lib_ino1" != "$lib_ino2" ]
+}

@@ -15,15 +15,22 @@ echo "[antcrate] installing to $PREFIX"
 
 mkdir -p "$BIN_DIR" "$LIB_DIR" "$TPL_DIR" "$HOME/.antcrate"
 
-# binaries (rewrite LIB_DIR path on copy)
+# binaries (rewrite LIB_DIR path on copy; temp+rename so a RUNNING wrapper that
+# invoked --install-from-source is never truncated in place mid-execution — the
+# old process keeps its inode, new invocations get the new file)
 for b in antcrate antcrated; do
     sed "s|LIB_DIR=\"\$SCRIPT_DIR/../lib\"|LIB_DIR=\"$LIB_DIR\"|" \
-        "$SRC/bin/$b" > "$BIN_DIR/$b"
-    chmod +x "$BIN_DIR/$b"
+        "$SRC/bin/$b" > "$BIN_DIR/.$b.tmp.$$"
+    chmod +x "$BIN_DIR/.$b.tmp.$$"
+    mv -f "$BIN_DIR/.$b.tmp.$$" "$BIN_DIR/$b"
 done
 
-# libs
-cp -f "$SRC"/lib/*.sh "$LIB_DIR/"
+# libs (same temp+rename discipline — a wrapper starting mid-install must never
+# source a half-written lib)
+for f in "$SRC"/lib/*.sh; do
+    cp -f "$f" "$LIB_DIR/.$(basename "$f").tmp.$$"
+    mv -f "$LIB_DIR/.$(basename "$f").tmp.$$" "$LIB_DIR/$(basename "$f")"
+done
 
 # templates
 if [[ -d "$SRC/templates" ]]; then
