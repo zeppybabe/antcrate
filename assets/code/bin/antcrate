@@ -98,6 +98,8 @@ LIB_DIR="$SCRIPT_DIR/../lib"
 . "$LIB_DIR/loop.sh"
 # shellcheck disable=SC1091
 . "$LIB_DIR/selfcheck.sh"
+# shellcheck disable=SC1091
+. "$LIB_DIR/cost.sh"
 
 : "${ANTCRATE_HOME:=$HOME/.antcrate}"
 : "${ANTCRATE_ROOT:=$HOME/projects}"
@@ -236,8 +238,10 @@ Commands:
                                       to project, per-project plain, human-readable hook log). N
                                       caps lines per sink (default 20). Read-only.
   --loop "<objective>" --project <p>  start an autonomous objective loop
-                                      [--max-iter N] [--budget SECONDS]; prints
-                                      the /loop command to paste into Claude Code
+                                      [--max-iter N] [--budget SECONDS|$DOLLARS];
+                                      integer budget = wall-clock seconds (legacy),
+                                      decimal or $-prefixed = real USD via --cost;
+                                      prints the /loop command to paste into Claude Code
   --loop-tick <id>                    run one loop tick (driven by Claude /loop)
   --loop-signoff <id> <pass|fail>     record Claudia's semantic verdict
   --loop-status <id> [--porcelain]    show one loop's state
@@ -257,6 +261,9 @@ Commands:
   --selfcheck [--quiet]               self-source persistence health (path, skill link,
                                       git, unpushed, uncommitted, backup age);
                                       exit 0 ok / 1 critical / 2 warnings
+  --cost [--since <ts|epoch>]         real-dollar spend from Claude Code session
+         [--session <file>]           transcripts (~/.claude/projects); per-model
+         [--porcelain]                table + total; --porcelain prints bare USD
   --list                              list registered projects
   --info <project>                    formatted record: path, domain, git_remote,
                                       linked, backups, branch + last_commit + working state
@@ -388,6 +395,7 @@ HOOK_WITH_STASH="" HOOK_NO_TRACE=""
 HOOK_BYPASS_REASON=""
 MD_FORCE=""
 SELFCHECK_QUIET=""
+COST_SINCE="" COST_SESSION="" COST_PORCELAIN=""
 PROFILE_RAW=""
 ENV_APPLY=""
 HOOK_AUTO_DRY=""
@@ -405,6 +413,15 @@ while (( $# > 0 )); do
         --selfcheck)
             ACTION="selfcheck"
             if [[ "${2:-}" == "--quiet" ]]; then SELFCHECK_QUIET="--quiet"; shift 2; else shift; fi ;;
+        --cost)
+            ACTION="cost"; shift
+            while [[ "${1:-}" == "--since" || "${1:-}" == "--session" || "${1:-}" == "--porcelain" ]]; do
+                case "$1" in
+                    --since)     COST_SINCE="${2:-}"; shift 2 ;;
+                    --session)   COST_SESSION="${2:-}"; shift 2 ;;
+                    --porcelain) COST_PORCELAIN=1; shift ;;
+                esac
+            done ;;
         --list)              ACTION="list"; shift ;;
         --info)              ACTION="info"; NAME="${2:-}"; shift 2 ;;
         --start)             ACTION="start"; NAME="$2"; shift 2 ;;
@@ -772,6 +789,12 @@ case "$ACTION" in
     init)      cmd_init ;;
     status)    cmd_status ;;
     selfcheck) ac_selfcheck ${SELFCHECK_QUIET:+"$SELFCHECK_QUIET"} ;;
+    cost)
+        COST_ARGS=()
+        [[ -n "$COST_SINCE" ]]     && COST_ARGS+=(--since "$COST_SINCE")
+        [[ -n "$COST_SESSION" ]]   && COST_ARGS+=(--session "$COST_SESSION")
+        [[ -n "$COST_PORCELAIN" ]] && COST_ARGS+=(--porcelain)
+        ac_cost_report "${COST_ARGS[@]}" ;;
     list)      cmd_list ;;
     info)
         [[ -z "$NAME" ]] && { ac_error "--info requires <project>"; exit 2; }

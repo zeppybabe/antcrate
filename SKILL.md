@@ -53,6 +53,9 @@ Designed to be the **single controllable surface** for solo-developer ops — ev
   - `log.sh` — leveled logging (logfile only, stderr only for warn/error)
   - `lock.sh` — flock + pause-flag helpers
   - `canary.sh` — Wave 1 compaction-canary gate; `--canary-init` / `--canary-verify` / `--canary-status` / `--canary-gate-check`; wraps `antcrate-core canary` C++ binary (AGENTS.md rule #15)
+  - `loop.sh` — durable objective loop; `--loop` / `--loop-tick` / `--loop-signoff` / `--loop-status` / `--loop-list` / `--loop-resume` / `--loop-halt`; three hard stops (max-iter / no-progress / budget), two-key verify, composes with Claude Code `/loop`
+  - `selfcheck.sh` — `--selfcheck [--quiet]` self-source persistence health (registry path, skill link, git, unpushed, dirty, backup age; exit 0/1/2); `selfsrc` line in `--status`; pairs with `systemd/antcrate-backup.timer`
+  - `cost.sh` — `--cost [--since][--session][--porcelain]` real-dollar spend from Claude Code session JSONL (per-model table + total; price table embedded, `ANTCRATE_COST_PRICES_FILE` override); backs the loop's `$`-budget mode (`--budget 5.00` = USD, integer = legacy seconds)
 - **`core/`** — C++17 helper binary `antcrate-core` (CMake + doctest + nlohmann/json vendored). Wave 1 ships the canary subsystem; the Bash wrapper continues to be the user-facing CLI.
 - **`templates/<domain>/`** — scaffolding templates per domain (`webapps`, `scripts`, `notes`, `projects`, `_generic`)
 - **`tests/*.bats`** — bats coverage; run all via `antcrate --ci`

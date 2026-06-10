@@ -253,7 +253,7 @@ When a new plugin/MCP arrives, classify it into one of these buckets before reac
 
 ## Quick index by verb
 
-- **see**: `--status`, `--list`, `--map`, `--logs`, `--diff`, `--proposals`, `--registry-diagram`, `--tree-diagram`, `--watch`, `--watch-smoke`, `--watch-window`
+- **see**: `--status`, `--list`, `--map`, `--logs`, `--diff`, `--proposals`, `--registry-diagram`, `--tree-diagram`, `--watch`, `--watch-smoke`, `--watch-window`, `--selfcheck`, `--cost`
 - **make**: `--start`, `--register`, `--branch`, `--link`, `--gh-init`, `--touch`, `--mkdir`, `--diagrams`
 - **point at**: `--addr`, `--anchor`, `--in`
 - **change**: `--rename`, `--resume --expand`, `--restore`, `--touch`, `--mkdir`

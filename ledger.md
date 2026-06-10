@@ -4,6 +4,16 @@ Append-only log. Newest entries on top. ISO-8601 dates. Never delete.
 
 ---
 
+## 2026-06-10 — `--cost` real-dollar engine SHIPPED (sub-project #2 of 6); loop `--budget` now takes USD; CLAUDE.md audit counter updated to 498/598
+
+**`lib/cost.sh`** parses Claude Code session JSONL (`~/.claude/projects/*/*.jsonl`, `message.model` + `message.usage`) into dollars. Price table embedded (per MTok: fable 10/50, opus 5/25, sonnet 3/15, haiku 1/5; cache read 0.1×in, 5m write 1.25×in, 1h write 2×in) — **validated against USAGE ON CLAUDE.pdf: reproduces the $26.04 opus session figure exactly.** Pulled rates from the claude-api skill, not memory. Key mechanics: dedupe by message id (CC writes the same assistant message multiple times while streaming — last wins), 5m/1h cache-write split priced separately, prefix-match for date-suffixed model ids, unknown `claude-*` → fable rates (conservative, flagged `~` in the report), non-claude (`<synthetic>`) → $0, `--since` accepts ISO or epoch (compared on `[0:19]` to dodge the ms-vs-Z lexicographic trap), `ANTCRATE_COST_PRICES_FILE` override. Flags: `--cost [--since][--session][--porcelain]`.
+
+**Loop budget proxy replaced.** `--budget 300` stays wall-clock seconds (back-compat); `--budget 5.00` / `--budget '$5'` = USD: `budget_mode:"cost"` in loop state, `_ac_loop_check_stops` computes `ac_cost_total --since <loop-start>` and trips at ceiling (awk float compare). Cost-engine failure fails open on the budget stop ONLY (warn; max-iter + no-progress still bound the loop).
+
+**TDD:** `tests/cost.bats` 20 tests first (all RED 127 → GREEN). One real bug caught mid-implementation: jq `($m | startswith(.key))` rebinds `.` to the model string inside the pipe → "Cannot index string with string key"; fixed with `.key as $k`. **bats 498 → 518, `--ci` PASS.** Live smoke on real transcripts: **$204.24 all-time local, $40.97 today** — opus 4-8 $97.36 / opus 4-7 $83.08 / fable $23.80 mirror the PDF's subagent-heavy story. SKILL.md gained loop.sh/selfcheck.sh/cost.sh entries (loop.sh had drifted — never listed); PATTERNS.md see-verbs updated. Roadmap: #2 done → next #3 token-limit auto-resume.
+
+---
+
 ## 2026-06-09 — Codebase audit RUN (overdue since 401; 1 CRITICAL + 6 minor, 0 drift, 0 orphans, loop engine CLEAN) — all findings fixed; NEW BASELINE 498 bats
 
 **Audit** (foreground `agents-rule-auditor`, Sonnet, baseline 301/`80385c3` → current 495/`bd6b410`): rules #2/#3/#10/#12/#13/#14 all CLEAN (the 2026-06-01 gh.sh/cmd_pp fixes held); every Shipped claim in HOOK_PLAN.md/BUNDLE_SPEC.md/state.md resolves to a real flag + lib fn; no orphan state. **Loop engine (never fully reviewed after the interrupted Claudia pass) came back clean.**

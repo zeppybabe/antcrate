@@ -94,8 +94,26 @@ _ac_loop_check_stops() {
     if (( tick >= max_iter )); then printf 'max-iter\n'; return 0; fi
     if (( stall >= 3 ));      then printf 'no-progress\n'; return 0; fi
     if [[ "$ceiling" != "null" ]]; then
-        local elapsed=$(( $(date -u +%s) - start ))
-        if (( elapsed >= ceiling )); then printf 'budget\n'; return 0; fi
+        local mode; mode=$(jq -r '.budget_mode // "wallclock"' "$file")
+        if [[ "$mode" == "cost" ]]; then
+            # Real-dollar budget via lib/cost.sh (replaces the wall-clock proxy).
+            if declare -F ac_cost_total >/dev/null; then
+                local since_iso spent
+                since_iso=$(date -u -d "@$start" +%Y-%m-%dT%H:%M:%SZ)
+                spent=$(ac_cost_total --since "$since_iso" 2>/dev/null) || spent=""
+                if [[ -n "$spent" ]] && awk -v s="$spent" -v c="$ceiling" 'BEGIN{exit !(s >= c)}'; then
+                    printf 'budget\n'; return 0
+                fi
+                # spend unreadable → fail open on THIS stop only; max-iter +
+                # no-progress still bound the loop
+                [[ -z "$spent" ]] && ac_warn "loop: cost spend unreadable — budget stop skipped this tick"
+            else
+                ac_warn "loop: cost budget set but cost engine unavailable — budget stop skipped"
+            fi
+        else
+            local elapsed=$(( $(date -u +%s) - start ))
+            if (( elapsed >= ceiling )); then printf 'budget\n'; return 0; fi
+        fi
     fi
     printf '\n'
 }
@@ -127,15 +145,24 @@ ac_loop_init() {
     local id; id=$(_ac_loop_gen_id "$project")
     local now_iso; now_iso=$(date -u +%Y-%m-%dT%H:%M:%SZ)
     local now_epoch; now_epoch=$(date -u +%s)
-    local ceiling="null"; [[ "$budget" =~ ^[1-9][0-9]*$ ]] && ceiling="$budget"
+    # Budget: integer = seconds (legacy wall-clock proxy); a decimal or a
+    # $-prefixed value = US dollars, enforced via lib/cost.sh real spend.
+    local ceiling="null" budget_mode="wallclock"
+    local budget_clean="${budget#\$}"
+    if [[ "$budget_clean" =~ ^[0-9]+\.[0-9]+$ ]] \
+       || { [[ "$budget" == \$* ]] && [[ "$budget_clean" =~ ^[0-9]+(\.[0-9]+)?$ ]]; }; then
+        budget_mode="cost"; ceiling="\"$budget_clean\""
+    elif [[ "$budget" =~ ^[1-9][0-9]*$ ]]; then
+        ceiling="$budget"
+    fi
 
     jq -n \
         --arg id "$id" --arg obj "$objective" --arg proj "$project" \
         --argjson mi "$max_iter" --argjson bstart "$now_epoch" \
-        --argjson ceil "$ceiling" --arg now "$now_iso" \
+        --argjson ceil "$ceiling" --arg now "$now_iso" --arg bmode "$budget_mode" \
         '{id:$id, objective:$obj, project:$proj, status:"running", tick:0,
           max_iter:$mi, last_tree_sha:"", error_signature:"", stall_streak:0,
-          signoff:"none", budget_counter_start:$bstart, budget_ceiling:$ceil,
+          signoff:"none", budget_counter_start:$bstart, budget_ceiling:$ceil, budget_mode:$bmode,
           checkpoint:{step_completed:"",key_decisions:"",current_state:"",next_step:""},
           created:$now, updated:$now}' \
         | _ac_loop_write "$id" || return 1
