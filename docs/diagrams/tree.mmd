@@ -1,4 +1,4 @@
-%% antcrate tree — generated 2026-06-07T03:29:42Z
+%% antcrate tree — generated 2026-06-10T06:29:39Z
 graph TD
   root(["antcrate"])
   1["CONTRIBUTING.md"]
@@ -127,36 +127,44 @@ graph TD
   6a8 --> 6a8v
   6a8w["log.sh"]
   6a8 --> 6a8w
-  6a8x["md_scaffold.sh"]
+  6a8x["loop.sh"]
   6a8 --> 6a8x
-  6a8y["obsidian.sh"]
+  6a8y["md_scaffold.sh"]
   6a8 --> 6a8y
-  6a8z["profile.sh"]
+  6a8z["obsidian.sh"]
   6a8 --> 6a8z
-  6a8aa["propose.sh"]
+  6a8aa["profile.sh"]
   6a8 --> 6a8aa
-  6a8ab["quarantine.sh"]
+  6a8ab["propose.sh"]
   6a8 --> 6a8ab
-  6a8ac["registry.sh"]
+  6a8ac["quarantine.sh"]
   6a8 --> 6a8ac
-  6a8ad["relocate.sh"]
+  6a8ad["registry.sh"]
   6a8 --> 6a8ad
-  6a8ae["safety.sh"]
+  6a8ae["relocate.sh"]
   6a8 --> 6a8ae
-  6a8af["scaffold.sh"]
+  6a8af["safety.sh"]
   6a8 --> 6a8af
-  6a8ag["schema.sh"]
+  6a8ag["scaffold.sh"]
   6a8 --> 6a8ag
-  6a8ah["subbranch.sh"]
+  6a8ah["schema.sh"]
   6a8 --> 6a8ah
-  6a8ai["watch.sh"]
+  6a8ai["selfcheck.sh"]
   6a8 --> 6a8ai
-  6a8aj["watch_window.sh"]
+  6a8aj["subbranch.sh"]
   6a8 --> 6a8aj
+  6a8ak["watch.sh"]
+  6a8 --> 6a8ak
+  6a8al["watch_window.sh"]
+  6a8 --> 6a8al
   6a9[/systemd/]
   6a --> 6a9
-  6a9a["antcrated.service"]
+  6a9a["antcrate-backup.service"]
   6a9 --> 6a9a
+  6a9b["antcrate-backup.timer"]
+  6a9 --> 6a9b
+  6a9c["antcrated.service"]
+  6a9 --> 6a9c
   6a10[/templates/]
   6a --> 6a10
   6a10a[/_generic/]
@@ -247,34 +255,38 @@ graph TD
   6a11 --> 6a11t
   6a11u["lifecycle.bats"]
   6a11 --> 6a11u
-  6a11v["md_scaffold.bats"]
+  6a11v["loop.bats"]
   6a11 --> 6a11v
-  6a11w["obsidian.bats"]
+  6a11w["md_scaffold.bats"]
   6a11 --> 6a11w
-  6a11x["profile.bats"]
+  6a11x["obsidian.bats"]
   6a11 --> 6a11x
-  6a11y["propose.bats"]
+  6a11y["profile.bats"]
   6a11 --> 6a11y
-  6a11z["quarantine.bats"]
+  6a11z["propose.bats"]
   6a11 --> 6a11z
-  6a11aa["register.bats"]
+  6a11aa["quarantine.bats"]
   6a11 --> 6a11aa
-  6a11ab["registry.bats"]
+  6a11ab["register.bats"]
   6a11 --> 6a11ab
-  6a11ac["relocate.bats"]
+  6a11ac["registry.bats"]
   6a11 --> 6a11ac
-  6a11ad["scaffold.bats"]
+  6a11ad["relocate.bats"]
   6a11 --> 6a11ad
-  6a11ae["schema.bats"]
+  6a11ae["scaffold.bats"]
   6a11 --> 6a11ae
-  6a11af["shellcheck_on_save.bats"]
+  6a11af["schema.bats"]
   6a11 --> 6a11af
-  6a11ag["watch.bats"]
+  6a11ag["selfcheck.bats"]
   6a11 --> 6a11ag
-  6a11ah["watch_smoke.bats"]
+  6a11ah["shellcheck_on_save.bats"]
   6a11 --> 6a11ah
-  6a11ai["watch_window.bats"]
+  6a11ai["watch.bats"]
   6a11 --> 6a11ai
+  6a11aj["watch_smoke.bats"]
+  6a11 --> 6a11aj
+  6a11ak["watch_window.bats"]
+  6a11 --> 6a11ak
   6b[/docs/]
   6 --> 6b
   6b1["AntCrate_blueprint_v0.pdf"]
@@ -365,6 +377,8 @@ graph TD
   8c --> 8c2
   8c3["2026-06-06-relocate-command-design.md"]
   8c --> 8c3
+  8c4["2026-06-09-loop-engine-harness-design.md"]
+  8c --> 8c4
   9["ledger.md"]
   root --> 9
   10["stack.md"]
