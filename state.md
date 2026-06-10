@@ -1,10 +1,18 @@
 # AntCrate — Current State
 
-_Last updated: 2026-06-09_
+_Last updated: 2026-06-10_
 
 ## Top of mind
 
-**2026-06-10 (latest) — FULL SESSION QUEUE SHIPPED by Cable (Fable 5, orchestrator seat): selfcheck + audit + `--cost` + env-guard. bats 480 → 542, everything pushed.**
+**2026-06-10 (latest) — INTEL TRACKER SHIPPED + two specs landed; AnyCrate (specs in `docs/specs/`) ABSORBS roadmap #4 + #5. bats 542 → 560.**
+
+- ✅ **Two approved specs in `docs/specs/`**: `2026-06-10-anthropic-intel-tracker-design.md` + `2026-06-10-anycrate-capability-layer-design.md` (user spec'd on web; originals at `~/Documents/MD/`). **Roadmap restructure: AnyCrate absorbs #4 (agent roles → policy.json) and #5 (provisioning → catalog/acquirer); #3 token-limit auto-resume and #6 `--health` stay standalone.** 15 proposals filed (6 intel + 8 anycrate + ci-source-override).
+- ✅ **Intel tracker LIVE** — `--intel-pull/-new/-ack/-status`, `lib/intel.sh` + 18 bats (TDD, RED first), Anthropic-only host allowlist enforced fail-closed in code, append-only new/acked.jsonl, `intel: N unread` in `--status`, `systemd/antcrate-intel.timer` (install.sh wired, NOT yet enabled — `systemctl --user enable --now antcrate-intel.timer`), `intel` skill at `assets/skills/intel/` symlinked into `~/.claude/skills/intel` (LOADED — verified in session skill list). Live-smoked: 7/7 real sources pulled, second pull all-unchanged. **7 unread items awaiting the first `/intel` cognition pass.**
+- **AnyCrate build order (locked, after intel):** catalog+tiers+staging → `--acquire` repo-kind via `--ingest` → command pack + `--commands-install` → resolver skill → policy.json (#4 closed). **Locked security: only `trust:anthropic` auto-installs, only under `ANTCRATE_ACQUIRE_AUTO=1` (agents MUST NOT set it); everything else stages for Claudia review + human y/N; no `--stage-purge` ever.** AGENTS.md gets 3 new rules at AnyCrate build time.
+- **NEXT SESSION:** (1) run the first `/intel` review pass (7 unread), (2) START AnyCrate build (spec step 1: catalog + tier enforcement + staging, test-first), (3) enable the intel timer, (4) state.md TRIM still pending (~40k tokens), (5) roadmap #3 token-limit auto-resume after AnyCrate or interleaved.
+- **Worktree note:** background-session edits now require worktree isolation OR `.claude/settings.json` `{"worktree":{"bgIsolation":"none"}}` (file now in repo, picked up at next session start). This session used a real git worktree + verified copy-back; `--ci` can't CI a worktree (proposal `ci-source-override`).
+
+**2026-06-10 (earlier) — FULL SESSION QUEUE SHIPPED by Cable (Fable 5, orchestrator seat): selfcheck + audit + `--cost` + env-guard. bats 480 → 542, everything pushed.**
 
 - ✅ **(1) Persistence insurance** — `--selfcheck [--quiet]` (`lib/selfcheck.sh`, 15 bats) + `selfsrc` line in `--status` + `systemd/antcrate-backup.timer` (ENABLED, daily).
 - ✅ **(2) Codebase audit** (was due at 401) — 1 CRITICAL fixed (hooks.sh raw rm → remove-by-rename `mv` to backup), 6 minors fixed, AGENTS #16 promoted Reserved→live, loop engine CLEAN. **New baseline 498 / sha `50b5699`; next audit at 598** (~/CLAUDE.md counter updated).

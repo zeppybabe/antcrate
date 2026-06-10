@@ -100,6 +100,8 @@ LIB_DIR="$SCRIPT_DIR/../lib"
 . "$LIB_DIR/selfcheck.sh"
 # shellcheck disable=SC1091
 . "$LIB_DIR/cost.sh"
+# shellcheck disable=SC1091
+. "$LIB_DIR/intel.sh"
 
 : "${ANTCRATE_HOME:=$HOME/.antcrate}"
 : "${ANTCRATE_ROOT:=$HOME/projects}"
@@ -264,6 +266,11 @@ Commands:
   --cost [--since <ts|epoch>]         real-dollar spend from Claude Code session
          [--session <file>]           transcripts (~/.claude/projects); per-model
          [--porcelain]                table + total; --porcelain prints bare USD
+  --intel-pull [--source <id>]        fetch pinned Anthropic-only sources; snapshot +
+               [--quiet]              unread row on change (exit 2 on non-Anthropic host)
+  --intel-new [--json]                unread intel items (new minus acked)
+  --intel-ack <id> <sha256>           mark an intel item reviewed
+  --intel-status                      per-source last-pull / last-change / unread
   --list                              list registered projects
   --info <project>                    formatted record: path, domain, git_remote,
                                       linked, backups, branch + last_commit + working state
@@ -364,6 +371,9 @@ cmd_status() {
     else
         printf '  selfsrc   : %s\n' "${sc_out#selfcheck: }"
     fi
+    local intel_out
+    intel_out=$(ac_intel_status_line 2>/dev/null) || true
+    [[ -n "$intel_out" ]] && printf '  %s\n' "${intel_out/: /     : }"
 }
 
 cmd_list() {
@@ -396,6 +406,7 @@ HOOK_BYPASS_REASON=""
 MD_FORCE=""
 SELFCHECK_QUIET=""
 COST_SINCE="" COST_SESSION="" COST_PORCELAIN=""
+INTEL_SOURCE="" INTEL_QUIET="" INTEL_JSON="" INTEL_SHA=""
 PROFILE_RAW=""
 ENV_APPLY=""
 HOOK_AUTO_DRY=""
@@ -422,6 +433,21 @@ while (( $# > 0 )); do
                     --porcelain) COST_PORCELAIN=1; shift ;;
                 esac
             done ;;
+        --intel-pull)
+            ACTION="intel-pull"; shift
+            while [[ "${1:-}" == "--source" || "${1:-}" == "--quiet" ]]; do
+                case "$1" in
+                    --source) INTEL_SOURCE="${2:-}"; shift 2 ;;
+                    --quiet)  INTEL_QUIET="--quiet"; shift ;;
+                esac
+            done ;;
+        --intel-new)
+            ACTION="intel-new"
+            if [[ "${2:-}" == "--json" ]]; then INTEL_JSON="--json"; shift 2; else shift; fi ;;
+        --intel-ack)
+            ACTION="intel-ack"; NAME="${2:-}"; INTEL_SHA="${3:-}"
+            if [[ $# -ge 3 ]]; then shift 3; elif [[ $# -ge 2 ]]; then shift 2; else shift; fi ;;
+        --intel-status)      ACTION="intel-status"; shift ;;
         --list)              ACTION="list"; shift ;;
         --info)              ACTION="info"; NAME="${2:-}"; shift 2 ;;
         --start)             ACTION="start"; NAME="$2"; shift 2 ;;
@@ -789,6 +815,16 @@ case "$ACTION" in
     init)      cmd_init ;;
     status)    cmd_status ;;
     selfcheck) ac_selfcheck ${SELFCHECK_QUIET:+"$SELFCHECK_QUIET"} ;;
+    intel-pull)
+        INTEL_ARGS=()
+        [[ -n "$INTEL_QUIET" ]]  && INTEL_ARGS+=(--quiet)
+        [[ -n "$INTEL_SOURCE" ]] && INTEL_ARGS+=("$INTEL_SOURCE")
+        ac_intel_pull "${INTEL_ARGS[@]}" ;;
+    intel-new)    ac_intel_new ${INTEL_JSON:+"$INTEL_JSON"} ;;
+    intel-ack)
+        [[ -z "$NAME" || -z "$INTEL_SHA" ]] && { ac_error "--intel-ack requires <source_id> <sha256>"; exit 2; }
+        ac_intel_ack "$NAME" "$INTEL_SHA" ;;
+    intel-status) ac_intel_status ;;
     cost)
         COST_ARGS=()
         [[ -n "$COST_SINCE" ]]     && COST_ARGS+=(--since "$COST_SINCE")

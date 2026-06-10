@@ -55,10 +55,14 @@ if command -v systemctl >/dev/null 2>&1 && [[ -d "$SVC_DIR" || $(mkdir -p "$SVC_
     sed "s|__BIN__|$BIN_DIR/antcrate|g" \
         "$SRC/systemd/antcrate-backup.service" > "$SVC_DIR/antcrate-backup.service"
     cp -f "$SRC/systemd/antcrate-backup.timer" "$SVC_DIR/antcrate-backup.timer"
+    sed "s|__BIN__|$BIN_DIR/antcrate|g" \
+        "$SRC/systemd/antcrate-intel.service" > "$SVC_DIR/antcrate-intel.service"
+    cp -f "$SRC/systemd/antcrate-intel.timer" "$SVC_DIR/antcrate-intel.timer"
     systemctl --user daemon-reload || true
-    echo "[antcrate] systemd units installed at $SVC_DIR (antcrated, antcrate-backup)"
+    echo "[antcrate] systemd units installed at $SVC_DIR (antcrated, antcrate-backup, antcrate-intel)"
     echo "[antcrate] enable with: systemctl --user enable --now antcrated"
     echo "[antcrate] enable daily backup: systemctl --user enable --now antcrate-backup.timer"
+    echo "[antcrate] enable daily intel pull: systemctl --user enable --now antcrate-intel.timer"
 fi
 
 echo "[antcrate] done. PATH should include $BIN_DIR"

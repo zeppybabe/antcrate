@@ -116,6 +116,17 @@ Disable with `export ANTCRATE_AUTO_DIAGRAMS=0` (e.g. for batch scripted mutation
 |---|---|---|
 | Run shellcheck + full bats suite | `antcrate --ci` | One command, fail-fast on either. Use before any change. |
 
+## Anthropic intel (retrieval = Bash, judgment = the `intel` skill)
+
+| Intent | Command | Notes |
+|---|---|---|
+| Fetch Anthropic-official sources now | `antcrate --intel-pull [--source <id>] [--quiet]` | Pinned list in `~/.antcrate/intel/sources.json` (anthropic.com / docs.claude.com / github.com/anthropics/* ONLY — any other host exits 2). Snapshot + unread row on hash change. Daily timer: `antcrate-intel.timer`. |
+| See unread Anthropic changes | `antcrate --intel-new [--json]` | new.jsonl minus acked.jsonl. The `intel` skill consumes the `--json` form. |
+| Mark an intel item reviewed | `antcrate --intel-ack <source_id> <sha256>` | Append-only; nothing is ever deleted from the intel tree. |
+| Per-source intel summary | `antcrate --intel-status` | last-pull / last-change / unread per source; `--status` also carries an `intel: N unread` line. |
+
+Findings become proposals via the `intel` skill — never direct code/config edits (Bash owns retrieval, Claude owns judgment).
+
 ## Safety canary (Wave 1 compaction-canary gate — see AGENTS.md rule #15)
 
 | Intent | Command | Notes |
@@ -253,7 +264,7 @@ When a new plugin/MCP arrives, classify it into one of these buckets before reac
 
 ## Quick index by verb
 
-- **see**: `--status`, `--list`, `--map`, `--logs`, `--diff`, `--proposals`, `--registry-diagram`, `--tree-diagram`, `--watch`, `--watch-smoke`, `--watch-window`, `--selfcheck`, `--cost`
+- **see**: `--status`, `--list`, `--map`, `--logs`, `--diff`, `--proposals`, `--registry-diagram`, `--tree-diagram`, `--watch`, `--watch-smoke`, `--watch-window`, `--selfcheck`, `--cost`, `--intel-new`, `--intel-status`
 - **make**: `--start`, `--register`, `--branch`, `--link`, `--gh-init`, `--touch`, `--mkdir`, `--diagrams`
 - **point at**: `--addr`, `--anchor`, `--in`
 - **change**: `--rename`, `--resume --expand`, `--restore`, `--touch`, `--mkdir`

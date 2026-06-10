@@ -1,0 +1,7 @@
+[Unit]
+Description=AntCrate daily Anthropic intel pull (retrieval only, no cognition)
+
+[Service]
+Type=oneshot
+ExecStart=__BIN__ --intel-pull --quiet
+Environment=ANTCRATE_LOG_LEVEL=info
