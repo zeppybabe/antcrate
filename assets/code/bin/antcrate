@@ -92,6 +92,8 @@ LIB_DIR="$SCRIPT_DIR/../lib"
 . "$LIB_DIR/hygiene.sh"
 # shellcheck disable=SC1091
 . "$LIB_DIR/quarantine.sh"
+# shellcheck disable=SC1091
+. "$LIB_DIR/loop.sh"
 
 : "${ANTCRATE_HOME:=$HOME/.antcrate}"
 : "${ANTCRATE_ROOT:=$HOME/projects}"
@@ -229,6 +231,15 @@ Commands:
   --hook-audit <project> [N]          unified view of three hook audit sinks (global JSONL filtered
                                       to project, per-project plain, human-readable hook log). N
                                       caps lines per sink (default 20). Read-only.
+  --loop "<objective>" --project <p>  start an autonomous objective loop
+                                      [--max-iter N] [--budget SECONDS]; prints
+                                      the /loop command to paste into Claude Code
+  --loop-tick <id>                    run one loop tick (driven by Claude /loop)
+  --loop-signoff <id> <pass|fail>     record Claudia's semantic verdict
+  --loop-status <id> [--porcelain]    show one loop's state
+  --loop-list                         list all loops
+  --loop-resume <id>                  resume a halted loop (emits context)
+  --loop-halt <id> [--reason <r>]     manually halt a loop (checkpoint+quarantine)
   --quarantine-list <project>         list quarantine entries for a project (read-only, DESC by timestamp)
   --quarantine-restore <project> --at <ts>
                                       restore a quarantined entry to its original_path;
@@ -350,6 +361,7 @@ cmd_list() {
 
 NAME="" DOMAIN="" META="" REL="" EXPAND="" RESUME="" AUTO_YES="" GH_VIS="private" RESTORE_TS="" PROPOSE_DESC=""
 ADDR_CODE="" RENAME_NEW="" LOGS_LINES="50" CMD_ARGS=() RELPATH="" REG_PATH="" DIAG_OUT=""
+LOOP_OBJECTIVE="" LOOP_ID="" LOOP_VERDICT="" LOOP_NOTE="" LOOP_MAX_ITER="" LOOP_BUDGET="" LOOP_PORCELAIN="" LOOP_REASON=""
 COMMIT_MSG="" COMMIT_MODE=""
 EVENT_KIND="" EVENT_TTL="" EVENT_LABEL="" EVENT_AGENT=""
 WATCH_ONCE="" WATCH_INTERVAL="" WATCH_NOCOLOR="" WATCH_DEPTH=""
@@ -710,6 +722,18 @@ while (( $# > 0 )); do
             if [[ $# -gt 0 && "${1:0:2}" != "--" ]]; then NAME="$1"; shift; fi ;;
         --public)            GH_VIS="public"; shift ;;
         --private)           GH_VIS="private"; shift ;;
+        --loop)              ACTION="loop-init"; LOOP_OBJECTIVE="${2:-}"; shift 2 ;;
+        --loop-tick)         ACTION="loop-tick"; LOOP_ID="${2:-}"; shift 2 ;;
+        --loop-signoff)      ACTION="loop-signoff"; LOOP_ID="${2:-}"; LOOP_VERDICT="${3:-}"; LOOP_NOTE="${4:-}"; shift 3 ;;
+        --loop-status)       ACTION="loop-status"; LOOP_ID="${2:-}"; shift 2 ;;
+        --loop-list)         ACTION="loop-list"; shift ;;
+        --loop-resume)       ACTION="loop-resume"; LOOP_ID="${2:-}"; shift 2 ;;
+        --loop-halt)         ACTION="loop-halt"; LOOP_ID="${2:-}"; shift 2 ;;
+        --project)           NAME="${2:-}"; shift 2 ;;
+        --max-iter)          LOOP_MAX_ITER="${2:-}"; shift 2 ;;
+        --budget)            LOOP_BUDGET="${2:-}"; shift 2 ;;
+        --porcelain)         LOOP_PORCELAIN="1"; shift ;;
+        --reason)            LOOP_REASON="${2:-}"; shift 2 ;;
         --pipe-file)         ACTION="pipe-file"; NAME="$2"; shift 2 ;;
         --domain)            DOMAIN="$2"; shift 2 ;;
         --meta)              META="$2"; shift 2 ;;
@@ -1014,6 +1038,26 @@ case "$ACTION" in
         ac_canary_verify "$CANARY_TOKEN" ;;
     canary-status)      ac_canary_status ;;
     canary-gate-check)  ac_canary_gate_check ;;
+    loop-init)
+        [[ -z "$NAME" ]] && { ac_error "--loop requires --project <p>"; exit 2; }
+        ac_loop_init "$LOOP_OBJECTIVE" "$NAME" "${LOOP_MAX_ITER:-}" "${LOOP_BUDGET:-}" ;;
+    loop-tick)
+        [[ -z "$LOOP_ID" ]] && { ac_error "--loop-tick requires <id>"; exit 2; }
+        ac_loop_tick "$LOOP_ID" ;;
+    loop-signoff)
+        [[ -z "$LOOP_ID" || -z "$LOOP_VERDICT" ]] && { ac_error "--loop-signoff requires <id> <pass|fail>"; exit 2; }
+        ac_loop_signoff "$LOOP_ID" "$LOOP_VERDICT" "$LOOP_NOTE" ;;
+    loop-status)
+        [[ -z "$LOOP_ID" ]] && { ac_error "--loop-status requires <id>"; exit 2; }
+        if [[ -n "$LOOP_PORCELAIN" ]]; then ac_loop_status "$LOOP_ID" --porcelain; else ac_loop_status "$LOOP_ID"; fi ;;
+    loop-list)
+        ac_loop_list ;;
+    loop-resume)
+        [[ -z "$LOOP_ID" ]] && { ac_error "--loop-resume requires <id>"; exit 2; }
+        ac_loop_resume "$LOOP_ID" ;;
+    loop-halt)
+        [[ -z "$LOOP_ID" ]] && { ac_error "--loop-halt requires <id>"; exit 2; }
+        ac_loop_halt "$LOOP_ID" "${LOOP_REASON:-manual}" ;;
     pipe-file) cmd_pipe_file "$NAME" ;;
     "")        usage; exit 2 ;;
 esac
