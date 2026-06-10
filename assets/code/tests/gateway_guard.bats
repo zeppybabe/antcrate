@@ -182,3 +182,43 @@ guard() {
     run guard "rm /tmp/ok && rm -rf /etc/pwn"
     [ "$status" -eq 2 ]
 }
+
+# ---- heredoc bodies are data, not commands (2026-06-09 false positive) ----
+
+@test "heredoc: destructive text in a cat heredoc body is allowed" {
+    run guard 'cat > /tmp/fixture.bats <<EOF
+@test "x" {
+  rm -rf "\$SOMEVAR/y"
+  rm -rf /etc/pwn
+}
+EOF'
+    [ "$status" -eq 0 ]
+}
+
+@test "heredoc: quoted-marker heredoc body with critical paths is allowed" {
+    run guard "cat <<'DOC'
+rm -rf /etc
+dd if=/dev/zero of=/dev/sda
+DOC"
+    [ "$status" -eq 0 ]
+}
+
+@test "heredoc: body piped into a shell interpreter is still scanned" {
+    run guard 'bash <<EOF
+rm -rf /etc/pwn
+EOF'
+    [ "$status" -eq 2 ]
+}
+
+@test "heredoc: commands after the closing marker are still scanned" {
+    run guard 'cat <<EOF
+harmless body text
+EOF
+rm -rf /etc/pwn'
+    [ "$status" -eq 2 ]
+}
+
+@test "heredoc: herestring is not mistaken for a heredoc opener" {
+    run guard 'grep -q x <<< "harmless" && rm -rf /etc/pwn'
+    [ "$status" -eq 2 ]
+}

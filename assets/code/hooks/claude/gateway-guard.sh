@@ -58,6 +58,38 @@ _neutralize_quoted() {  # blank out shell operators sitting INSIDE quotes so
     printf '%s' "$out"
 }
 
+_neutralize_heredocs() {  # blank heredoc BODIES — text between <<MARKER and the
+                          # closing MARKER line is data, not commands. Exception:
+                          # a shell/script interpreter receiving the heredoc
+                          # EXECUTES its body (bash <<EOF) — leave those visible.
+    local s="$1" out="" line probe marker="" in_doc=0 detect
+    while IFS= read -r line; do
+        if [ "$in_doc" = 1 ]; then
+            probe="${line#"${line%%[!$'\t']*}"}"   # tolerate <<- tab indent
+            if [ "$probe" = "$marker" ]; then
+                in_doc=0
+                out+="$line"$'\n'
+            else
+                out+=$'\n'
+            fi
+            continue
+        fi
+        out+="$line"$'\n'
+        detect="${line//<<</ }"                    # herestrings are not heredocs
+        if [[ "$detect" == *"<<"* ]]; then
+            # interpreters that execute their stdin: keep the body scannable
+            if [[ "$line" =~ (^|[[:space:];|&])(bash|sh|zsh|dash|ksh|eval|python[0-9.]*|perl|ruby|node)([[:space:]]|$) ]]; then
+                continue
+            fi
+            if [[ "$detect" =~ \<\<-?[[:space:]]*[\'\"]?([A-Za-z_][A-Za-z0-9_]*) ]]; then
+                marker="${BASH_REMATCH[1]}"
+                in_doc=1
+            fi
+        fi
+    done <<< "$s"
+    printf '%s' "$out"
+}
+
 _resolve() {  # normalize a token into an absolute-ish path for matching
     local p="$1" tilde='~'
     p="${p%\"}"; p="${p#\"}"; p="${p%\'}"; p="${p#\'}"   # strip one layer of quotes
@@ -124,6 +156,7 @@ fi
 # Neutralize operators inside quotes first, then split on ; && || | &
 # (single & = background). Redirects (>) stay in-segment.
 scan="$(_neutralize_quoted "$cmd")"
+scan="$(_neutralize_heredocs "$scan")"
 segments="$(printf '%s' "$scan" | sed -E 's/(\|\||&&|[;&|])/\n/g')"
 
 while IFS= read -r seg; do
