@@ -94,6 +94,8 @@ LIB_DIR="$SCRIPT_DIR/../lib"
 . "$LIB_DIR/quarantine.sh"
 # shellcheck disable=SC1091
 . "$LIB_DIR/loop.sh"
+# shellcheck disable=SC1091
+. "$LIB_DIR/selfcheck.sh"
 
 : "${ANTCRATE_HOME:=$HOME/.antcrate}"
 : "${ANTCRATE_ROOT:=$HOME/projects}"
@@ -250,6 +252,9 @@ Commands:
                                       path exists — use --archive instead)
   --pipe-file <basename>              decode a Positional filename and dispatch
   --status                            show daemon + registry summary
+  --selfcheck [--quiet]               self-source persistence health (path, skill link,
+                                      git, unpushed, uncommitted, backup age);
+                                      exit 0 ok / 1 critical / 2 warnings
   --list                              list registered projects
   --info <project>                    formatted record: path, domain, git_remote,
                                       linked, backups, branch + last_commit + working state
@@ -343,6 +348,13 @@ cmd_status() {
     if ac_pipe_paused; then printf '  pipe      : PAUSED\n'; else printf '  pipe      : active\n'; fi
     local n; n=$(ac_registry_list | wc -l)
     printf '  projects  : %s registered\n' "$n"
+    local sc_out sc_rc=0
+    sc_out=$(ac_selfcheck --quiet 2>/dev/null) || sc_rc=$?
+    if (( sc_rc == 1 )); then
+        printf '  selfsrc   : %s — run --selfcheck\n' "${sc_out#selfcheck: }"
+    else
+        printf '  selfsrc   : %s\n' "${sc_out#selfcheck: }"
+    fi
 }
 
 cmd_list() {
@@ -373,6 +385,7 @@ HOOK_TEMPLATE="" HOOK_NAME="" HOOK_FORCE=""
 HOOK_WITH_STASH="" HOOK_NO_TRACE=""
 HOOK_BYPASS_REASON=""
 MD_FORCE=""
+SELFCHECK_QUIET=""
 PROFILE_RAW=""
 ENV_APPLY=""
 HOOK_AUTO_DRY=""
@@ -387,6 +400,9 @@ while (( $# > 0 )); do
         --help|-h)           usage; exit 0 ;;
         --init)              ACTION="init"; shift ;;
         --status)            ACTION="status"; shift ;;
+        --selfcheck)
+            ACTION="selfcheck"
+            if [[ "${2:-}" == "--quiet" ]]; then SELFCHECK_QUIET="--quiet"; shift 2; else shift; fi ;;
         --list)              ACTION="list"; shift ;;
         --info)              ACTION="info"; NAME="${2:-}"; shift 2 ;;
         --start)             ACTION="start"; NAME="$2"; shift 2 ;;
@@ -753,6 +769,7 @@ fi
 case "$ACTION" in
     init)      cmd_init ;;
     status)    cmd_status ;;
+    selfcheck) ac_selfcheck ${SELFCHECK_QUIET:+"$SELFCHECK_QUIET"} ;;
     list)      cmd_list ;;
     info)
         [[ -z "$NAME" ]] && { ac_error "--info requires <project>"; exit 2; }

@@ -4,7 +4,13 @@ _Last updated: 2026-06-09_
 
 ## Top of mind
 
-**2026-06-09 (latest) — Loop Engine `--loop` SHIPPED, PUSHED, and relocate RE-APPLIED to `~/projects/antcrate` (with full insurance after the ephemeral-path loss).**
+**2026-06-09 (latest, evening) — `--selfcheck` + daily backup timer SHIPPED (persistence insurance). Cable (Fable 5) now in the orchestrator seat.**
+
+- **`--selfcheck [--quiet]`** (`lib/selfcheck.sh`, 15 bats, TDD) — source path / skill link / git / unpushed / dirty / backup-age checks; exit 0/1/2; `selfsrc` line in `--status`. `systemd/antcrate-backup.{service,timer}` daily oneshot backup; install.sh installs both. **bats 480 → 495, `--ci` PASS.** Built INLINE by Cable (zero subagent spawns — new usage-reduction policy).
+- **Session queue (user-approved order):** ✅ (1) persistence insurance → (2) codebase audit (DUE, baseline 301, now 495) → (3) `--cost`/budget engine (parse `~/.claude/projects/` JSONL usage fields, replace loop wall-clock proxy) → (4) `env-guard.sh` rebuild — SPEC NOW KNOWN: a hook preventing any agent from READING env-var/secret VALUES; agents may only reference variable names/paths, never the keys themselves.
+- **Usage policy (from USAGE ON CLAUDE.pdf):** inline edits over Cody/Claudia spawns; Claudia only for safety-critical diffs; `/clear` between items; trim state.md (~40k tokens) at session close.
+
+**2026-06-09 (earlier) — Loop Engine `--loop` SHIPPED, PUSHED, and relocate RE-APPLIED to `~/projects/antcrate` (with full insurance after the ephemeral-path loss).**
 
 ### ⚠️ NEXT-SESSION RECOVERY BLOCK — read first if antcrate doesn't load
 Repo lives at `~/projects/antcrate`; `~/.claude/skills/antcrate` is a SYMLINK to it. `~/projects/antcrate` proved EPHEMERAL once (vanished on a session-limit reset). **If the skill won't load or the symlink is dangling:**

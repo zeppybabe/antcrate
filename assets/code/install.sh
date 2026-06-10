@@ -48,13 +48,17 @@ elif [[ -f "$CONFIG" ]]; then
     sed -i "s|^ANTCRATE_SELFSRC=.*|ANTCRATE_SELFSRC=\"$SRC\"|" "$CONFIG"
 fi
 
-# optional systemd user unit
+# optional systemd user units
 if command -v systemctl >/dev/null 2>&1 && [[ -d "$SVC_DIR" || $(mkdir -p "$SVC_DIR") ]]; then
     sed "s|__BIN__|$BIN_DIR/antcrated|g" \
         "$SRC/systemd/antcrated.service" > "$SVC_DIR/antcrated.service"
+    sed "s|__BIN__|$BIN_DIR/antcrate|g" \
+        "$SRC/systemd/antcrate-backup.service" > "$SVC_DIR/antcrate-backup.service"
+    cp -f "$SRC/systemd/antcrate-backup.timer" "$SVC_DIR/antcrate-backup.timer"
     systemctl --user daemon-reload || true
-    echo "[antcrate] systemd unit installed at $SVC_DIR/antcrated.service"
+    echo "[antcrate] systemd units installed at $SVC_DIR (antcrated, antcrate-backup)"
     echo "[antcrate] enable with: systemctl --user enable --now antcrated"
+    echo "[antcrate] enable daily backup: systemctl --user enable --now antcrate-backup.timer"
 fi
 
 echo "[antcrate] done. PATH should include $BIN_DIR"

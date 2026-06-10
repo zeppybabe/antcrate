@@ -1,0 +1,7 @@
+[Unit]
+Description=AntCrate daily self-source backup (persistence insurance)
+
+[Service]
+Type=oneshot
+ExecStart=__BIN__ --backup antcrate
+Environment=ANTCRATE_LOG_LEVEL=info
