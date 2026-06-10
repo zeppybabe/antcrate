@@ -215,6 +215,10 @@ Commands:
                                       failure. PASS updates ci-baseline.json .last;
                                       --snapshot also sets .baseline (audit cadence);
                                       --source CIs an alternate tree (e.g. a worktree)
+  --hook-smoke <hook-script>          pipe a synthetic Claude Code hook payload into a hook
+               (--command <cmd> | --file <path> | --payload <json>) [--tool <name>]
+                                      and report exit + stderr (0 allow / 1 warn / 2 block;
+                                      exit code propagates)
   --hooks <project>                   list active git hooks for a project (read-only)
   --hook-log <project> [lines]        tail .git/antcrate-hook.log for debugging blocked commits
   --hook-install <project> <template> [hook-name] [--force]
@@ -414,6 +418,7 @@ SELFCHECK_QUIET=""
 COST_SINCE="" COST_SESSION="" COST_PORCELAIN=""
 INTEL_SOURCE="" INTEL_QUIET="" INTEL_JSON="" INTEL_SHA=""
 CI_SNAPSHOT="" CI_SOURCE=""
+HOOKSMOKE_ARGS=()
 PROFILE_RAW=""
 ENV_APPLY=""
 HOOK_AUTO_DRY=""
@@ -709,6 +714,13 @@ while (( $# > 0 )); do
                     --snapshot) CI_SNAPSHOT="--snapshot"; shift ;;
                     --source)   CI_SOURCE="${2:-}"; shift 2 ;;
                 esac
+            done ;;
+        --hook-smoke)
+            ACTION="hook-smoke"; NAME="${2:-}"
+            if [[ $# -ge 2 ]]; then shift 2; else shift; fi
+            HOOKSMOKE_ARGS=()
+            while [[ "${1:-}" == "--command" || "${1:-}" == "--file" || "${1:-}" == "--payload" || "${1:-}" == "--tool" ]]; do
+                HOOKSMOKE_ARGS+=("$1" "${2:-}"); shift 2
             done ;;
         --hooks)             ACTION="hooks"; NAME="${2:-}"; shift 2 ;;
         --hook-log)
@@ -1076,6 +1088,9 @@ case "$ACTION" in
         [[ -n "$CI_SNAPSHOT" ]] && CI_ARGS+=(--snapshot)
         [[ -n "$CI_SOURCE" ]]   && CI_ARGS+=(--source "$CI_SOURCE")
         ac_devops_ci "${CI_ARGS[@]+"${CI_ARGS[@]}"}" ;;
+    hook-smoke)
+        [[ -z "$NAME" ]] && { ac_error "--hook-smoke requires <hook-script>"; exit 2; }
+        ac_hook_smoke "$NAME" "${HOOKSMOKE_ARGS[@]+"${HOOKSMOKE_ARGS[@]}"}" ;;
     hooks)
         [[ -z "$NAME" ]] && { ac_error "--hooks requires <project>"; exit 2; }
         ac_hooks_list "$NAME" ;;

@@ -144,6 +144,7 @@ The gate runs inside `ac_safety_guard_destructive` (rule #1 chokepoint) — so e
 |---|---|---|
 | List active git hooks for a project | `antcrate --hooks <project>` | Honors `core.hooksPath`; flags antcrate's `.githooks` opt-in when active; shows `active`/`disabled` per hook. |
 | Debug a blocked commit | `antcrate --hook-log <project> [lines]` | Tails `.git/antcrate-hook.log` (the file the shipped pre-commit tees to). Default 50 lines. |
+| Smoke-test a Claude Code hook (guard FP debugging) | `antcrate --hook-smoke <hook-script> --command '<cmd>'` (or `--file <path>` / `--payload '<json>'`, `--tool <name>`) | Pipes a synthetic PreToolUse/PostToolUse payload into the hook, surfaces its stderr + a verdict line, propagates exit (0 allow / 1 warn / 2 block). NOTE: a literal destructive string in `--command` also sits in YOUR shell command — the LIVE guard may block the smoke itself; use benign/warn-tier text live and assert block paths in bats. |
 
 The shipped opt-in pre-commit (`.githooks/pre-commit` in the antcrate
 repo) runs `antcrate --ci` and writes to that log. Enable with

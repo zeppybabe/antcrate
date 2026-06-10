@@ -760,3 +760,58 @@ ac_hook_render() {
 
     _ac_hook_render "$tmpl" "$project"
 }
+
+# ---------- hook smoke harness (proposal claude-hook-smoke, 2026-06-10) ----------
+
+# ac_hook_smoke <hook-script> (--command <cmd> | --file <path> | --payload <json>) [--tool <name>]
+# Pipes a synthetic Claude Code hook payload into <hook-script>, surfaces the
+# hook's stderr plus a verdict line, and PROPAGATES the hook's exit code
+# (0 allow / 1 warn / 2 block, gateway-guard convention). Born from the
+# 2026-06-01 sessions where every guard false-positive fix needed a
+# hand-built synthetic-payload pipe.
+ac_hook_smoke() {
+    local hook="${1:-}"; shift || true
+    local cmd="" file="" payload="" tool=""
+    while (( $# > 0 )); do
+        case "$1" in
+            --command) cmd="${2:-}"; shift 2 ;;
+            --file)    file="${2:-}"; shift 2 ;;
+            --payload) payload="${2:-}"; shift 2 ;;
+            --tool)    tool="${2:-}"; shift 2 ;;
+            *) shift ;;
+        esac
+    done
+    if [[ -z "$hook" || ! -f "$hook" ]]; then
+        ac_error "hook-smoke: hook script not found: ${hook:-<missing>}"
+        return 2
+    fi
+    local n=0
+    [[ -n "$cmd" ]] && n=$((n + 1))
+    [[ -n "$file" ]] && n=$((n + 1))
+    [[ -n "$payload" ]] && n=$((n + 1))
+    if (( n != 1 )); then
+        ac_error "hook-smoke: need exactly one of --command <cmd> | --file <path> | --payload <json>"
+        return 2
+    fi
+    local json
+    if [[ -n "$payload" ]]; then
+        json="$payload"
+    elif [[ -n "$cmd" ]]; then
+        json=$(jq -cn --arg t "${tool:-Bash}" --arg c "$cmd" '{tool_name: $t, tool_input: {command: $c}}')
+    else
+        json=$(jq -cn --arg t "${tool:-Read}" --arg f "$file" '{tool_name: $t, tool_input: {file_path: $f}}')
+    fi
+    local rc=0 err
+    # capture stderr (the hook's voice), discard stdout
+    err=$(printf '%s' "$json" | bash "$hook" 2>&1 >/dev/null) || rc=$?
+    [[ -n "$err" ]] && printf '%s\n' "$err"
+    local tier
+    case "$rc" in
+        0) tier="allow" ;;
+        1) tier="warn" ;;
+        2) tier="block" ;;
+        *) tier="other" ;;
+    esac
+    printf 'hook-smoke: exit=%s (%s)\n' "$rc" "$tier"
+    return "$rc"
+}
