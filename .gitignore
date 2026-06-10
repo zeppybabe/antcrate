@@ -28,3 +28,6 @@ node_modules/
 # C++ build artifacts (Wave 0+; antcrate-core out-of-source CMake build).
 # Keep src/, include/, tests/, CMakeLists.txt tracked; ignore generated.
 assets/code/core/build/
+
+# Claude Code background-session worktrees (scratch isolation)
+.claude/worktrees/
