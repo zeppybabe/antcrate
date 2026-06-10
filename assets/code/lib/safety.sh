@@ -13,11 +13,29 @@ ac_safety_allowed_zones() {
     printf '%s\n' \
         "$(realpath -m "$ANTCRATE_ROOT")" \
         "$(realpath -m "$ANTCRATE_HOME")"
-    # The skill source tree (parent of $ANTCRATE_SELFSRC, e.g.
-    # ~/.claude/skills/antcrate/) is also AntCrate's domain — needed so the
-    # antcrate codebase itself can be registered as a project and pushed.
+    # The skill source PROJECT ROOT is also AntCrate's domain — needed so the
+    # antcrate codebase itself can be registered, relocated, and pushed.
+    # Derivation order (proposal safety-skill-zone-fix, 2026-06-10):
+    #   1. registry path for the self project, IF it is an ancestor of
+    #      $ANTCRATE_SELFSRC (a non-ancestor entry must not widen the zone);
+    #   2. else: <root>/assets/code layout -> two levels up;
+    #   3. else: $ANTCRATE_SELFSRC itself (flat layout — never the parent,
+    #      which would put unrelated sibling trees in-zone).
     if [[ -n "${ANTCRATE_SELFSRC:-}" && -d "$ANTCRATE_SELFSRC" ]]; then
-        local skill_root; skill_root=$(dirname "$ANTCRATE_SELFSRC")
+        local skill_root=""
+        if declare -F ac_registry_get >/dev/null 2>&1; then
+            skill_root=$(ac_registry_get "${ANTCRATE_SELF_NAME:-antcrate}" path 2>/dev/null) || skill_root=""
+            case "$ANTCRATE_SELFSRC" in
+                "$skill_root"|"$skill_root"/*) : ;;
+                *) skill_root="" ;;
+            esac
+        fi
+        if [[ -z "$skill_root" ]]; then
+            case "$ANTCRATE_SELFSRC" in
+                */assets/code) skill_root=$(dirname "$(dirname "$ANTCRATE_SELFSRC")") ;;
+                *)             skill_root="$ANTCRATE_SELFSRC" ;;
+            esac
+        fi
         printf '%s\n' "$(realpath -m "$skill_root")"
     fi
 }
