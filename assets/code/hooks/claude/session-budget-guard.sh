@@ -94,7 +94,7 @@ case "$tool" in
         cmd="$(printf '%s' "$payload" | jq -r '.tool_input.command // empty' 2>/dev/null)"
         # quoted spans cannot start a new command segment — drop before split
         stripped="$(printf '%s' "$cmd" | sed "s/'[^']*'//g; s/\"[^\"]*\"//g")"
-        case "$stripped" in *'$('*|*'`'*) block "(command substitution not allowed past the hard limit)" ;; esac
+        case "$stripped" in *"\$("*|*"\`"*) block "(command substitution not allowed past the hard limit)" ;; esac
         ok=1
         while IFS= read -r seg; do
             _seg_allowed "$seg" || { ok=0; break; }
