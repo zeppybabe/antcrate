@@ -4,6 +4,14 @@ Retired top-of-mind blocks from `state.md`, moved here verbatim when they age ou
 
 ---
 
+**2026-06-10 (earlier) — FULL SESSION QUEUE SHIPPED by Cable (Fable 5, orchestrator seat): selfcheck + audit + `--cost` + env-guard. bats 480 → 542, everything pushed.**
+
+- ✅ **(1) Persistence insurance** — `--selfcheck [--quiet]` (`lib/selfcheck.sh`, 15 bats) + `selfsrc` line in `--status` + `systemd/antcrate-backup.timer` (ENABLED, daily).
+- ✅ **(2) Codebase audit** (was due at 401) — 1 CRITICAL fixed (hooks.sh raw rm → remove-by-rename `mv` to backup), 6 minors fixed, AGENTS #16 promoted Reserved→live, loop engine CLEAN. **New baseline 498 / sha `50b5699`; next audit at 598** (~/CLAUDE.md counter updated).
+- ✅ **(3) `--cost` engine** (roadmap #2 of 6) — real USD from `~/.claude/projects/` JSONL (`lib/cost.sh`, 20 bats); price table validated against USAGE ON CLAUDE.pdf to the cent; loop `--budget 5.00`/`'$5'` = dollars (integer = legacy seconds). Live: **$204 all-time local, ~$45 on 2026-06-10**.
+- ✅ **(4) `env-guard.sh` rebuilt** — PreToolUse Bash+Read hook (24 bats): secret VALUES never enter the transcript; names/assignment only. Wired in settings.json (`Bash|Read`); arms at next session start.
+- **Usage policy (active):** Cable builds inline (zero spawns today except the read-only auditor); Claudia only for safety-critical diffs; `/clear` between items; `--cost --porcelain --since <today>` for live spend.
+
 **2026-06-09 (earlier) — Loop Engine `--loop` SHIPPED, PUSHED, and relocate RE-APPLIED to `~/projects/antcrate` (with full insurance after the ephemeral-path loss).**
 
 ### ⚠️ NEXT-SESSION RECOVERY BLOCK — read first if antcrate doesn't load
