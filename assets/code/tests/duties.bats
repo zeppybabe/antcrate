@@ -84,6 +84,19 @@ line two'"
     [ "$status" -eq 2 ]
 }
 
+@test "duties: file derives REPO ROOT when selfsrc is */assets/code" {
+    run bash -c "
+        export ANTCRATE_LOG_LEVEL='error'
+        . '$LIB/log.sh'
+        . '$LIB/duties.sh'
+        unset ANTCRATE_DUTIES_FILE
+        ac_devops_selfsrc() { printf '%s\n' '/tmp/repo/assets/code'; }
+        _ac_duties_file
+    "
+    [ "$status" -eq 0 ]
+    [ "$output" = "/tmp/repo/duties.md" ]
+}
+
 @test "duties: status line counts open only" {
     src "ac_duty_add 'a'" >/dev/null
     src "ac_duty_add 'b'" >/dev/null

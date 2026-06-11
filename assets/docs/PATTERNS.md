@@ -253,6 +253,16 @@ Inspect: `antcrate --proposals` or `cat ~/.antcrate/proposals.log`.
 
 The user reviews proposals and decides which become real flags. Until that happens, the bare command remains off-limits — the proposal log is how Claude says "I would have needed this" without bypassing the safety boundary.
 
+## User duties (human-only actions)
+
+Actions only the human can perform — control-plane jq seeds, `systemctl --user enable`, rule-#13 config edits, key rotation, policy approvals — go on the `duties.md` checklist (repo root), not into state.md prose.
+
+| Intent | Command | Notes |
+|---|---|---|
+| Record an action only the human can do | `antcrate --duty "<text>"` | Appends `- [ ] <date> — <text>` to duties.md. Surfaced in `--status` and the session-budget gate's wrap-up checklist. |
+| See open human duties | `antcrate --duties` | Numbered list of open items only. |
+| Mark a duty done | `antcrate --duty-done <n>` | User-driven (or agent on explicit user instruction). Flips to `- [x]` + done-date; items are never deleted. |
+
 ## Plugins & external tools (let-it / feed-it / gate-it)
 
 AntCrate is a **mediator, not a dominator**. It supplements tools so work can run locally; when a plugin/MCP already does that, AntCrate stays out of the way. It only steps in when something is missing or an AntCrate guideline is at stake. Every external surface sorts into one of three buckets:
@@ -275,3 +285,4 @@ When a new plugin/MCP arrives, classify it into one of these buckets before reac
 - **ship**: `--pp`
 - **build self**: `--selfsrc`, `--selfinstall`, `--install-from-source`, `--selftest`, `--selfedit`, `--ci`
 - **propose**: `--propose`, `--proposals`
+- **duties**: `--duty`, `--duties`, `--duty-done`

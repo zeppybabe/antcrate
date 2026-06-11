@@ -24,6 +24,9 @@ _ac_duties_file() {
     fi
     local src
     src=$(ac_devops_selfsrc 2>/dev/null) || return 1
+    # selfsrc is the code tree; duties.md lives at the repo root next to
+    # state.md/ledger.md (same derivation as ac_safety_allowed_zones)
+    [[ "$src" == */assets/code ]] && src="${src%/assets/code}"
     printf '%s/duties.md\n' "$src"
 }
 
