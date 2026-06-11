@@ -1,10 +1,16 @@
 # AntCrate — Current State
 
-_Last updated: 2026-06-10_
+_Last updated: 2026-06-11_
 
 ## Top of mind
 
-**2026-06-10 (latest) — INTEL TRACKER SHIPPED + two specs landed; AnyCrate (specs in `docs/specs/`) ABSORBS roadmap #4 + #5. bats 542 → 560.**
+**2026-06-11 (latest) — SESSION-BUDGET GATE + DUTIES SHIPPED AND LIVE; gate's first block was its own build session (176k). RESUME AFTER /clear:**
+
+- ✅ Shipped + committed + wired: `lib/duties.sh` (10 bats) + wrapper flags + `duties: N open` status line; `hooks/claude/session-budget-guard.sh` (14 bats) live in settings.json PreToolUse `*` (hot-reloaded instantly). Spec + plan + ledger entries in repo. Suite expected **615** (600 verified mid-build via `--ci --source`; gate 14/14 standalone; full local `--ci` NOT yet run — gate blocked it, GitHub CI verifies on push).
+- **RESUME QUEUE (fresh session, in order):** (1) full `antcrate --ci` (expect 615); (2) finish Task 6: re-run both `--hook-smoke` gate checks (low=allow rc0, high=block rc2; fixtures `/tmp/ac_gate_low.jsonl` + `_high`); (3) Task 7 seeds: `antcrate --duty` ×2 (gh public-repo policy; key-rotation cadence) + `--propose session-telemetry` (per-session accomplishment-per-token diffing, builds with #6 `--health`) + `--propose gate-whitelist-propose-ci` (wrap-up whitelist wants `--propose` + `--ci` — surfaced by first live block) + ~/CLAUDE.md part-3 duties-review line; (4) Task 8: SKILL.md lib+hooks entries, state roll to archive (the 2026-06-10-earlier block below is pending move), commit + `--pp`; (5) Task 9: codebase AUDIT (598 line crossed at 615) + `--ci --snapshot` new baseline; (6) memory updates: ~/.claude carve-out memory is STALE (settings.json write succeeded from this bg session), worktree `session-gate-duties` removable (zero unique commits — editing pen only).
+- **Gate posture while resuming:** fresh transcript measures small → gate passes. Soft 100k / hard 140k; `ANTCRATE_SESSION_SOFT/HARD` overrides live in config (human-only). Agents MUST NOT set `ANTCRATE_SESSION_GATE_DISABLE`.
+
+**2026-06-10 (prior) — INTEL TRACKER SHIPPED + two specs landed; AnyCrate (specs in `docs/specs/`) ABSORBS roadmap #4 + #5. bats 542 → 560.**
 
 - ✅ **Two approved specs in `docs/specs/`**: `2026-06-10-anthropic-intel-tracker-design.md` + `2026-06-10-anycrate-capability-layer-design.md` (user spec'd on web; originals at `~/Documents/MD/`). **Roadmap restructure: AnyCrate absorbs #4 (agent roles → policy.json) and #5 (provisioning → catalog/acquirer); #3 token-limit auto-resume and #6 `--health` stay standalone.** 15 proposals filed (6 intel + 8 anycrate + ci-source-override).
 - ✅ **Intel tracker LIVE** — `--intel-pull/-new/-ack/-status`, `lib/intel.sh` + 18 bats (TDD, RED first), Anthropic-only host allowlist enforced fail-closed in code, append-only new/acked.jsonl, `intel: N unread` in `--status`, `systemd/antcrate-intel.timer` (install.sh wired, NOT yet enabled — `systemctl --user enable --now antcrate-intel.timer`), `intel` skill at `assets/skills/intel/` symlinked into `~/.claude/skills/intel` (LOADED — verified in session skill list). Live-smoked: 7/7 real sources pulled, second pull all-unchanged. **7 unread items awaiting the first `/intel` cognition pass.**
