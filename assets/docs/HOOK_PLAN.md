@@ -1,9 +1,11 @@
 # AntCrate — Git Hooks Plan
 
-Status: **partial implementation as of 2026-05-01.** Read-only inspection
-landed (`--hooks`, `--hook-log`); install/remove/bypass + template library
-queued for follow-up. This document is the design contract for that
-follow-up so the surface stays coherent across sessions.
+Status: **shipped as of 2026-06-11** (status block refreshed at the 615-bats
+audit). `--hooks`, `--hook-log`, `--hook-install`, `--hook-remove`,
+`--hook-bypass`, `--hook-debug`, `--hook-autoinstall`, and `--hook-smoke` are
+all live in `bin/antcrate` + `lib/hooks.sh`. The "Order of implementation"
+section at the bottom records shipped dates. This document remains the design
+contract so the surface stays coherent across sessions.
 
 ---
 
