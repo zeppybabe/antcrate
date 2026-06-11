@@ -4,6 +4,14 @@ Retired top-of-mind blocks from `state.md`, moved here verbatim when they age ou
 
 ---
 
+**2026-06-11 (prior) — SESSION-BUDGET GATE + DUTIES SHIPPED AND LIVE; gate's first block was its own build session (176k).**
+
+- ✅ Shipped + committed + wired: `lib/duties.sh` (10 bats) + wrapper flags + `duties: N open` status line; `hooks/claude/session-budget-guard.sh` (14 bats) live in settings.json PreToolUse `*` (hot-reloaded instantly). Spec + plan + ledger entries in repo. Dogfood event: the gate's FIRST live block was its own 176k build session — working as designed; the 2026-06-09 reset error class is now mechanically impossible.
+- **Gate posture:** fresh transcript measures small → gate passes. Soft 100k / hard 140k; `ANTCRATE_SESSION_SOFT/HARD` overrides live in config (human-only). Agents MUST NOT set `ANTCRATE_SESSION_GATE_DISABLE`.
+- **STANDING POLICY (user, 2026-06-10): least-cost operation** — small turns, no speculative spawns, break BEFORE token limits.
+
+---
+
 **2026-06-10 (prior) — INTEL TRACKER SHIPPED + two specs landed; AnyCrate (specs in `docs/specs/`) ABSORBS roadmap #4 + #5. bats 542 → 560.**
 
 - ✅ **Two approved specs in `docs/specs/`**: `2026-06-10-anthropic-intel-tracker-design.md` + `2026-06-10-anycrate-capability-layer-design.md` (user spec'd on web; originals at `~/Documents/MD/`). **Roadmap restructure: AnyCrate absorbs #4 (agent roles → policy.json) and #5 (provisioning → catalog/acquirer); #3 token-limit auto-resume and #6 `--health` stay standalone.** 15 proposals filed (6 intel + 8 anycrate + ci-source-override).

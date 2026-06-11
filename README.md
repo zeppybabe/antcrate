@@ -1,8 +1,20 @@
 # AntCrate
 
-Bash, jq, and inotify. One controllable surface for solo-developer project ops.
+Bash, jq, and inotify. One controllable surface for human + AI development.
 
-AntCrate is a pure-Bash CLI that wraps the structural and destructive operations a solo developer repeats across every project: scaffolding directories, managing a lightweight JSON registry, pushing to git with a fail-safe on rejection, running CI, and tracking project state. It is designed for developers who work alone or with a small AI agent layer and need every risky operation — rename, remove, push, hook execution — to go through a single auditable entry point rather than bare shell commands. Nothing runs elevated; all state lives in `~/.antcrate/` and the registered project trees. Read [PATTERNS.md](assets/docs/PATTERNS.md) for the full flag index.
+AntCrate is a pure-Bash orchestration shell that wraps every structural, destructive, or remote-facing operation a solo developer — or the AI agent working beside them — repeats across projects: scaffolding, a JSON registry as single source of truth, guarded commits and pushes, backups with verified manifests, git-hook management, autonomous work loops with hard budget stops, and a safety layer that makes the dangerous paths *narrow, audited, and reversible*.
+
+It began as a project scaffolder. It has evolved into an **agent-governance layer**: the boundary that lets a coding agent operate at full speed inside registered project trees while every risky action — rename, remove, push, hook execution, secret exposure — routes through a single auditable entry point with backup and approval gates. Nothing runs elevated; all state lives in `~/.antcrate/` and the registered trees.
+
+## The contract
+
+Five rules shape everything in this repo:
+
+1. **No destructive operation without a backup and explicit human approval.** Enforced in code (`ac_safety_guard_destructive`), not by convention.
+2. **Quarantine over destruction.** User data is never deleted by automation — it is archived and moved to `~/.antcrate/quarantine/`. There is deliberately no purge flag; only the human deletes.
+3. **Updates and removals come last** in any roadmap or operation chain (the *Gateway Law*): read state → confirm no dependents → backup → show the human the verify output → receive approval → only then execute.
+4. **Agents propose, humans approve.** When no flag fits an intent, the agent files `antcrate --propose` instead of falling back to a bare command. The proposal log is how the agent says "I needed this" without crossing the boundary.
+5. **Bash owns retrieval, the human/agent owns judgment.** Timers fetch and snapshot; nothing automated ever decides meaning or edits code on its own.
 
 ## Quick start
 
@@ -15,102 +27,111 @@ antcrate --map coolapp
 antcrate --status
 ```
 
-Installs to `~/.local/bin` and `~/.local/share/antcrate/`; the registry lives at `~/.antcrate/registry.json`. See [Dependencies](#dependencies) below if `--init` errors on a missing tool.
+Installs to `~/.local/bin` and `~/.local/share/antcrate/`; the registry lives at `~/.antcrate/registry.json`. See [Dependencies](#dependencies) if `--init` reports a missing tool.
+
+**Full reference:** every flag, file, environment variable, and exit code is documented man-page style in [docs/MANUAL.md](docs/MANUAL.md). The flag-by-intent index — what agents read before reaching for a shell command — is [PATTERNS.md](assets/docs/PATTERNS.md).
 
 ## How it works
 
-**Schema.** Filenames are argument arrays. The format `Name.Domain.Action.#Meta#` maps directly to positional indices: `coolapp.webapps.start.#html,css,js#` is exactly equivalent to `antcrate --start coolapp --domain webapps --meta html,css,js`. No parsing ambiguity; both paths produce the same registry write.
+**Schema.** Filenames are argument arrays. `Name.Domain.Action.#Meta#` maps to positional indices: creating `coolapp.webapps.start.#html,css,js#` is exactly equivalent to `antcrate --start coolapp --domain webapps --meta html,css,js`. No parsing ambiguity; both paths produce the same registry write.
 
-**Daemon.** `antcrated` is a background `inotifywait` process that watches a configured directory. When you create or write a file whose name matches the schema, the daemon dispatches the corresponding CLI command. This makes editor file-creation — a `nano coolapp.webapps.start.#html,css,js#` — a first-class invocation path, identical to typing the flag.
+**Daemon.** `antcrated` is an `inotifywait` background process watching a configured directory. A file whose name matches the schema dispatches the corresponding CLI command — editor file-creation becomes a first-class invocation path. The daemon also keeps per-project Mermaid tree diagrams live on every filesystem event, debounced per project.
 
-**Registry.** `~/.antcrate/registry.json` is the single source of truth for project state: paths, parent/child relationships, linked nodes, git remotes. All reads and writes go through `lib/registry.sh` using atomic jq + temp-file replacement. No direct edits; no concurrent corruption.
+**Registry.** `~/.antcrate/registry.json` is the single source of truth: paths, domains, parent/child nesting, linked nodes, git remotes, recent removals. Every read and write goes through `lib/registry.sh` using atomic jq + temp-file replacement. No direct edits, no concurrent corruption.
 
-**Safety gate.** Destructive operations — remove, rename, structural moves — require an explicit backup step before they proceed. The `--pp` push-pipe captures git rejection, generates a truncated diff, and routes it to email via mailx before halting. No operation reaches the destructive step without a checkpoint. See [architecture.md](assets/docs/architecture.md) for the full blueprint.
+**Safety gate.** Destructive operations funnel through one chokepoint that enforces backup-before-touch and human approval, and is itself gated by the *compaction canary* (below). The `--pp` push-pipe captures git rejection, generates a truncated diff, and routes it to email before halting — never a silent failed push.
 
-## Command basics
+## Capability tour
 
-AntCrate ships 69 flags across 11 buckets; the dozen below are what you'll hit on day one. The exhaustive flag-by-intent index lives in [PATTERNS.md](assets/docs/PATTERNS.md).
+AntCrate ships **88 commands** backed by 41 lib modules. The groups below are the shape of the tool; [docs/MANUAL.md](docs/MANUAL.md) documents every flag.
 
-### Lifecycle
+### Project lifecycle and navigation
 
-| Flag | What it does |
-|---|---|
-| `--start <name> --domain <d>` | Scaffold + register a new project |
-| `--status` | Show all registered projects |
-| `--list` | Compact project list |
-| `--info <project>` | Registry record + git state for one project |
-| `--archive <project>` | Mark project inactive, keep registry entry |
-| `--remove <project>` | Remove with mandatory backup + approval gate |
+`--start`, `--register`, `--branch`, `--link`, `--resume --expand` (atomic sub-branching), `--rename`, `--archive` / `--unarchive`, `--touch` / `--mkdir`, `--info`, `--list`, `--map`.
 
-### Navigation
+No `cd` is ever needed: `--in <project> -- <cmd>` runs anchored at the project root, `--anchor` exports a stable handle, and the **layered address system** gives every file a positional code (`1a3` = 3rd entry inside the 1st sub-branch of the 1st top-level dir) resolvable via `--addr`.
 
-| Flag | What it does |
-|---|---|
-| `--map <project>` | Print project tree with live event overlay |
-| `--in <project> -- <cmd>` | Run a command scoped to the project root |
-| `--anchor <project>` | Print the project path for shell cd |
+### Safety architecture
 
-### Git + CI
+- **Backups:** `--backup` / `--backups` / `--restore [--at <ts>]` — verified tar.gz + sha256 manifests, retention pruning, pre-restore auto-backup.
+- **Quarantine:** `--quarantine-list` / `--quarantine-restore` — capture-first removal staging. No purge flag exists, by design.
+- **Compaction canary:** `--canary-init` / `--canary-verify` / `--canary-status` — a token-and-TTL gate (backed by the C++ `antcrate-core` binary) that forces an agent to re-read the hard rules before any destructive op when its context may have been compacted. Every destructive flag runs through it.
+- **Registry hygiene:** `--ghosts` lists entries whose path vanished; `--deregister` drops a ghost capture-first, and *refuses* if the path still exists.
 
-| Flag | What it does |
-|---|---|
-| `--bootstrap <project>` | Init git, stage everything, first commit |
-| `--pp <project>` | Push-pipe: triage on rejection, log conflicts |
-| `--ci` | Shellcheck + bats + cmake/ctest in sequence |
+### Git, GitHub, and hooks
 
-### Daemon + diagnostics
+- `--commit` — staged commit with a secret-pattern guard and Gateway-Law preview prompt.
+- `--pp` — push-pipe with conflict triage: rejection emails a truncated diff, full log kept at `/tmp/antcrate_conflict.log`.
+- `--gh-init` — GitHub repo creation over HTTPS, **private by default**; `--bootstrap` chains init + `.gitignore` + first commit in one idempotent call.
+- **Hook suite:** `--hooks`, `--hook-install` (4 shipped templates: CI, secrets, stack-aware bash, pre-push tests), `--hook-remove`, `--hook-debug` (annotated re-run with trace), `--hook-bypass` (single-shot, reason-required, dual audit-logged), `--hook-render`, `--hook-audit`, `--hook-autoinstall` (profile-driven), `--hook-log`, `--hook-smoke` (pipe a synthetic payload into any Claude Code hook and propagate its verdict).
 
-| Flag | What it does |
-|---|---|
-| `--watch <project>` | Live project tree with latest-event pin |
-| `--logs [project]` | Tail antcrate daemon and hook logs |
+### Agent governance
 
-## Layout
+The layer that makes AntCrate an AI-development boundary rather than just a CLI:
+
+- **Claude Code hooks** (`assets/code/hooks/claude/`): `gateway-guard.sh` blocks bare destructive shell commands before they execute; `env-guard.sh` keeps secret *values* out of the transcript (names and assignment are fine; display sinks are blocked); `session-budget-guard.sh` gates on context-window size — soft warn at 100k tokens, hard block at 140k with a wrap-up whitelist, so a session can never run itself off a cliff; `shellcheck-on-save.sh` lints every shell edit on write.
+- **Delegation:** `--delegate` hands a focused edit to a project-scoped agent with an attempt counter that refuses after a threshold — no infinite retry loops. `--agent-init`, `--md-scaffold`, `--profile`, and `--env-scan` provision a project for agent work.
+- **Duties:** `--duty` / `--duties` / `--duty-done` — a first-class checklist for actions only the human may perform (key rotation, policy approvals, config edits). Agents file duties; they never close them.
+- **Proposals:** `--propose` / `--proposals` — the escape valve described in the contract above.
+
+### Loop engine
+
+`--loop "<objective>" --project <p>` starts a durable autonomous work loop that composes with Claude Code's `/loop`: each `--loop-tick` advances the objective under **three hard stops** (max iterations, no-progress detection, budget — wall-clock seconds or real USD) and a **two-key verify**: the loop cannot sign itself off; a reviewer records the semantic verdict via `--loop-signoff`. `--loop-status`, `--loop-list`, `--loop-resume`, `--loop-halt` manage the fleet. Halts checkpoint and quarantine — nothing is lost mid-objective.
+
+### Awareness and accounting
+
+- **Activity stream:** `--emit-activity` appends durable JSONL events; `--watch` paints a live colored project tree from them (severity-ordered: delete > modify > delegate > think > read); `--watch-window` spawns it in a detached terminal.
+- **Intel tracker:** `--intel-pull` / `--intel-new` / `--intel-ack` / `--intel-status` — snapshot-on-change tracking of pinned Anthropic-official sources (any other host is refused before fetch). A daily timer retrieves; classification stays with the human/agent. Append-only; nothing is ever deleted.
+- **Cost:** `--cost` computes real-dollar spend from Claude Code session transcripts, per-model — and backs the loop engine's USD budget mode.
+- **Health:** `--selfcheck` verifies the tool's own persistence (registry path, skill link, git state, unpushed work, backup age); `--status` carries one-line summaries of intel, audit cadence, and open duties.
+- **Diagrams:** Mermaid views of the whole registry and every project tree, auto-regenerated on every mutating action and filesystem event. Diagrams are a function of state, not a snapshot.
+
+### Bundles
+
+`--ingest` consumes typed research bundles (manifest-validated before any disk write, four source types, relationship semantics including backup-gated `supersedes`) per [BUNDLE_SPEC.md](assets/docs/BUNDLE_SPEC.md) — the handshake that lets a research machine hand work to a dev machine.
+
+## Documentation
 
 | Document | What it covers |
 |---|---|
-| [SKILL.md](SKILL.md) | Skill manifest (agent integration metadata) |
-| [assets/code/README.md](assets/code/README.md) | Codebase walkthrough for contributors |
-| [assets/docs/PATTERNS.md](assets/docs/PATTERNS.md) | Full flag index, organized by intent |
+| [docs/MANUAL.md](docs/MANUAL.md) | **The manual** — every command, file, env var, exit code, man-page style |
+| [assets/docs/PATTERNS.md](assets/docs/PATTERNS.md) | Flag-by-intent index (what agents read first) |
 | [assets/docs/architecture.md](assets/docs/architecture.md) | System blueprint: schema, daemon, registry, triage |
-| [assets/code/AGENTS.md](assets/code/AGENTS.md) | Hard rules for agent and automated tool usage |
-| [assets/docs/BUNDLE_SPEC.md](assets/docs/BUNDLE_SPEC.md) | Agent bundle handshake contract |
+| [assets/code/AGENTS.md](assets/code/AGENTS.md) | The hard rules for agents and automated tools |
+| [assets/code/README.md](assets/code/README.md) | Codebase walkthrough for contributors |
+| [assets/docs/BUNDLE_SPEC.md](assets/docs/BUNDLE_SPEC.md) | Research-to-dev bundle handshake contract |
+| [assets/docs/HOOK_PLAN.md](assets/docs/HOOK_PLAN.md) | Hook surface design and history |
+| [SKILL.md](SKILL.md) | Claude Code skill manifest (agent integration metadata) |
 
 ## Dependencies
 
-### Required
+**Required:** Bash 5+, jq, inotify-tools, git, mailx or sendmail, flock (util-linux). `--init` reports anything missing.
 
-Bash 5+, jq, inotify-tools, git, mailx or sendmail, flock. All must be on `PATH` before running `install.sh`. `--init` will report which tools are missing.
+**Optional:** `gh` for GitHub repo creation; `mmdc` / `plantuml` / `d2` for diagram rendering (Mermaid sources render inline on GitHub regardless); `cmake` + `g++` for the `antcrate-core` C++ helper; `bats-core` to run the test suite. `--ci` detects absent optional tools and skips their stage with a log line.
 
-### Optional
+## CI
 
-`gh` for `--gh-init` (GitHub repo creation); `mmdc`, `plantuml`, or `d2` for diagram generation via `--diagrams`; `cmake` and `g++` for the `antcrate-core` C++ helper — `--ci` detects absence and skips the cmake/ctest step with a log line.
+`antcrate --ci` runs shellcheck on every `.sh` file, the full bats suite, and cmake build + ctest for the C++ core — fail-fast, exit 0 only when all pass. Every PASS records a snapshot to `~/.antcrate/ci-baseline.json`, which drives a periodic codebase-audit cadence surfaced in `--status`.
 
-## CI and hooks
-
-`--ci` runs three stages in sequence: shellcheck on all `.sh` files, bats on the full test suite, then cmake build + ctest for the C++ core. All three must pass for a green result. Exit code 0 means clean; any failure prints the stage that broke and exits non-zero.
-
-An opt-in pre-commit hook is available. Enable it with one line:
+The same `--ci` runs in GitHub Actions on every push and PR, and is available locally as an opt-in pre-commit hook:
 
 ```bash
 git config core.hooksPath .githooks
 ```
 
-The hook tees output to `.git/antcrate-hook.log`; inspect recent runs with `antcrate --hook-log antcrate`. Full hook design and the planned hook-management surface are in [HOOK_PLAN.md](assets/docs/HOOK_PLAN.md).
-
-`.github/workflows/ci.yml` runs the same `antcrate --ci` on every push and pull request, with cmake and g++ installed in the workflow environment alongside the Bash toolchain.
-
 ## Status
 
-316 bats tests passing, shellcheck clean, cmake/ctest 1/1 (C++ Wave 0 — `antcrate-core` doctest scaffold wired into `--ci`). Baseline sha `80385c3`. Solo-maintained, pre-1.0; the CLI surface may shift before a v1 tag. Current work queue and blockers live in [`state.md`](state.md); decision history in [`ledger.md`](ledger.md).
+**615 bats tests** across 46 files, shellcheck clean, 17 doctest cases on the C++ core (`antcrate-core`, Wave 1: the compaction-canary subsystem). Baseline sha `77d6d8e`.
+
+Solo-maintained, pre-1.0; the CLI surface may still shift before a v1 tag. The current work queue lives in [`state.md`](state.md); the append-only decision history in [`ledger.md`](ledger.md). AntCrate develops AntCrate: this repo is itself a registered project, pushed via `antcrate --pp antcrate`, gated by its own hooks and CI.
 
 ## Contributing
 
-AntCrate is solo-maintained. Issues are welcome; PRs reviewed against current in-flight work — read `state.md` first. See [CONTRIBUTING.md](CONTRIBUTING.md) for the test gate, commit style, and proposal process.
+Issues are welcome; PRs are reviewed against current in-flight work — read `state.md` first. See [CONTRIBUTING.md](CONTRIBUTING.md) for the test gate, commit style, and proposal process.
 
 ## Security
 
-AntCrate wraps `git push`, executes repo-local hooks under `--ci` and `--hook-debug`, and runs an `inotifywait` daemon — a non-trivial attack surface even at user privilege. Vulnerability reports go through GitHub's private vulnerability reporting, not public issues; details in [SECURITY.md](SECURITY.md).
+AntCrate wraps `git push`, executes repo-local hooks, runs an `inotifywait` daemon, and sits in the path of AI-agent tool calls — a non-trivial attack surface even at user privilege. Secret values are kept out of agent transcripts by design (`env-guard`), remotes default to private, and no automated path deletes user data. Vulnerability reports go through GitHub's private vulnerability reporting, not public issues; details in [SECURITY.md](SECURITY.md).
 
 ## License
 

@@ -114,7 +114,7 @@ Disable with `export ANTCRATE_AUTO_DIAGRAMS=0` (e.g. for batch scripted mutation
 
 | Intent | Command | Notes |
 |---|---|---|
-| Run shellcheck + full bats suite | `antcrate --ci` | One command, fail-fast on either. Use before any change. |
+| Run shellcheck + bats + cmake/ctest | `antcrate --ci [--snapshot] [--source <path>]` | One command, fail-fast on any stage. Use before any change. PASS records to `ci-baseline.json`; `--snapshot` sets the audit baseline; `--source` CIs an alternate tree (worktrees). |
 
 ## Anthropic intel (retrieval = Bash, judgment = the `intel` skill)
 
@@ -138,11 +138,18 @@ Findings become proposals via the `intel` skill — never direct code/config edi
 
 The gate runs inside `ac_safety_guard_destructive` (rule #1 chokepoint) — so every destructive op (`--rename`, `--archive`, `--remove`, `--cleanup --apply`, `--ingest` supersedes, `--resume --expand` subbranch) is gated. Opt-out via `ANTCRATE_CANARY_DISABLE=1` is for CI/bats only; agents must not flip it (AGENTS.md rule #15).
 
-## Hooks (read-only today; install/remove/bypass queued — see `HOOK_PLAN.md`)
+## Hooks (full management surface — see `HOOK_PLAN.md` for design history)
 
 | Intent | Command | Notes |
 |---|---|---|
 | List active git hooks for a project | `antcrate --hooks <project>` | Honors `core.hooksPath`; flags antcrate's `.githooks` opt-in when active; shows `active`/`disabled` per hook. |
+| Install a hook from a shipped template | `antcrate --hook-install <project> <template> [hook-name] [--force]` | Templates: `pre-commit-ci`, `pre-commit-secrets`, `pre-commit-stack-bash`, `pre-push-tests` (at `assets/code/hooks/templates/`). Idempotent; `--force` backs up then overwrites. |
+| Remove a hook (audited) | `antcrate --hook-remove <project> <hook> [--force]` | Backs up to `<hook>.bak.<ts>`; audit-logged to `~/.antcrate/hooks.log` + `.git/antcrate-hook-audit.log`. |
+| Preview a template without installing | `antcrate --hook-render <template> [project]` | Renders to stdout with placeholder substitution + bypass-check injection — catches injection bugs before install. |
+| Re-run a hook with trace | `antcrate --hook-debug <project> [hook] [--with-stash] [--no-trace]` | Annotated `bash -x` + captured output; `--with-stash` mirrors the staged set; exits with the hook's exit code. Audit-logged. |
+| Single-shot bypass (human-run) | `antcrate --hook-bypass <project> --reason "<text>"` | Next antcrate-shipped hook consumes the flag, logs bypass + reason to both audit sinks, exits 0. Agents PROPOSE; humans run (rule #14). |
+| Unified audit view | `antcrate --hook-audit <project> [N]` | All three audit sinks (global JSONL, per-project, human-readable), N lines each (default 20). Read-only. |
+| Profile-driven auto-install | `antcrate --hook-autoinstall <project> [--dry-run]` | Reads `--profile` recommendations, installs the picked template per slot, patches `.gitignore`. Idempotent. |
 | Debug a blocked commit | `antcrate --hook-log <project> [lines]` | Tails `.git/antcrate-hook.log` (the file the shipped pre-commit tees to). Default 50 lines. |
 | Smoke-test a Claude Code hook (guard FP debugging) | `antcrate --hook-smoke <hook-script> --command '<cmd>'` (or `--file <path>` / `--payload '<json>'`, `--tool <name>`) | Pipes a synthetic PreToolUse/PostToolUse payload into the hook, surfaces its stderr + a verdict line, propagates exit (0 allow / 1 warn / 2 block). NOTE: a literal destructive string in `--command` also sits in YOUR shell command — the LIVE guard may block the smoke itself; use benign/warn-tier text live and assert block paths in bats. |
 
@@ -150,10 +157,15 @@ The shipped opt-in pre-commit (`.githooks/pre-commit` in the antcrate
 repo) runs `antcrate --ci` and writes to that log. Enable with
 `git config core.hooksPath .githooks` per-clone.
 
-**Not yet implemented (queued in `assets/docs/HOOK_PLAN.md`):** hook
-template library, `--hook-install`, `--hook-remove`, `--hook-bypass`
-(single-shot, audit-logged), `--start --hooks <preset>` for
-auto-install on scaffold, `--hook-debug` (re-run with annotation).
+## Loop engine (durable objectives — composes with Claude Code `/loop`)
+
+| Intent | Command | Notes |
+|---|---|---|
+| Start an autonomous objective loop | `antcrate --loop "<objective>" --project <p> [--max-iter N] [--budget SECONDS\|$DOLLARS]` | Integer budget = wall-clock seconds; decimal or `$`-prefixed = real USD via `--cost`. Prints the `/loop` command to paste into Claude Code. |
+| Advance one iteration | `antcrate --loop-tick <id>` | Driven by `/loop`. Three hard stops: max-iter, no-progress, budget. |
+| Record the reviewer verdict | `antcrate --loop-signoff <id> <pass\|fail>` | Two-key verify — the loop never signs itself off. |
+| Inspect | `antcrate --loop-status <id> [--porcelain]` / `antcrate --loop-list` | One loop / all loops. |
+| Resume or halt | `antcrate --loop-resume <id>` / `antcrate --loop-halt <id> [--reason <r>]` | Halt checkpoints + quarantines; resume re-emits context. |
 
 ## Filename triggers (Positional Extension Schema)
 
