@@ -4,6 +4,21 @@ Retired top-of-mind blocks from `state.md`, moved here verbatim when they age ou
 
 ---
 
+**2026-06-11 (prior) — PUBLIC-FACE REVAMP: README rewritten, docs/MANUAL.md shipped, PATTERNS hook-drift fixed; duties CLOSED; env-vault proposal filed.**
+
+- ✅ Planning + presentation session (user-directed, docs only): (1) both duties closed on user decision — gh repos stay private-by-default with changes via config applying on next antcrate update; key rotation = service-default expiry, self-assigned SHA/encrypted API keys WEEKLY, HTTPS-gh until natural expiry; (2) Claude Managed Agents **vault env-var credentials** (released today) assessed — cloud provisioning layer vs our env-guard exposure layer, complementary not redundant → proposal `env-vault` (--vault-set/--vault-run/--vault-due + rotation metadata); (3) **README.md fully rewritten** (agent-governance framing, five-rule contract, capability tour, 615-bats status); (4) **NEW docs/MANUAL.md** — man-page-grade: all 88 commands, CONCEPTS, FILES, ENVIRONMENT, EXIT STATUS, SECURITY MODEL; (5) **PATTERNS.md drift fixed** (hook suite no longer "queued"; loop-engine section added; --ci row current); (6) proposal `man-page` filed (roff antcrate.1 + --man). `--ci --source` worktree PASS 615. Built in worktree `repo-revamp`.
+- Intel: fresh pull landed 3 new snapshots today (news, release-notes-api, release-notes-claude-code) — **7 unread total await the next `/intel` cognition pass** (only the vault item was read, for the env-guard comparison; nothing acked).
+- **NEXT (queue unchanged from 2026-06-10):** (1) no-decision mediums: `repoint` + `recover-from-backup` (recovery pair), `ci-core`, `hook-internal-md-guard`, `obsidian-prune` (pairs with `obsidian-vault-zone-guard`); (2) roadmap #6 `--health` (own session; absorb `session-telemetry`); (3) AnyCrate build (spec step 1: catalog + tiers + staging, test-first); (4) LAST: intel-report proposals (4). Quick-win candidates: `gate-whitelist-propose-ci`, `env-vault` (new), `man-page` (new).
+
+---
+
+**2026-06-11 (prior) — RESUME QUEUE CLEARED: 615 verified, gate smoke-closed, 615-bats AUDIT done, baseline re-snapshotted.**
+
+- ✅ All six resume items done: (1) full `--ci` PASS **615 bats**; (2) gate `--hook-smoke` checks closed (fixtures rebuilt after /tmp wipe: low 50k = allow rc0, high 176k = block rc2); (3) 2 duties filed (gh public-repo policy, key-rotation cadence) + 2 proposals (`session-telemetry`, `gate-whitelist-propose-ci`) + ~/CLAUDE.md part-3 duties-review line; (4) SKILL.md duties+hooks entries, state rolled; (5) **AUDIT at 615**: rules CLEAN, disables justified, 2 MINOR (cmd_init config bootstrap → documented as sanctioned rule-#13 carve-out in AGENTS.md; obsidian.sh vault writes → proposal `obsidian-vault-zone-guard`), 2 DRIFT fixed (HOOK_PLAN.md status, SKILL.md "Queued" hooks); orphan scan clean. **New baseline 615 via `--ci --snapshot`; next audit at 715.** (6) memory updated: ~/.claude carve-out note corrected, worktree note below.
+- **Worktree `session-gate-duties`:** still on disk, zero unique commits (editing pen; leftover files verified byte-identical to master). User can `git -C ~/projects/antcrate worktree remove .claude/worktrees/session-gate-duties --force` when no session is using it.
+
+---
+
 **2026-06-11 (prior) — SESSION-BUDGET GATE + DUTIES SHIPPED AND LIVE; gate's first block was its own build session (176k).**
 
 - ✅ Shipped + committed + wired: `lib/duties.sh` (10 bats) + wrapper flags + `duties: N open` status line; `hooks/claude/session-budget-guard.sh` (14 bats) live in settings.json PreToolUse `*` (hot-reloaded instantly). Spec + plan + ledger entries in repo. Dogfood event: the gate's FIRST live block was its own 176k build session — working as designed; the 2026-06-09 reset error class is now mechanically impossible.
