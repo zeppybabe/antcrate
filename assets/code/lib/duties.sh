@@ -30,7 +30,29 @@ _ac_duties_file() {
     printf '%s/duties.md\n' "$src"
 }
 
+# valid duty types; untyped legacy lines read as "policy"
+_ac_duty_type_ok() { case "$1" in policy|command|research|debug) return 0;; *) return 1;; esac; }
+
+# involvement: env (test/orchestrator read) > config line > lean.
+# Config is rule-#13 human-only — only the user sets their own involvement.
+ac_duty_involvement() {
+    local v="${ANTCRATE_DUTY_INVOLVEMENT:-}"
+    if [[ -z "$v" && -f "${ANTCRATE_HOME:-$HOME/.antcrate}/config" ]]; then
+        v=$(grep -E '^duty_involvement=' "${ANTCRATE_HOME:-$HOME/.antcrate}/config" | tail -1 | cut -d= -f2)
+    fi
+    case "$v" in lean|standard|hands-on) printf '%s\n' "$v" ;; *) printf 'lean\n' ;; esac
+}
+
 ac_duty_add() {
+    local dtype=""
+    if [[ "${1:-}" == "--type" ]]; then
+        dtype="${2:-}"
+        if ! _ac_duty_type_ok "$dtype"; then
+            ac_error "duty: invalid type '${dtype:-<missing>}' (policy|command|research|debug)"
+            return 2
+        fi
+        shift 2
+    fi
     local text="${1:-}"
     if [[ -z "$text" ]]; then
         ac_error "duty: missing <text>"
@@ -48,7 +70,11 @@ items flip to done via `antcrate --duty-done <n>` — never deleted.
 
 EOF
     fi
-    printf -- '- [ ] %s — %s\n' "$(date -u +%F)" "$clean" >> "$f"
+    if [[ -n "$dtype" ]]; then
+        printf -- '- [ ] %s — [%s] %s\n' "$(date -u +%F)" "$dtype" "$clean" >> "$f"
+    else
+        printf -- '- [ ] %s — %s\n' "$(date -u +%F)" "$clean" >> "$f"
+    fi
     ac_info "duty: appended to $f"
     printf 'Duty recorded. Review with: antcrate --duties\n'
 }
@@ -61,7 +87,10 @@ ac_duty_list() {
         return 0
     fi
     printf 'Open duties — %s:\n' "$f"
-    grep '^- \[ \]' "$f" | nl -w2 -s'. '
+    # flat file-order indices stay the --duty-done contract; untyped lines are
+    # tagged [policy] in DISPLAY ONLY (the file is never rewritten here)
+    grep '^- \[ \]' "$f" | nl -w2 -s'. ' \
+        | sed -E '/— \[(policy|command|research|debug)\] /! s/ — / — [policy] /'
 }
 
 ac_duty_done() {

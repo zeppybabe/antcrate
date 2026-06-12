@@ -5,110 +5,37 @@ description: Persistent project context for AntCrate — the deterministic Bash 
 
 # AntCrate
 
-Pure-Bash deterministic project scaffolder + orchestration wrapper. Filenames decode positionally as argument arrays. An `inotifywait` daemon translates filesystem events into project actions and keeps `docs/diagrams/tree.mmd` + `~/.antcrate/registry.mmd` live. One `jq`-managed JSON file (`~/.antcrate/registry.json`) is the single source of truth. `git push` is wrapped with a fail-safe that emails truncated diffs on rejection.
+AntCrate is the **single controllable surface** for solo-developer project ops — every structural or destructive action is one wrapped command that enforces backup + approval gates. You are the **orchestrator** (T0): you direct the wrapper, delegate builds to agents, and never fall back to bare `mv`/`rm`/`git push`/`cd`. If no flag fits: `antcrate --propose "<name>" "<intent>"`.
 
-Designed to be the **single controllable surface** for solo-developer ops — every common destructive or structural action becomes one wrapped command that enforces backup + approval gates and leaves the user (or an AI agent) without a reason to fall back to bare shell.
+## Gateway Law digest
 
-## Read first (in this order)
+- **Rule #1** — no destructive op without a verified backup AND explicit user approval (`ac_safety_guard_destructive` enforces).
+- **Rule #12** — updates/removals are always LAST in any roadmap; verify chain: read state → confirm no dependents → backup → show the user the verify output → explicit approval → THEN execute.
+- **Rule #13** — `~/.antcrate/config` is human-only; agents read, never write.
 
-1. **`assets/docs/PATTERNS.md`** — flag-by-intent index. **Always** before any project-level shell command. If your intent isn't listed, `antcrate --propose <name> "<intent>"` instead of falling back to `mv`/`rm`/`git push`.
-2. **`state.md`** — "Top of mind" + "Next steps" + "Already shipped." Truth-of-now in one place.
-3. **`assets/code/AGENTS.md`** — hard rules. Read at minimum:
-   - **#1**: no destructive op without backup + explicit user approval (enforced by `ac_safety_guard_destructive`)
-   - **#10**: no bare `cd` into a registered project — use `--in` or `--anchor`
-   - **#11**: no bare command if a wrapper exists — propose via `--propose` instead
-   - **#12** (Gateway Law): updates/removals are always LAST in any roadmap; verify chain is read state → confirm no dependents → backup → show user verify output → receive explicit approval → THEN execute
-   - **#13**: `~/.antcrate/config` is human-only territory — agents read but never write
-4. **`ledger.md`** — top ~5 entries for fresh context on what just changed. Append-only, never rewrite.
+Full rules: `assets/code/AGENTS.md` — read whenever an op touches one.
 
-## Where things live
+## Light by default, deep on demand
 
-### Code (`assets/code/`)
+Read AT THE MOMENT OF NEED, never as a session-start tax:
 
-- **`bin/antcrate`** — the Wrapper CLI (single dispatcher, sources all libs)
-- **`bin/antcrated`** — the Pipe (inotifywait daemon: schema dispatch + live-tree auto-regen, longest-prefix project resolution, per-project debounce, registry-cache mtime keyed)
-- **`lib/*.sh`** — sourced helpers:
-  - `registry.sh` — atomic jq CRUD on `registry.json`
-  - `schema.sh` — positional filename decoder
-  - `scaffold.sh` — `--start` / `--branch` / `--link` / `--register`
-  - `subbranch.sh` — atomic `--resume --expand` nesting (backup-protected)
-  - `safety.sh` — path-zone guard + `ac_safety_guard_destructive` (rule #1 enforcement)
-  - `backup.sh` — verified tar.gz + sha256 manifests, retention pruning, restore
-  - `commit.sh` — `--commit` wrapper with secret-pattern guard + Gateway-Law preview/prompt (rule #12)
-  - `git_triage.sh` — `--pp` push wrapper with conflict triage to `/tmp/antcrate_conflict.log`
-  - `gh.sh` — `--gh-init` (HTTPS via `gh` CLI, no plaintext PATs)
-  - `address.sh` — layered positional addressing (`1a3` = 3rd entry inside the 1st sub-branch of the 1st top-level dir; bijective base-26 letters)
-  - `anchor.sh` — `--in` / `--anchor` (no bare `cd`)
-  - `devops.sh` — `--map`, `--rename`, `--archive`, `--unarchive`, `--remove`, `--touch`, `--mkdir`, `--logs`, `--diff`, `--selfsrc`/`--selfinstall`/`--install-from-source`/`--selftest`/`--selfedit`, `--ci`
-  - `diagrams.sh` — Mermaid registry + tree generation, `ac_diagrams_auto_regen` (silent, opt-out via `ANTCRATE_AUTO_DIAGRAMS=0`)
-  - `hooks.sh` — `--hooks` (read-only listing) + `--hook-log` (debug blocked commits)
-  - `events.sh` — append-only activity stream (`~/.antcrate/events/<project>.jsonl`); `--emit-activity` writes
-  - `watch.sh` — colored tree renderer over the active event overlay; `--watch` loops, `--once` for scripts; `--watch-smoke` emits + renders in one call
-  - `watch_window.sh` — detached terminal window management; `--watch-window` spawns alacritty with PID-file dedup
-  - `cleanup.sh` — classifier + apply for test-tmp / empty-dir candidates; `--cleanup <project> [--apply <id>...]`
-  - `hygiene.sh` — registry hygiene; `--ghosts` (read-only list of entries whose path is missing) + `--deregister <project>` (capture-first registry-only drop of a ghost; refuses if path exists → `--archive`). See AGENTS.md rule #19.
-  - `git_init.sh` — local-only `git init` for a registered project (idempotent + `core.hooksPath` wire); `--git-init <project>`
-  - `bootstrap.sh` — one-liner: `--git-init` + default `.gitignore` + first commit; `--bootstrap <project> [-m] [--with-remote --public/--private]`
-  - `propose.sh` — `--propose` / `--proposals` (escape valve when no flag fits)
-  - `log.sh` — leveled logging (logfile only, stderr only for warn/error)
-  - `lock.sh` — flock + pause-flag helpers
-  - `canary.sh` — Wave 1 compaction-canary gate; `--canary-init` / `--canary-verify` / `--canary-status` / `--canary-gate-check`; wraps `antcrate-core canary` C++ binary (AGENTS.md rule #15)
-  - `loop.sh` — durable objective loop; `--loop` / `--loop-tick` / `--loop-signoff` / `--loop-status` / `--loop-list` / `--loop-resume` / `--loop-halt`; three hard stops (max-iter / no-progress / budget), two-key verify, composes with Claude Code `/loop`
-  - `selfcheck.sh` — `--selfcheck [--quiet]` self-source persistence health (registry path, skill link, git, unpushed, dirty, backup age; exit 0/1/2); `selfsrc` line in `--status`; pairs with `systemd/antcrate-backup.timer`
-  - `cost.sh` — `--cost [--since][--session][--porcelain]` real-dollar spend from Claude Code session JSONL (per-model table + total; price table embedded, `ANTCRATE_COST_PRICES_FILE` override); backs the loop's `$`-budget mode (`--budget 5.00` = USD, integer = legacy seconds)
-  - `intel.sh` — Anthropic intel tracker; `--intel-pull [--source][--quiet]` / `--intel-new [--json]` / `--intel-ack <id> <sha>` / `--intel-status`; pinned Anthropic-ONLY sources (`~/.antcrate/intel/sources.json`, non-Anthropic host = exit 2), snapshot-on-hash-change + append-only `new.jsonl`/`acked.jsonl`; `intel: N unread` line in `--status`; pairs with `systemd/antcrate-intel.timer` (retrieval) + the `intel` skill at `assets/skills/intel/` (cognition — proposals only, never edits). Spec: `docs/specs/2026-06-10-anthropic-intel-tracker-design.md`
-  - `duties.sh` — human-only action checklist (`duties.md` at repo root); `--duty "<text>"` append / `--duties` list open / `--duty-done <n>` user-driven close; `duties: N open` line in `--status`; reviewed in session-close part 3. Agents file duties, never close them.
-- **`hooks/claude/`** — Claude Code hooks (wired in `~/.claude/settings.json`):
-  - `session-budget-guard.sh` — PreToolUse `*` context-window gate; soft 100k warns (throttled per 10k growth), hard 140k blocks all but the wrap-up whitelist (commit / pp / state-file edits / duties / git status-diff-log-add) until the USER runs `/clear`; fails open; `ANTCRATE_SESSION_SOFT/HARD` config overrides are human-only, agents MUST NOT set `ANTCRATE_SESSION_GATE_DISABLE`. Spec: `docs/specs/2026-06-10-session-budget-gate-and-duties-design.md`
-  - `env-guard.sh` — PreToolUse Bash+Read secret-value guard: secret VALUES never enter the transcript (names/assignment only)
-- **`core/`** — C++17 helper binary `antcrate-core` (CMake + doctest + nlohmann/json vendored). Wave 1 ships the canary subsystem; the Bash wrapper continues to be the user-facing CLI.
-- **`templates/<domain>/`** — scaffolding templates per domain (`webapps`, `scripts`, `notes`, `projects`, `_generic`)
-- **`tests/*.bats`** — bats coverage; run all via `antcrate --ci`
-- **`install.sh`** — idempotent installer; copies binaries to `~/.local/bin`, libs to `~/.local/share/antcrate/`
-- **`systemd/antcrated.service`** — optional user-mode daemon unit
+- `assets/docs/PATTERNS.md` — flag-by-intent index; before ANY project-level shell command.
+- `assets/code/AGENTS.md` — hard rules; when an op touches a rule.
+- `docs/MANUAL.md` — full command reference (all flags, exit codes, hooks, files).
+- `assets/docs/LIB_MAP.md` — where every lib/bin/hook/doc/state file lives.
+- `state.md` "Top of mind" + `ledger.md` head — truth-of-now and recent decisions.
 
-### Docs (`assets/docs/`)
+## Role dispatch
 
-- **`PATTERNS.md`** — the orientation index (always read first)
-- **`architecture.md`** — original blueprint (Core Objectives, Glossary, Schema, Registry, Triage, Sub-Branching)
-- **`BUNDLE_SPEC.md`** (v1.0) — typed handshake between research-AntCrate (producer) and dev-AntCrate (consumer). Defines `manifest.json`, four `source.type` variants, `relationships`, status lifecycle, validate-before-write contract. Consumer-side `--ingest` is the next planned implementation pass.
-- **`examples/bundles/`** — four reference bundles: `git-pinned/`, `theoretical/`, `composite/`, `supersedes/`
-- **`HOOK_PLAN.md`** — git-hook surface roadmap. Shipped: `--hooks`, `--hook-log`, `--hook-install` / `--hook-remove` / `--hook-bypass` / `--hook-debug` / `--hook-autoinstall` / `--hook-smoke`, opt-in `.githooks/pre-commit`, `.github/workflows/ci.yml`.
-- **`GH_PIPELINE_PLAN.md`** — running ledger of `gh` CLI usage being absorbed into antcrate flags. Every `gh` use logged here as a candidate. Proposed first pass: `--gh-info`, `--runs`, `--watch-run`, `--run-log`, `--issues`, `--issue-new`, `--prs`.
-- **`DIAGRAM_PLAN.md`** — case-by-case diagram selection algorithm. Shipped: universal pair (`registry.mmd` + `tree.mmd`) auto-regenerated everywhere. Queued: stack-aware presets (`bash`, `node`, `svelte`, `python`, `rust`, `go`, `terraform`, `db`, `k8s`), `--diagram-preset`, `--diagram-detect`, auto-install on `--start`. Diagrams are first-class AntCrate output, not an external dependency.
-- **`POST_DEV_BACKLOG.md`** — items deferred until GA: native-plugin gateway enforcement, per-tier antcrate (dev/infra/sec), bundle signing, backup encryption, `--pp` secret-guard fix.
-- **`DIAGRAM_AUTOMATION_GUIDE.md`** — underlying tool catalog (Quick Picker, the seven core tools, source-of-truth-by-type sections). The reference that backs `DIAGRAM_PLAN.md`.
+| Role | Loads |
+|---|---|
+| Orchestrator (Clyde/Cable — personas of T0) | this skill |
+| Builder / reviewer agents (Cody, Claudia, cody-tester) | `antcrate-builder` (`assets/skills/builder/`) — never this one |
+| Resolver (AnyCrate, next build) | `anycrate` |
+| Intel review | `intel` (`assets/skills/intel/`) |
+| Session wrap-up | session-close protocol in `~/CLAUDE.md` (sweep / audit / learn) |
 
-### Hooks + CI (root of skill repo)
-
-- **`.github/workflows/ci.yml`** — runs `antcrate --ci` on push to master/main + PRs
-- **`.githooks/pre-commit`** — opt-in local hook (enable per-clone via `git config core.hooksPath .githooks`); runs `antcrate --ci`, tees output to `.git/antcrate-hook.log`
-
-### State (`~/.antcrate/`)
-
-- `registry.json` — single source of truth (jq-mutated, atomic temp-file replacement)
-- `registry.mmd` — auto-regenerated Mermaid view of the whole registry (archived dimmed)
-- `config` — user defaults (rule #13: human-only)
-- `proposals.log` — `--propose` append-only log
-- `backups/<project>/` — verified tar.gz snapshots
-- `log/{wrapper,daemon}.log` — leveled logs
-- `daemon.{pid,lock}` — single-instance + flock coord
-- `pipe.paused` — pause flag (atomic sub-branching)
-
-## Self-host
-
-The skill source is itself a registered AntCrate project (`antcrate`, domain `claude-skills`). Push via `antcrate --pp antcrate`. Repo is private at `https://github.com/zeppybabe/antcrate`. CI fires on every push.
-
-## Key invariants to preserve across chats
-
-- **Language**: pure POSIX Bash 5+. No Python/Node/Go in runtime. Deps: `jq`, `inotify-tools`, `git`, `mailx`/`sendmail`, `flock` (in `util-linux`).
-- **Schema**: filenames decode positionally — `Name.Domain.Action.#Meta#`. Meta is `#csv,values#` or `key=value`.
-- **State mutation**: only via `lib/registry.sh` helpers (atomic jq + temp-file replacement). Never `jq … > registry.json` directly.
-- **Daemon events**: `create | close_write | moved_to | moved_from | delete`. Editor swap/dot files filtered. Per-project debounce (`ANTCRATE_TREE_DEBOUNCE_MS`, default 600ms).
-- **Triage**: on `git push` rejection, capture stderr → `git diff @{u}..HEAD` → truncate to 300 lines → `mailx`. Full log retained at `/tmp/antcrate_conflict.log`.
-- **Sub-branch atomicity**: pause daemon → mkdir/mv → rewrite registry → fix `linked_nodes` → resume daemon. Pre-step backup mandatory.
-- **Editor parity**: `antcrate --start name --domain webapps --meta html,css` ≡ `nano name.webapps.start.#html,css#` (daemon decodes the latter and dispatches the former).
-- **Auto-regen**: every mutating wrapper action AND every direct filesystem event under a registered project triggers `ac_diagrams_auto_regen`. Diagrams are a function of state, not a snapshot.
+Model tiers + per-model session budgets live in `~/.antcrate/anycrate/policy.json` (`antcrate --policy`); the orchestrator's model is NEVER policy-assigned (`inherit` = the user's session choice). Only `budgets.fable` is agent-adjustable — evidence-backed, ledger-recorded. Automatics (hooks, timers) get no skill: zero-token by construction.
 
 ## Maintenance protocol
 
@@ -117,6 +44,10 @@ The skill source is itself a registered AntCrate project (`antcrate`, domain `cl
 - **Phase / state change**: rewrite `state.md` freely (overwrite mode) — but it is ROLLING since 2026-06-10: keep only the current + prior session blocks; move older blocks verbatim into `state-archive.md` (append-only, newest first). Never rewrite `ledger.md` or `state-archive.md` (both append-only).
 - **Skill metadata change**: edit `SKILL.md` when major new surfaces land.
 - **gh CLI use**: log every invocation in `assets/docs/GH_PIPELINE_PLAN.md` "Observed `gh` usage" section. The rule is durable — see memory file `feedback_gh_pipeline.md`.
+
+## Self-host
+
+The skill source is itself a registered AntCrate project (`antcrate`, domain `claude-skills`). Push via `antcrate --pp antcrate`. Repo is public at `https://github.com/zeppybabe/antcrate`. CI fires on every push.
 
 ## Trigger phrases
 

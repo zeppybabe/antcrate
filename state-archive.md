@@ -4,6 +4,11 @@ Retired top-of-mind blocks from `state.md`, moved here verbatim when they age ou
 
 ---
 
+**2026-06-11 (prior) — MODEL-TIER RESEARCH delivered; session ended early — claude-api skill load alone pushed context to 264k, tripping the 140k hard gate.**
+
+- ✅ Research done (delivered in-chat; data cached 2026-06-04 from the claude-api skill, verified recent): Fable 5 = 1M ctx / 128K out / $10-$50 per MTok; Opus 4.8 = 1M / 128K / $5-$25; Sonnet 4.6 = 1M / 64K / $3-$15; Haiku 4.5 = **200K** / 64K / $1-$5. Cost ratio Haiku:Sonnet:Opus:Fable = 1:3:5:10 on both input and output. Fable tokenizer counts ~30% MORE tokens for identical content vs Opus-tier (normalize before comparing). `effort` param is NOT supported on Haiku 4.5 (so "effort high+" can't be expressed there). Cache reads ≈0.1×, writes 1.25×; spawned agents start cache-cold.
+- Resume target (tiered token-limit + least-cost orchestration spec) → **DELIVERED as the 2026-06-11 spec above**; queued proposals `model-tiers` + `skill-research-guard` absorbed by it.
+
 **2026-06-11 (prior) — PUBLIC-FACE REVAMP: README rewritten, docs/MANUAL.md shipped, PATTERNS hook-drift fixed; duties CLOSED; env-vault proposal filed.**
 
 - ✅ Planning + presentation session (user-directed, docs only): (1) both duties closed on user decision — gh repos stay private-by-default with changes via config applying on next antcrate update; key rotation = service-default expiry, self-assigned SHA/encrypted API keys WEEKLY, HTTPS-gh until natural expiry; (2) Claude Managed Agents **vault env-var credentials** (released today) assessed — cloud provisioning layer vs our env-guard exposure layer, complementary not redundant → proposal `env-vault` (--vault-set/--vault-run/--vault-due + rotation metadata); (3) **README.md fully rewritten** (agent-governance framing, five-rule contract, capability tour, 615-bats status); (4) **NEW docs/MANUAL.md** — man-page-grade: all 88 commands, CONCEPTS, FILES, ENVIRONMENT, EXIT STATUS, SECURITY MODEL; (5) **PATTERNS.md drift fixed** (hook suite no longer "queued"; loop-engine section added; --ci row current); (6) proposal `man-page` filed (roff antcrate.1 + --man). `--ci --source` worktree PASS 615. Built in worktree `repo-revamp`.

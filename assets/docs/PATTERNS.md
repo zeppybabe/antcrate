@@ -271,9 +271,22 @@ Actions only the human can perform — control-plane jq seeds, `systemctl --user
 
 | Intent | Command | Notes |
 |---|---|---|
-| Record an action only the human can do | `antcrate --duty "<text>"` | Appends `- [ ] <date> — <text>` to duties.md. Surfaced in `--status` and the session-budget gate's wrap-up checklist. |
-| See open human duties | `antcrate --duties` | Numbered list of open items only. |
+| Record an action only the human can do | `antcrate --duty [--type <t>] "<text>"` | Appends `- [ ] <date> — [<type>] <text>` to duties.md. Types: `policy\|command\|research\|debug` (untyped reads as policy). Surfaced in `--status` and the session-budget gate's wrap-up checklist. |
+| See open human duties | `antcrate --duties` | Numbered list of open items only, typed tags shown; flat indices stay valid for `--duty-done`. |
 | Mark a duty done | `antcrate --duty-done <n>` | User-driven (or agent on explicit user instruction). Flips to `- [x]` + done-date; items are never deleted. |
+| Check how involved the user wants to be | `antcrate --duty-involvement` | `lean\|standard\|hands-on`; env > config `duty_involvement=` line > lean. Config line is rule-#13 human-only. Gates research routing (AGENTS.md rule #21). |
+
+## Least-cost layer (policy, prediction, no-LLM retrieval)
+
+Research order of record: **TH duty → `--fetch` → model research LAST** (AGENTS.md rule #21).
+
+| Intent | Command | Notes |
+|---|---|---|
+| See model tiers / budgets / classes | `antcrate --policy` | Pretty-prints `~/.antcrate/anycrate/policy.json`. Only `budgets.fable` is agent-adjustable (rule #22). |
+| Seed the policy file | `antcrate --policy-init` | Idempotent — never clobbers an existing file. |
+| Fetch a web page without spending model tokens | `antcrate --fetch <url> [--name <slug>]` | Normalizes (script/tag-strip) + snapshots to `~/.antcrate/fetch/<slug>/`, append-only and hash-keyed; unchanged content = no new snapshot. http(s) only. |
+
+Hooks backing this layer (wired in `~/.claude/settings.json`): `session-budget-guard.sh` is the REACTIVE gate (model-aware budgets — Fable soft 250k / hard 400k, default 100k/140k); `cost-anticipator.sh` is the PREDICTIVE gate (PreToolUse Skill|Agent|Read — estimates the call's token load first, warns past soft, blocks past hard/window naming a cheaper path). Both fail open; DISABLE hatches are human-only.
 
 ## Plugins & external tools (let-it / feed-it / gate-it)
 
@@ -297,4 +310,5 @@ When a new plugin/MCP arrives, classify it into one of these buckets before reac
 - **ship**: `--pp`
 - **build self**: `--selfsrc`, `--selfinstall`, `--install-from-source`, `--selftest`, `--selfedit`, `--ci`
 - **propose**: `--propose`, `--proposals`
-- **duties**: `--duty`, `--duties`, `--duty-done`
+- **duties**: `--duty`, `--duties`, `--duty-done`, `--duty-involvement`
+- **least-cost**: `--policy`, `--policy-init`, `--fetch`

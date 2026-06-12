@@ -88,6 +88,12 @@ These rules govern any AI agent (Claude Code, Cursor, etc.) operating on or with
     - **Archive → `~/projects/.archive/`** (`antcrate --archive`, `_archived` parent in registry): a live-but-retired project, fully recoverable via `--unarchive`. Test-purpose fixtures are archived, never removed.
     Agents pick the fate by inspecting on-disk reality first (`--ghosts`, `find <path>`). When unsure between archive and any removal, default to archive (compress-or-remove default under rule #12).
 
+20. **Builder-role agents load `antcrate-builder`, not `antcrate`.** Cody, Claudia, cody-tester, and any T3 fleet agent get the command-surface-only skill at `assets/skills/builder/` (`antcrate-builder` in the skill menu). Briefing a builder/reviewer agent to load the full `antcrate` orchestrator skill is a rule violation — it spends ~3× the tokens for context the agent must not act on (registry governance, roadmap state, self-host maintenance). The orchestrator (T0) is the only role that loads `antcrate`.
+
+21. **Cost-governance hatches and knobs are human-only; research is cheapest-path-first.** Agents MUST NOT set `ANTCRATE_COST_GUARD_DISABLE` or `ANTCRATE_DUTY_INVOLVEMENT`, and never close duties (`--duty-done` is user-driven, unchanged). Before any model-driven research pass, the agent MUST: (a) check `antcrate --duty-involvement`; (b) try `antcrate --fetch <url>` for raw-source questions. At `standard` involvement or above, a research subagent spawned without that check is a rule violation; at `hands-on`, prefer filing `--duty --type research` and asking the user first.
+
+22. **`policy.json` is human territory except one grant.** In `~/.antcrate/anycrate/policy.json`, only `budgets.fable` is agent-adjustable — by the orchestrator (Cable), evidence-backed, with a ledger entry recorded at change time. Every other key (`models`, `classes`, other models' budgets, `skill_overrides`, `budget_usd`) is human-only or goes through `--propose`. Seeding via `--policy-init` is allowed anywhere (idempotent, never clobbers).
+
 ## Soft rules (proceed but log to ledger)
 
 - New project creation via `--start` or `--branch` — fine, log path to ledger.

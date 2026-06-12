@@ -105,6 +105,8 @@ LIB_DIR="$SCRIPT_DIR/../lib"
 # shellcheck disable=SC1091
 . "$LIB_DIR/intel.sh"
 # shellcheck disable=SC1091
+. "$LIB_DIR/fetch.sh"
+# shellcheck disable=SC1091
 . "$LIB_DIR/policy.sh"
 
 : "${ANTCRATE_HOME:=$HOME/.antcrate}"
@@ -191,9 +193,14 @@ Commands:
   --proposals                         list all logged pattern proposals
   --policy                            show the policy.json file (models/budgets/classes)
   --policy-init                       seed policy.json if absent (idempotent)
-  --duty "<text>"                     append a human-only action to duties.md (checklist)
-  --duties                            numbered list of OPEN duties
+  --duty [--type <t>] "<text>"        append a human-only action to duties.md (checklist);
+                                      types: policy|command|research|debug (untyped = policy)
+  --duties                            numbered list of OPEN duties (typed tags shown)
   --duty-done <n>                     mark nth open duty done (user-driven)
+  --duty-involvement                  print effective duty_involvement (lean|standard|hands-on)
+  --fetch <url> [--name <slug>]       no-LLM web fetch: normalize + snapshot to
+                                      ~/.antcrate/fetch/<slug>/ (append-only, hash-keyed);
+                                      research order: TH duty -> --fetch -> model LAST
   --addr <project> <code>             resolve a layered address (e.g. 1a3) to a path
   --anchor <project> [--addr <code>]  emit eval-able exports: ANTCRATE_ANCHOR=...
   --in <project> [--addr <code>] -- <cmd...>
@@ -429,7 +436,8 @@ MD_FORCE=""
 SELFCHECK_QUIET=""
 COST_SINCE="" COST_SESSION="" COST_PORCELAIN=""
 INTEL_SOURCE="" INTEL_QUIET="" INTEL_JSON="" INTEL_SHA=""
-DUTY_TEXT="" DUTY_N=""
+DUTY_TEXT="" DUTY_N="" DUTY_TYPE=""
+FETCH_URL="" FETCH_NAME=""
 CI_SNAPSHOT="" CI_SOURCE=""
 HOOKSMOKE_ARGS=()
 PROFILE_RAW=""
@@ -635,13 +643,25 @@ while (( $# > 0 )); do
         --policy-init)       ACTION="policy_init"; shift ;;
         --duty)
             ACTION="duty"
-            if [[ $# -ge 2 && -n "${2:-}" && "${2:0:2}" != "--" ]]; then
-                DUTY_TEXT="$2"; shift 2
-            else
-                shift
+            shift
+            if [[ "${1:-}" == "--type" ]]; then
+                DUTY_TYPE="${2:-}"; shift 2
+            fi
+            if [[ $# -ge 1 && -n "${1:-}" && "${1:0:2}" != "--" ]]; then
+                DUTY_TEXT="$1"; shift
             fi ;;
         --duties)            ACTION="duties"; shift ;;
         --duty-done)         ACTION="duty-done"; DUTY_N="${2:-}"; shift 2 ;;
+        --duty-involvement)  ACTION="duty_involvement"; shift ;;
+        --fetch)
+            ACTION="fetch"
+            shift
+            if [[ $# -ge 1 && "${1:0:2}" != "--" ]]; then
+                FETCH_URL="$1"; shift
+            fi
+            if [[ "${1:-}" == "--name" ]]; then
+                FETCH_NAME="${2:-}"; shift 2
+            fi ;;
         --addr)
             if [[ -z "$ACTION" ]]; then
                 ACTION="addr"; NAME="${2:-}"; ADDR_CODE="${3:-}"
@@ -1039,9 +1059,20 @@ case "$ACTION" in
     policy_init) ac_policy_seed ;;
     duty)
         [[ -z "$DUTY_TEXT" ]] && { ac_error "--duty requires \"<text>\""; exit 2; }
-        ac_duty_add "$DUTY_TEXT" ;;
+        if [[ -n "$DUTY_TYPE" ]]; then
+            ac_duty_add --type "$DUTY_TYPE" "$DUTY_TEXT"
+        else
+            ac_duty_add "$DUTY_TEXT"
+        fi ;;
     duties)    ac_duty_list ;;
     duty-done) ac_duty_done "$DUTY_N" ;;
+    duty_involvement) ac_duty_involvement ;;
+    fetch)
+        if [[ -n "$FETCH_NAME" ]]; then
+            ac_fetch "$FETCH_URL" --name "$FETCH_NAME"
+        else
+            ac_fetch "$FETCH_URL"
+        fi ;;
     addr)
         [[ -z "$NAME" || -z "$ADDR_CODE" ]] && { ac_error "--addr requires <project> <code>"; exit 2; }
         ac_registry_has "$NAME" || { ac_error "unknown project: $NAME"; exit 1; }
