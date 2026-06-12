@@ -16,12 +16,13 @@
 # Public API (callable from the wrapper):
 #   ac_watch_smoke <project> [kind] [relpath] [--ttl-ms N] [--depth N] [--no-color]
 #   ac_watch_render_once <project> [--no-color] [--depth N]
-#   ac_watch_loop <project> [--interval-ms N] [--no-color] [--depth N]
+#   ac_watch_loop [<project>] [--follow] [--interval-ms N] [--no-color] [--depth N]
+#   ac_watch_hot_project
 #
 # Internal (do not call from outside this file):
 #   ac_watch_severity_for, ac_watch_color_for,
 #   ac_watch_build_overlay, ac_watch_fold_overlay, ac_watch_walk_tree,
-#   ac_watch_latest_event
+#   ac_watch_latest_event, ac_watch_term_rows, ac_watch_clamp_frame
 # Reason: severity / color / fold helpers depend on a stable input shape
 # from ac_watch_build_overlay; calling them out of order would render a
 # partial or inconsistent overlay. Recursion (ac_watch_walk_tree) holds
@@ -191,7 +192,11 @@ ac_watch_render_once() {
             *) shift ;;
         esac
     done
-    [[ -t 1 ]] || use_color=${ANTCRATE_WATCH_FORCE_COLOR:-0}
+    # Non-tty stdout (pipes, command substitution): FORCE_COLOR may re-enable
+    # color, but an explicit --no-color is authoritative and never overridden.
+    if [[ ! -t 1 ]] && (( use_color )); then
+        use_color=${ANTCRATE_WATCH_FORCE_COLOR:-0}
+    fi
 
     if ! ac_registry_has "$project"; then
         ac_error "watch: unknown project '$project'"
@@ -245,25 +250,107 @@ ac_watch_render_once() {
     ac_watch_walk_tree "$root" "" "" "$depth" "$use_color" overlay "$latest_path"
 }
 
-# ac_watch_loop <project> [--interval-ms N] [--no-color] [--depth N]
+# ac_watch_term_rows — terminal height; tput → $LINES → 24. Re-queried every
+# frame so window resizes take effect on the next redraw.
+ac_watch_term_rows() {
+    local r
+    r=$(tput lines 2>/dev/null) || r=""
+    [[ "$r" =~ ^[1-9][0-9]*$ ]] || r="${LINES:-24}"
+    [[ "$r" =~ ^[1-9][0-9]*$ ]] || r=24
+    printf '%s\n' "$r"
+}
+
+# ac_watch_clamp_frame <max_rows> — pure stdin→stdout filter. Frames taller
+# than max_rows are cut to max_rows-1 lines plus a "… (+N more …)" marker, so
+# a redraw never exceeds the viewport (overflow is what made the old loop
+# scroll-spam the terminal instead of repainting in place).
+ac_watch_clamp_frame() {
+    local max="$1"
+    awk -v max="$max" '
+        { buf[NR] = $0 }
+        END {
+            if (NR <= max) { for (i = 1; i <= NR; i++) print buf[i]; exit }
+            for (i = 1; i < max; i++) print buf[i]
+            printf "\xe2\x80\xa6 (+%d more lines \xe2\x80\x94 lower --depth or resize)\n", NR - (max - 1)
+        }'
+}
+
+# ac_watch_hot_project — print the registered project with the newest ACTIVE
+# (TTL-unexpired) event across $ANTCRATE_EVENTS_DIR; exit 1 if none. Powers
+# --follow: the view tracks whatever project the agent is touching right now.
+ac_watch_hot_project() {
+    local now best_ts=0 best="" f proj ts
+    now=$(date +%s%3N)
+    for f in "$ANTCRATE_EVENTS_DIR"/*.jsonl; do
+        [[ -f "$f" ]] || continue
+        proj="${f##*/}"; proj="${proj%.jsonl}"
+        ac_registry_has "$proj" 2>/dev/null || continue
+        ts=$(tail -n "${ANTCRATE_EVENTS_TAIL:-200}" "$f" 2>/dev/null \
+            | jq -s --argjson now "$now" \
+                '[ .[] | select((.ts_ms + .ttl_ms) > $now) | .ts_ms ] | max // 0' \
+                2>/dev/null) || ts=0
+        [[ "$ts" =~ ^[0-9]+$ ]] || ts=0
+        if (( ts > best_ts )); then best_ts=$ts; best="$proj"; fi
+    done
+    [[ -n "$best" ]] || return 1
+    printf '%s\n' "$best"
+}
+
+# ac_watch_loop [<project>] [--follow] [--interval-ms N] [--no-color] [--depth N]
+# Full-screen live view. Renders into the alternate screen buffer (the user's
+# scrollback is untouched and restored on exit), cursor hidden, terminal
+# autowrap off (long lines truncate instead of wrapping and pushing the frame
+# off-screen). Each frame is drawn with home + per-line erase + erase-below —
+# no full clear, so no flicker; the frame is clamped to the terminal height,
+# so no scrolling. With --follow (project optional) the view auto-switches to
+# the project with the newest active event.
 ac_watch_loop() {
-    local project="$1"; shift
-    local interval="$ANTCRATE_WATCH_INTERVAL_MS"
+    local project="" follow=0 interval="$ANTCRATE_WATCH_INTERVAL_MS"
     local extra=()
     while (( $# > 0 )); do
         case "$1" in
+            --follow)      follow=1; shift ;;
             --interval-ms) interval="$2"; shift 2 ;;
-            *) extra+=("$1"); shift ;;
+            --depth)       extra+=(--depth "$2"); shift 2 ;;
+            --no-color)    extra+=(--no-color); shift ;;
+            --*)           shift ;;
+            *)             project="$1"; shift ;;
         esac
     done
+    if (( ! follow )) && [[ -z "$project" ]]; then
+        ac_error "watch: project required (or --follow)"
+        return 2
+    fi
     # convert ms to seconds for sleep (bash sleep accepts decimals)
     local secs
     secs=$(awk -v ms="$interval" 'BEGIN{printf "%.3f", ms/1000}')
-    # clean exit on Ctrl+C
-    trap 'printf "\n"; exit 0' INT TERM
+    # Frames are built via command substitution (not a tty), so when the real
+    # stdout IS a tty, carry color through the capture. --no-color still wins
+    # (render_once treats it as authoritative).
+    if [[ -t 1 && -z "${ANTCRATE_WATCH_FORCE_COLOR:-}" ]]; then
+        export ANTCRATE_WATCH_FORCE_COLOR=1
+    fi
+    # alt screen + hide cursor + autowrap off; restore on EVERY exit path
+    printf '\033[?1049h\033[?25l\033[?7l'
+    trap 'printf "\033[?7h\033[?25h\033[?1049l"' EXIT
+    trap 'exit 0' INT TERM
+    local cur="$project" rows frame hot
     while :; do
-        printf '\033[2J\033[H'   # clear + home
-        ac_watch_render_once "$project" "${extra[@]}"
+        if (( follow )); then
+            if hot=$(ac_watch_hot_project 2>/dev/null) && [[ -n "$hot" ]]; then
+                cur="$hot"
+            fi
+        fi
+        rows=$(ac_watch_term_rows)
+        if [[ -z "$cur" ]]; then
+            frame="antcrate watch --follow: waiting for activity…"
+        else
+            frame=$(ac_watch_render_once "$cur" "${extra[@]}" 2>&1 \
+                | ac_watch_clamp_frame $(( rows > 1 ? rows - 1 : 1 ))) || true
+        fi
+        # per-line erase-to-EOL kills residue from previous (longer) frames
+        frame=${frame//$'\n'/$'\033[K\n'}
+        printf '\033[H%s\033[K\n\033[J' "$frame"
         # shellcheck disable=SC2086  # $secs is an awk-formatted decimal with no whitespace; unquoted on purpose
         sleep $secs
     done

@@ -133,8 +133,10 @@ Commands:
   --emit-activity <project> <kind> <relpath> [--ttl-ms N] [--label X] [--agent A]
                                       append an event to the activity stream
                                       kinds: modify | read | think | delegate | delete
-  --watch <project> [--once] [--interval-ms N] [--no-color] [--depth N]
-                                      colored tree painted by active events
+  --watch [<project>] [--follow] [--once] [--interval-ms N] [--no-color] [--depth N]
+                                      full-screen colored tree painted by active
+                                      events (alt-screen, clamped to terminal);
+                                      --follow tracks the most-active project
   --watch-smoke <project> [kind] [relpath] [--ttl-ms N] [--depth N] [--no-color]
                                       emit one event then render the tree once
                                       (smoke shortcut for emit-activity + watch --once)
@@ -424,7 +426,7 @@ ADDR_CODE="" RENAME_NEW="" LOGS_LINES="50" CMD_ARGS=() RELPATH="" REG_PATH="" DI
 LOOP_OBJECTIVE="" LOOP_ID="" LOOP_VERDICT="" LOOP_NOTE="" LOOP_MAX_ITER="" LOOP_BUDGET="" LOOP_PORCELAIN="" LOOP_REASON=""
 COMMIT_MSG="" COMMIT_MODE=""
 EVENT_KIND="" EVENT_TTL="" EVENT_LABEL="" EVENT_AGENT=""
-WATCH_ONCE="" WATCH_INTERVAL="" WATCH_NOCOLOR="" WATCH_DEPTH=""
+WATCH_ONCE="" WATCH_INTERVAL="" WATCH_NOCOLOR="" WATCH_DEPTH="" WATCH_FOLLOW=""
 WATCH_SMOKE_KIND="" WATCH_SMOKE_REL=""
 WATCH_WIN_TERMINAL=""
 CLEANUP_IDS=()
@@ -499,7 +501,9 @@ while (( $# > 0 )); do
             elif [[ $# -ge 3 ]]; then shift 3
             elif [[ $# -ge 2 ]]; then shift 2
             else shift; fi ;;
-        --watch)             ACTION="watch"; NAME="${2:-}"; shift 2 ;;
+        --watch)
+            ACTION="watch"; NAME=""
+            if [[ -n "${2:-}" && "${2:0:2}" != "--" ]]; then NAME="$2"; shift 2; else shift; fi ;;
         --watch-smoke)
             ACTION="watch-smoke"; NAME="${2:-}"; shift 2
             WATCH_SMOKE_KIND=""; WATCH_SMOKE_REL=""
@@ -519,6 +523,7 @@ while (( $# > 0 )); do
         --cleanup)           ACTION="cleanup"; NAME="${2:-}"; shift 2 ;;
         --apply)             CLEANUP_IDS+=("$2"); shift 2 ;;
         --once)              WATCH_ONCE="1"; shift ;;
+        --follow)            WATCH_FOLLOW="1"; shift ;;
         --interval-ms)       WATCH_INTERVAL="$2"; shift 2 ;;
         --no-color)          WATCH_NOCOLOR="1"; shift ;;
         --depth)             WATCH_DEPTH="$2"; shift 2 ;;
@@ -941,15 +946,23 @@ case "$ACTION" in
         [[ -n "$EVENT_AGENT" ]] && emit_args+=(--agent "$EVENT_AGENT")
         ac_events_emit "$NAME" "$EVENT_KIND" "$RELPATH" "${emit_args[@]}" ;;
     watch)
-        [[ -z "$NAME" ]] && { ac_error "--watch requires <project>"; exit 2; }
+        [[ -z "$NAME" && "$WATCH_FOLLOW" != "1" ]] && {
+            ac_error "--watch requires <project> (or --follow)"; exit 2; }
         watch_args=()
         [[ "$WATCH_NOCOLOR" == "1" ]] && watch_args+=(--no-color)
         [[ -n "$WATCH_DEPTH"      ]] && watch_args+=(--depth "$WATCH_DEPTH")
         if [[ "$WATCH_ONCE" == "1" ]]; then
-            ac_watch_render_once "$NAME" "${watch_args[@]}"
+            WATCH_TARGET="$NAME"
+            if [[ -z "$WATCH_TARGET" ]]; then
+                WATCH_TARGET=$(ac_watch_hot_project) || {
+                    ac_error "watch --follow: no project with active events"; exit 1; }
+            fi
+            ac_watch_render_once "$WATCH_TARGET" "${watch_args[@]}"
         else
             [[ -n "$WATCH_INTERVAL" ]] && watch_args+=(--interval-ms "$WATCH_INTERVAL")
-            ac_watch_loop "$NAME" "${watch_args[@]}"
+            [[ "$WATCH_FOLLOW" == "1" ]] && watch_args+=(--follow)
+            [[ -n "$NAME" ]] && watch_args=("$NAME" "${watch_args[@]}")
+            ac_watch_loop "${watch_args[@]}"
         fi ;;
     watch-smoke)
         [[ -z "$NAME" ]] && { ac_error "--watch-smoke requires <project>"; exit 2; }
