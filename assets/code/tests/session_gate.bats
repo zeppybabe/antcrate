@@ -11,6 +11,7 @@ setup() {
     export ANTCRATE_SESSION_GATE_DIR="$BATS_TEST_TMPDIR/gate"
     export ANTCRATE_SESSION_SOFT=100000
     export ANTCRATE_SESSION_HARD=140000
+    export ANTCRATE_POLICY_FILE="$BATS_TEST_TMPDIR/no-such-policy.json"
 }
 
 # mk_transcript <input_tokens> [cache_read] — fixture JSONL, prints its path

@@ -14,8 +14,6 @@ set -uo pipefail
 
 [ "${ANTCRATE_SESSION_GATE_DISABLE:-0}" = "1" ] && exit 0
 
-SOFT="${ANTCRATE_SESSION_SOFT:-100000}"
-HARD="${ANTCRATE_SESSION_HARD:-140000}"
 GATE_DIR="${ANTCRATE_SESSION_GATE_DIR:-$HOME/.antcrate/session-gate}"
 
 payload="$(cat)"
@@ -23,14 +21,35 @@ payload="$(cat)"
 transcript="$(printf '%s' "$payload" | jq -r '.transcript_path // empty' 2>/dev/null)"
 { [ -n "$transcript" ] && [ -r "$transcript" ]; } || exit 0    # fail open
 
-# Last usage record wins. fromjson? makes garbage lines a no-op, not an error.
-context="$(tail -n 200 "$transcript" 2>/dev/null \
-    | jq -R 'fromjson? | .message.usage? // empty
-             | select(type == "object" and .input_tokens != null)
-             | .input_tokens + (.cache_read_input_tokens // 0) + (.cache_creation_input_tokens // 0)' 2>/dev/null \
-    | tail -n 1)"
+# Single-pass parse: extract context and model_id from last usage record.
+# fromjson? makes garbage lines a no-op, not an error.
+_parsed="$(tail -n 200 "$transcript" 2>/dev/null \
+    | jq -Rs 'split("\n") | map(select(length>0) | (try fromjson catch null)) | map(select(. != null)) |
+              { ctx: (map(select(.message.usage.input_tokens != null)) | last
+                      | .message.usage | .input_tokens + (.cache_read_input_tokens//0) + (.cache_creation_input_tokens//0)),
+                mdl: (map(select(.message.model != null and .message.model != "")) | last | .message.model // "") }' 2>/dev/null)"
+context="$(printf '%s' "$_parsed" | jq -r '.ctx // empty' 2>/dev/null)"
+model_id="$(printf '%s' "$_parsed" | jq -r '.mdl // empty' 2>/dev/null)"
 [ -n "$context" ] || exit 0                               # fail open
 case "$context" in *[!0-9]*) exit 0 ;; esac               # fail open
+
+# ---- per-model budgets (spec 2026-06-11 Unit 5) ------------------------------
+# env override (human-only) > policy.budgets.<model> > policy.budgets.default
+# > builtin 100k/140k. Fable raise: user directive 2026-06-11, evidence-backed.
+POLICY="${ANTCRATE_POLICY_FILE:-$HOME/.antcrate/anycrate/policy.json}"
+case "$model_id" in
+    *fable*) mkey=fable ;; *opus*) mkey=opus ;; *sonnet*) mkey=sonnet ;; *haiku*) mkey=haiku ;;
+    *) mkey=default ;;
+esac
+psoft=""; phard=""
+if [ -r "$POLICY" ]; then
+    psoft="$(jq -r ".budgets.\"$mkey\".soft // .budgets.default.soft // empty" "$POLICY" 2>/dev/null)"
+    phard="$(jq -r ".budgets.\"$mkey\".hard // .budgets.default.hard // empty" "$POLICY" 2>/dev/null)"
+fi
+case "$psoft" in ''|*[!0-9]*) psoft=100000 ;; esac
+case "$phard" in ''|*[!0-9]*) phard=140000 ;; esac
+SOFT="${ANTCRATE_SESSION_SOFT:-$psoft}"
+HARD="${ANTCRATE_SESSION_HARD:-$phard}"
 
 [ "$context" -lt "$SOFT" ] && exit 0
 

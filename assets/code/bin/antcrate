@@ -104,6 +104,8 @@ LIB_DIR="$SCRIPT_DIR/../lib"
 . "$LIB_DIR/cost.sh"
 # shellcheck disable=SC1091
 . "$LIB_DIR/intel.sh"
+# shellcheck disable=SC1091
+. "$LIB_DIR/policy.sh"
 
 : "${ANTCRATE_HOME:=$HOME/.antcrate}"
 : "${ANTCRATE_ROOT:=$HOME/projects}"
@@ -187,6 +189,8 @@ Commands:
   --restore <project> [--at <ts>]     restore project from backup (latest if --at omitted)
   --propose <name> "<description>"    log a proposed pattern (escape valve when no flag fits)
   --proposals                         list all logged pattern proposals
+  --policy                            show the policy.json file (models/budgets/classes)
+  --policy-init                       seed policy.json if absent (idempotent)
   --duty "<text>"                     append a human-only action to duties.md (checklist)
   --duties                            numbered list of OPEN duties
   --duty-done <n>                     mark nth open duty done (user-driven)
@@ -627,6 +631,8 @@ while (( $# > 0 )); do
                 shift
             fi ;;
         --proposals)         ACTION="proposals"; shift ;;
+        --policy)            ACTION="policy"; shift ;;
+        --policy-init)       ACTION="policy_init"; shift ;;
         --duty)
             ACTION="duty"
             if [[ $# -ge 2 && -n "${2:-}" && "${2:0:2}" != "--" ]]; then
@@ -1029,6 +1035,8 @@ case "$ACTION" in
         [[ -z "$PROPOSE_DESC" ]] && { ac_error "--propose requires <description>"; exit 2; }
         ac_propose_pattern "$NAME" "$PROPOSE_DESC" ;;
     proposals) ac_propose_list ;;
+    policy)      ac_policy_show ;;
+    policy_init) ac_policy_seed ;;
     duty)
         [[ -z "$DUTY_TEXT" ]] && { ac_error "--duty requires \"<text>\""; exit 2; }
         ac_duty_add "$DUTY_TEXT" ;;
