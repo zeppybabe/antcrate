@@ -1,4 +1,4 @@
-%% antcrate tree — generated 2026-06-12T18:54:15Z
+%% antcrate tree — generated 2026-06-12T20:38:31Z
 graph TD
   root(["antcrate"])
   1["CONTRIBUTING.md"]
@@ -79,12 +79,16 @@ graph TD
   6a6 --> 6a6b
   6a6b1["pre-commit-ci"]
   6a6b --> 6a6b1
-  6a6b2["pre-commit-secrets"]
+  6a6b2["pre-commit-docsguard"]
   6a6b --> 6a6b2
-  6a6b3["pre-commit-stack-bash"]
+  6a6b3["pre-commit-secrets"]
   6a6b --> 6a6b3
-  6a6b4["pre-push-tests"]
+  6a6b4["pre-commit-stack-bash"]
   6a6b --> 6a6b4
+  6a6b5["pre-push-docsguard"]
+  6a6b --> 6a6b5
+  6a6b6["pre-push-tests"]
+  6a6b --> 6a6b6
   6a7["install.sh"]
   6a --> 6a7
   6a8[/lib/]
@@ -263,86 +267,88 @@ graph TD
   6a11 --> 6a11m
   6a11n["diagrams.bats"]
   6a11 --> 6a11n
-  6a11o["duties.bats"]
+  6a11o["docsguard_templates.bats"]
   6a11 --> 6a11o
-  6a11p["duties_typed.bats"]
+  6a11p["duties.bats"]
   6a11 --> 6a11p
-  6a11q["env_guard.bats"]
+  6a11q["duties_typed.bats"]
   6a11 --> 6a11q
-  6a11r["env_scan.bats"]
+  6a11r["env_guard.bats"]
   6a11 --> 6a11r
-  6a11s["events.bats"]
+  6a11s["env_scan.bats"]
   6a11 --> 6a11s
-  6a11t["fetch.bats"]
+  6a11t["events.bats"]
   6a11 --> 6a11t
-  6a11u["gateway_guard.bats"]
+  6a11u["fetch.bats"]
   6a11 --> 6a11u
-  6a11v["git_init.bats"]
+  6a11v["gateway_guard.bats"]
   6a11 --> 6a11v
-  6a11w["git_triage.bats"]
+  6a11w["git_init.bats"]
   6a11 --> 6a11w
-  6a11x["hook_autoinstall.bats"]
+  6a11x["git_triage.bats"]
   6a11 --> 6a11x
-  6a11y["hook_smoke.bats"]
+  6a11y["hook_autoinstall.bats"]
   6a11 --> 6a11y
-  6a11z["hooks.bats"]
+  6a11z["hook_smoke.bats"]
   6a11 --> 6a11z
-  6a11aa["hygiene.bats"]
+  6a11aa["hooks.bats"]
   6a11 --> 6a11aa
-  6a11ab["ingest.bats"]
+  6a11ab["hygiene.bats"]
   6a11 --> 6a11ab
-  6a11ac["install_from_source.bats"]
+  6a11ac["ingest.bats"]
   6a11 --> 6a11ac
-  6a11ad["intel.bats"]
+  6a11ad["install_from_source.bats"]
   6a11 --> 6a11ad
-  6a11ae["lifecycle.bats"]
+  6a11ae["intel.bats"]
   6a11 --> 6a11ae
-  6a11af["loop.bats"]
+  6a11af["lifecycle.bats"]
   6a11 --> 6a11af
-  6a11ag["md_scaffold.bats"]
+  6a11ag["loop.bats"]
   6a11 --> 6a11ag
-  6a11ah["obsidian.bats"]
+  6a11ah["md_scaffold.bats"]
   6a11 --> 6a11ah
-  6a11ai["policy.bats"]
+  6a11ai["obsidian.bats"]
   6a11 --> 6a11ai
-  6a11aj["profile.bats"]
+  6a11aj["policy.bats"]
   6a11 --> 6a11aj
-  6a11ak["propose.bats"]
+  6a11ak["profile.bats"]
   6a11 --> 6a11ak
-  6a11al["quarantine.bats"]
+  6a11al["propose.bats"]
   6a11 --> 6a11al
-  6a11am["register.bats"]
+  6a11am["quarantine.bats"]
   6a11 --> 6a11am
-  6a11an["registry.bats"]
+  6a11an["register.bats"]
   6a11 --> 6a11an
-  6a11ao["relocate.bats"]
+  6a11ao["registry.bats"]
   6a11 --> 6a11ao
-  6a11ap["safety_zones.bats"]
+  6a11ap["relocate.bats"]
   6a11 --> 6a11ap
-  6a11aq["scaffold.bats"]
+  6a11aq["safety_zones.bats"]
   6a11 --> 6a11aq
-  6a11ar["schema.bats"]
+  6a11ar["scaffold.bats"]
   6a11 --> 6a11ar
-  6a11as["selfcheck.bats"]
+  6a11as["schema.bats"]
   6a11 --> 6a11as
-  6a11at["session_budget_guard_models.bats"]
+  6a11at["selfcheck.bats"]
   6a11 --> 6a11at
-  6a11au["session_gate.bats"]
+  6a11au["session_budget_guard_models.bats"]
   6a11 --> 6a11au
-  6a11av["shellcheck_on_save.bats"]
+  6a11av["session_gate.bats"]
   6a11 --> 6a11av
-  6a11aw["skills_builder.bats"]
+  6a11aw["shellcheck_on_save.bats"]
   6a11 --> 6a11aw
-  6a11ax["watch.bats"]
+  6a11ax["skills_builder.bats"]
   6a11 --> 6a11ax
-  6a11ay["watch_live.bats"]
+  6a11ay["watch.bats"]
   6a11 --> 6a11ay
-  6a11az["watch_smoke.bats"]
+  6a11az["watch_live.bats"]
   6a11 --> 6a11az
-  6a11ba["watch_window.bats"]
+  6a11ba["watch_smoke.bats"]
   6a11 --> 6a11ba
-  6a11bb["wrapper_dispatch.bats"]
+  6a11bb["watch_window.bats"]
   6a11 --> 6a11bb
+  6a11bc["wrapper_dispatch.bats"]
+  6a11 --> 6a11bc
   6b[/docs/]
   6 --> 6b
   6b1["AntCrate_blueprint_v0.pdf"]
