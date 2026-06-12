@@ -235,6 +235,7 @@ default 50).
 |---|---|
 | Append an activity event | `antcrate --emit-activity <project> <kind> <relpath> [--ttl-ms N] [--label X] [--agent A]` |
 | Watch the project tree painted by active events | `antcrate --watch <project> [--once] [--interval-ms N] [--no-color] [--depth N]` |
+| Watch whatever project the agent is touching (second terminal) | `antcrate --watch --follow` — full-screen, height-clamped, auto-switches projects; fed by the activity-emitter hook |
 | Emit one event then render the tree once (smoke shortcut) | `antcrate --watch-smoke <project> [kind] [relpath] [--ttl-ms N] [--depth N] [--no-color]` |
 | Spawn a detached terminal window running --watch | `antcrate --watch-window <project> [--terminal alacritty]` |
 

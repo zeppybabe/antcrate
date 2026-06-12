@@ -274,8 +274,8 @@ Resume a halted loop (re-emits context); manually halt with checkpoint + quarant
 **`antcrate --emit-activity <project> <kind> <relpath> [--ttl-ms N] [--label X] [--agent A]`**
 Append an event to the durable JSONL stream (`~/.antcrate/events/<project>.jsonl`). Kinds: `modify` (yellow), `read` (cyan), `think` (magenta), `delegate` (green), `delete` (bright-red strikethrough, 1 s tombstone). Kind-specific default TTLs.
 
-**`antcrate --watch <project> [--once] [--interval-ms N] [--no-color] [--depth N]`**
-Live colored project tree painted by active events. Severity ordering: delete > modify > delegate > think > read; ancestors paint with their highest-severity descendant.
+**`antcrate --watch [<project>] [--follow] [--once] [--interval-ms N] [--no-color] [--depth N]`**
+Live colored project tree painted by active events. Full-screen loop: alternate screen buffer (scrollback preserved), cursor hidden, autowrap off, frame clamped to terminal height with a `… (+N more lines)` marker. `--follow` tracks the registered project with the newest active event each frame (project arg optional; with `--once` it renders the hot project once, exit 1 if none). Severity ordering: delete > modify > delegate > think > read; ancestors paint with their highest-severity descendant. The `activity-emitter.sh` Claude Code hook (PostToolUse `Edit|Write|Read|NotebookEdit`) feeds the stream automatically.
 
 **`antcrate --watch-smoke <project> [kind] [relpath] [--ttl-ms N] [--depth N] [--no-color]`**
 Emit one event then render once — the smoke shortcut.
