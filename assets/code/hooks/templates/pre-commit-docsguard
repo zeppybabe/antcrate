@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+# antcrate-template: pre-commit-docsguard
+# antcrate-template-version: 1.0
+# Project: __PROJECT_NAME__
+#
+# Documentation-as-secrets guard (commit side). Refuses commits that stage
+# any markdown file or anything under a docs/ directory — for projects whose
+# specs/CLAUDE.md/design notes are treated as private build knowledge.
+# Pair with .gitignore (*.md, docs/) so files never stage by accident, and
+# with pre-push-docsguard as the wire-level backstop.
+
+set -euo pipefail
+
+# __ANTCRATE_BYPASS_CHECK__
+
+LOG=".git/antcrate-hook.log"
+TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+is_doc() {
+    case "$1" in
+        *.md) return 0 ;;
+        docs/*|*/docs/*) return 0 ;;
+    esac
+    return 1
+}
+
+matched=()
+while IFS= read -r f; do
+    [[ -z "$f" ]] && continue
+    if is_doc "$f"; then matched+=("$f"); fi
+done < <(git diff --cached --name-only --diff-filter=ACMR)
+
+if (( ${#matched[@]} > 0 )); then
+    {
+        printf '%s [pre-commit-docsguard] FAIL: documentation staged (docs are local-only secrets):\n' "$TS"
+        printf '  %s\n' "${matched[@]}"
+        printf '%s [pre-commit-docsguard] hint: unstage with "git restore --staged <file>"\n' "$TS"
+        printf '%s [pre-commit-docsguard] hint: *.md and docs/ belong in .gitignore for this project\n' "$TS"
+    } | tee -a "$LOG" >&2
+    exit 1
+fi
+
+printf '%s [pre-commit-docsguard] PASS\n' "$TS" >> "$LOG" 2>/dev/null || true
+exit 0

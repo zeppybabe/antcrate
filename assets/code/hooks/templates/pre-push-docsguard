@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+# antcrate-template: pre-push-docsguard
+# antcrate-template-version: 1.0
+# Project: __PROJECT_NAME__
+#
+# Documentation-as-secrets guard (wire side — the actual no-leak gate).
+# Scans EVERY commit about to leave the machine for markdown files or docs/
+# paths and refuses the push if any are found, regardless of how they were
+# committed (rule #14 bans --no-verify, but defense in depth is the point).
+# Stdin: "<local-ref> <local-sha> <remote-ref> <remote-sha>" per pushed ref.
+
+set -euo pipefail
+
+# __ANTCRATE_BYPASS_CHECK__
+
+LOG=".git/antcrate-hook.log"
+TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+ZERO_RE='^0+$'
+
+matched=""
+while read -r _local_ref local_sha _remote_ref remote_sha; do
+    [[ -z "$local_sha" ]] && continue
+    [[ "$local_sha" =~ $ZERO_RE ]] && continue       # ref deletion: nothing leaves
+    if [[ "$remote_sha" =~ $ZERO_RE ]]; then
+        range="$local_sha"                            # new ref: scan full history
+    else
+        range="$remote_sha..$local_sha"               # update: scan outgoing only
+    fi
+    found=$(git log --name-only --format= "$range" 2>/dev/null \
+        | grep -E '\.md$|(^|/)docs/' | sort -u || true)
+    [[ -n "$found" ]] && matched+="$found"$'\n'
+done
+
+if [[ -n "$matched" ]]; then
+    {
+        printf '%s [pre-push-docsguard] FAIL: outgoing commits contain documentation (local-only secrets):\n' "$TS"
+        printf '%s\n' "$matched" | sed '/^$/d; s/^/  /'
+        printf '%s [pre-push-docsguard] hint: rewrite the offending commits before pushing (history must stay doc-free)\n' "$TS"
+    } | tee -a "$LOG" >&2
+    exit 1
+fi
+
+printf '%s [pre-push-docsguard] PASS\n' "$TS" >> "$LOG" 2>/dev/null || true
+exit 0
