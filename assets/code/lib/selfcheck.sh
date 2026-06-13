@@ -94,8 +94,12 @@ ac_selfcheck() {
 
     # backup freshness
     local newest
+    # `|| true`: on a fresh install the backup dir doesn't exist yet, so find
+    # exits 1; under the wrapper's `set -euo pipefail` that aborted the whole
+    # --selfcheck run before it could print its report. Tolerate it → empty
+    # `newest` → the WARN branch below.
     newest=$(find "$ANTCRATE_BACKUP_DIR/$self" -maxdepth 1 -name '*.tar.gz' \
-                 -printf '%T@ %p\n' 2>/dev/null | sort -rn | head -1)
+                 -printf '%T@ %p\n' 2>/dev/null | sort -rn | head -1) || true
     if [[ -z "$newest" ]]; then
         _sc_line "backup" "WARN" "(none found — run --backup $self)"
     else

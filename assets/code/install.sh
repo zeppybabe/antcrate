@@ -55,6 +55,32 @@ elif [[ -f "$CONFIG" ]]; then
     sed -i "s|^ANTCRATE_SELFSRC=.*|ANTCRATE_SELFSRC=\"$SRC\"|" "$CONFIG"
 fi
 
+# self-register + skill link — both are required for `antcrate --selfcheck` to
+# pass, and neither used to be created by the installer (the #1 "it didn't
+# install properly" report). REPO_ROOT is the git checkout root, found by
+# walking up from SRC so it works no matter how deep assets/code sits.
+REPO_ROOT="$SRC"
+while [[ "$REPO_ROOT" != "/" && ! -d "$REPO_ROOT/.git" ]]; do
+    REPO_ROOT="$(dirname "$REPO_ROOT")"
+done
+
+if [[ -d "$REPO_ROOT/.git" ]]; then
+    # idempotent: --register refuses (exit 1) if 'antcrate' already exists
+    "$BIN_DIR/antcrate" --register antcrate "$REPO_ROOT" --domain antcrate >/dev/null 2>&1 || true
+
+    SKILL_LINK="${ANTCRATE_SKILL_LINK:-$HOME/.claude/skills/antcrate}"
+    mkdir -p "$(dirname "$SKILL_LINK")"
+    if [[ -L "$SKILL_LINK" || ! -e "$SKILL_LINK" ]]; then
+        ln -sfn "$REPO_ROOT" "$SKILL_LINK"          # -f replaces a stale/dangling link only
+        echo "[antcrate] skill link: $SKILL_LINK -> $REPO_ROOT"
+    else
+        echo "[antcrate] skill link skipped: $SKILL_LINK exists and is not a symlink"
+    fi
+else
+    echo "[antcrate] note: no .git found above $SRC — skipping self-register + skill-link"
+    echo "[antcrate]       (tarball install? run: antcrate --register antcrate <repo-root>)"
+fi
+
 # optional systemd user units
 if command -v systemctl >/dev/null 2>&1 && [[ -d "$SVC_DIR" || $(mkdir -p "$SVC_DIR") ]]; then
     sed "s|__BIN__|$BIN_DIR/antcrated|g" \
