@@ -17,6 +17,7 @@ teardown() { rm -rf "$TMP"; }
 @test "tooling: known tools are recognized, unknown rejected" {
   ac_tool_known shellcheck
   ac_tool_known bats
+  ac_tool_known gitleaks
   run ac_tool_known nope
   [ "$status" -ne 0 ]
 }
@@ -26,6 +27,7 @@ teardown() { rm -rf "$TMP"; }
   [ "$status" -eq 0 ]
   [[ "$output" == *"shellcheck"*"v0.11.0"* ]]
   [[ "$output" == *"bats"*"v1.13.0"* ]]
+  [[ "$output" == *"gitleaks"*"v8.30.1"* ]]
 }
 
 @test "tooling: install of an unknown tool exits 2" {

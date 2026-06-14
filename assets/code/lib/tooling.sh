@@ -24,6 +24,8 @@ _ac_tool_pin() {
 "v0.11.0|https://github.com/koalaman/shellcheck/releases/download/v0.11.0/shellcheck-v0.11.0.linux.x86_64.tar.xz|8c3be12b05d5c177a04c29e3c78ce89ac86f1595681cab149b65b97c4e227198|binxz" ;;
         bats) printf '%s\n' \
 "v1.13.0|https://github.com/bats-core/bats-core/archive/refs/tags/v1.13.0.tar.gz|a85e12b8828271a152b338ca8109aa23493b57950987c8e6dff97ba492772ff3|srcgz" ;;
+        gitleaks) printf '%s\n' \
+"v8.30.1|https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz|551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb|bingz" ;;
         *) return 1 ;;
     esac
 }
@@ -33,7 +35,7 @@ ac_tool_path()  { printf '%s\n' "$ANTCRATE_TOOLS_BIN"; }
 
 ac_tool_list() {
     local n pin ver
-    for n in shellcheck bats; do
+    for n in shellcheck bats gitleaks; do
         pin=$(_ac_tool_pin "$n"); ver=${pin%%|*}
         if [[ -x "$ANTCRATE_TOOLS_BIN/$n" ]]; then
             printf '  %-12s %-9s [installed]\n' "$n" "$ver"
@@ -80,6 +82,15 @@ ac_tool_install() {
             tar -xJf "$art" -C "$work"
             top=$(tar -tJf "$art" | sed -n '1p'); top=${top%%/*}   # sed (not head) = no SIGPIPE under pipefail
             local found="$work/$top/$name"
+            [[ -f "$found" ]] || { printf 'tool-install: %s binary not found in archive\n' "$name" >&2; return 1; }
+            local dest="$ANTCRATE_TOOLS_OPT/$name-$ver"
+            mkdir -p "$dest"; cp "$found" "$dest/$name"; chmod +x "$dest/$name"
+            ln -sfn "$dest/$name" "$ANTCRATE_TOOLS_BIN/$name"
+            placed="$dest/$name"
+            ;;
+        bingz)
+            tar -xzf "$art" -C "$work"            # single binary at archive root (no top dir)
+            local found="$work/$name"
             [[ -f "$found" ]] || { printf 'tool-install: %s binary not found in archive\n' "$name" >&2; return 1; }
             local dest="$ANTCRATE_TOOLS_OPT/$name-$ver"
             mkdir -p "$dest"; cp "$found" "$dest/$name"; chmod +x "$dest/$name"
