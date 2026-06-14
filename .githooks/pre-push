@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+# antcrate pre-push hook
+#
+# Opt-in, versioned with the repo. Enable with:
+#   git config core.hooksPath .githooks
+#
+# Publication-boundary guard: runs `antcrate --scan` over the repo before any
+# push — blocks if gitleaks finds secrets, the dev/ records are tracked, or a
+# configured dev marker reaches the public surface. Reason-required bypass:
+#   ANTCRATE_SCAN_BYPASS=1 git push ...   (audited to .git/antcrate-hook.log)
+
+set -euo pipefail
+
+LOG=".git/antcrate-hook.log"
+TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+ROOT=$(git rev-parse --show-toplevel 2>/dev/null || printf '.')
+
+if [ "${ANTCRATE_SCAN_BYPASS:-0}" = "1" ]; then
+    printf '%s [pre-push] BYPASS (ANTCRATE_SCAN_BYPASS=1) — scan skipped\n' "$TS" | tee -a "$LOG" >&2
+    exit 0
+fi
+
+if ! command -v antcrate >/dev/null 2>&1; then
+    {
+        printf '%s [pre-push] FAIL: antcrate not on PATH\n' "$TS"
+        printf '%s [pre-push] hint: bash assets/code/install.sh\n' "$TS"
+    } | tee -a "$LOG" >&2
+    exit 1
+fi
+
+{
+    printf '%s [pre-push] running: antcrate --scan %s\n' "$TS" "$ROOT"
+    if antcrate --scan "$ROOT"; then
+        printf '%s [pre-push] PASS\n' "$TS"
+        exit 0
+    else
+        rc=$?
+        printf '%s [pre-push] BLOCKED (exit %d) — leak/boundary finding above.\n' "$TS" "$rc"
+        printf '%s [pre-push] override: ANTCRATE_SCAN_BYPASS=1 git push\n' "$TS"
+        exit "$rc"
+    fi
+} 2>&1 | tee -a "$LOG"

@@ -24,6 +24,11 @@ jobs:
       - name: Install antcrate
         run: bash assets/code/install.sh
 
+      - name: Leak scan (publication boundary)
+        run: |
+          $HOME/.local/bin/antcrate --tool-install gitleaks
+          $HOME/.local/bin/antcrate --scan "$GITHUB_WORKSPACE"
+
       - name: Build & test antcrate-core
         run: |
           cmake -B assets/code/core/build -S assets/code/core
