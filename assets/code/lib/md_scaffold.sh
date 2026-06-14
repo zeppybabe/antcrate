@@ -5,6 +5,11 @@
 # from templates at assets/code/templates/md/. Refresh-only by default —
 # existing files are kept as-is. Pass --force to backup-then-overwrite.
 #
+# dev/-aware: when the project has a dev/ directory (i.e. it has adopted the
+# publication boundary), the dev-internal records (state.md, state-archive.md,
+# ledger.md) are written under dev/ instead of the root — so this never recreates
+# a root stub of a record that legitimately lives git-ignored under dev/.
+#
 # Tokens substituted at write time: __NAME__, __DOMAIN__, __DATE__ (matches
 # the convention in lib/scaffold.sh).
 #
@@ -65,10 +70,18 @@ ac_md_scaffold() {
         return 1
     }
 
-    local f base target rendered ts
+    local f base target target_dir rendered ts
     while IFS= read -r -d '' f; do
         base=$(basename "$f")
-        target="$proj_path/$base"
+        # dev/-aware: route the dev-internal records into dev/ when the project
+        # has adopted a dev/ boundary, so md_scaffold never recreates a root stub
+        # of a record that legitimately lives (git-ignored) under dev/.
+        target_dir="$proj_path"
+        case "$base" in
+            state.md|state-archive.md|ledger.md)
+                [[ -d "$proj_path/dev" ]] && target_dir="$proj_path/dev" ;;
+        esac
+        target="$target_dir/$base"
         rendered=$(sed \
             -e "s|__NAME__|$project|g" \
             -e "s|__DOMAIN__|$domain|g" \

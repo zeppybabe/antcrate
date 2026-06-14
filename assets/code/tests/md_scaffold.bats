@@ -35,6 +35,21 @@ src() {
     [ -f "$R/ledger.md" ]
 }
 
+@test "md_scaffold: routes records to dev/ when the project has a dev/ boundary" {
+    mkdir -p "$R/dev"
+    run src "ac_registry_upsert proj '$R' scripts ''
+             ac_md_scaffold proj"
+    [ "$status" -eq 0 ]
+    # dev-internal records land under dev/, never as root stubs
+    [ -f "$R/dev/state.md" ]
+    [ -f "$R/dev/ledger.md" ]
+    [ ! -f "$R/state.md" ]
+    [ ! -f "$R/ledger.md" ]
+    # agent-rules files stay at the project root
+    [ -f "$R/CLAUDE.md" ]
+    [ -f "$R/AGENTS.md" ]
+}
+
 @test "md_scaffold: substitutes __NAME__ / __DOMAIN__ / __DATE__" {
     src "ac_registry_upsert proj '$R' scripts ''
          ac_md_scaffold proj"
