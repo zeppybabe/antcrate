@@ -120,12 +120,14 @@ register_antcrate() {
     SRCROOT="$BATS_TEST_DIRNAME/.."
     run bash "$SRCROOT/install.sh"
     [ "$status" -eq 0 ]
+    # libs install under the XDG data home (HOME=tmp, no XDG override → ~/.local/share)
+    lib_dir="$HOME/.local/share/antcrate/lib"
     ino1=$(stat -c %i "$PREFIX/bin/antcrate")
-    lib_ino1=$(stat -c %i "$PREFIX/share/antcrate/lib/log.sh")
+    lib_ino1=$(stat -c %i "$lib_dir/log.sh")
     run bash "$SRCROOT/install.sh"
     [ "$status" -eq 0 ]
     ino2=$(stat -c %i "$PREFIX/bin/antcrate")
-    lib_ino2=$(stat -c %i "$PREFIX/share/antcrate/lib/log.sh")
+    lib_ino2=$(stat -c %i "$lib_dir/log.sh")
     [ "$ino1" != "$ino2" ]
     [ "$lib_ino1" != "$lib_ino2" ]
 }

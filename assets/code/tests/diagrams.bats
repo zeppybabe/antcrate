@@ -6,6 +6,7 @@ setup() {
     LIB="$BATS_TEST_DIRNAME/../lib"
     export ANTCRATE_HOME="$BATS_TEST_TMPDIR/.antcrate"
     export ANTCRATE_REGISTRY="$ANTCRATE_HOME/registry.json"
+    export ANTCRATE_REGISTRY_MMD="$ANTCRATE_HOME/registry.mmd"
     export ANTCRATE_LOG_LEVEL="error"
     mkdir -p "$ANTCRATE_HOME"
 
@@ -20,6 +21,7 @@ src() {
     bash -c '
         export ANTCRATE_HOME="'"$ANTCRATE_HOME"'"
         export ANTCRATE_REGISTRY="'"$ANTCRATE_REGISTRY"'"
+        export ANTCRATE_REGISTRY_MMD="'"$ANTCRATE_REGISTRY_MMD"'"
         export ANTCRATE_LOG_LEVEL="'"$ANTCRATE_LOG_LEVEL"'"
         . "'"$LIB"'/log.sh"
         . "'"$LIB"'/registry.sh"
