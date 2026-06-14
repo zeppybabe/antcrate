@@ -27,7 +27,13 @@ _ac_duties_file() {
     # selfsrc is the code tree; duties.md lives at the repo root next to
     # state.md/ledger.md (same derivation as ac_safety_allowed_zones)
     [[ "$src" == */assets/code ]] && src="${src%/assets/code}"
-    printf '%s/duties.md\n' "$src"
+    # dev/-aware: when the project has adopted the publication boundary, the
+    # duties record lives (git-ignored) under dev/, not the repo root.
+    if [[ -f "$src/dev/duties.md" ]]; then
+        printf '%s/dev/duties.md\n' "$src"
+    else
+        printf '%s/duties.md\n' "$src"
+    fi
 }
 
 # valid duty types; untyped legacy lines read as "policy"

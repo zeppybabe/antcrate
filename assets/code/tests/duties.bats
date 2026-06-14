@@ -32,6 +32,27 @@ src() {
     grep -Eq '^- \[ \] [0-9]{4}-[0-9]{2}-[0-9]{2} — rotate gh token — why: owner-only credential$' "$ANTCRATE_DUTIES_FILE"
 }
 
+@test "duty: resolves to dev/duties.md when the project has a dev/ boundary" {
+    root="$BATS_TEST_TMPDIR/repo"; mkdir -p "$root/assets/code" "$root/dev"; : > "$root/dev/duties.md"
+    run bash -c "
+        unset ANTCRATE_DUTIES_FILE; export ANTCRATE_LOG_LEVEL=error
+        . '$LIB/log.sh'; . '$LIB/duties.sh'
+        ac_devops_selfsrc() { printf '%s/assets/code\n' '$root'; }
+        _ac_duties_file"
+    [ "$status" -eq 0 ]
+    [ "$output" = "$root/dev/duties.md" ]
+}
+
+@test "duty: resolves to root duties.md when no dev/ boundary" {
+    root="$BATS_TEST_TMPDIR/repo2"; mkdir -p "$root/assets/code"
+    run bash -c "
+        unset ANTCRATE_DUTIES_FILE; export ANTCRATE_LOG_LEVEL=error
+        . '$LIB/log.sh'; . '$LIB/duties.sh'
+        ac_devops_selfsrc() { printf '%s/assets/code\n' '$root'; }
+        _ac_duties_file"
+    [ "$output" = "$root/duties.md" ]
+}
+
 @test "duty: add appends, order preserved" {
     src "ac_duty_add 'first'" >/dev/null
     src "ac_duty_add 'second'" >/dev/null
