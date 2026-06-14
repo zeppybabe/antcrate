@@ -5,15 +5,29 @@ set -euo pipefail
 
 PREFIX="${PREFIX:-$HOME/.local}"
 BIN_DIR="$PREFIX/bin"
-LIB_DIR="$PREFIX/share/antcrate/lib"
-TPL_DIR="$PREFIX/share/antcrate/templates"
 SVC_DIR="$HOME/.config/systemd/user"
 
 SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-echo "[antcrate] installing to $PREFIX"
+# XDG locations are the single source of truth (paths.sh); migrate.sh moves any
+# legacy ~/.antcrate layout into them once. Data (lib/templates/hooks) installs
+# under the XDG data home so the wrapper resolves it consistently.
+# shellcheck disable=SC1091
+. "$SRC/lib/paths.sh"
+# shellcheck disable=SC1091
+. "$SRC/lib/migrate.sh"
 
-mkdir -p "$BIN_DIR" "$LIB_DIR" "$TPL_DIR" "$HOME/.antcrate"
+LIB_DIR="$ANTCRATE_DATA_HOME/lib"
+TPL_DIR="$ANTCRATE_TEMPLATES"
+HOOKS_DIR="$ANTCRATE_DATA_HOME/hooks"
+
+echo "[antcrate] installing to $PREFIX (data: $ANTCRATE_DATA_HOME)"
+
+mkdir -p "$BIN_DIR" "$LIB_DIR" "$TPL_DIR" "$HOOKS_DIR" \
+         "$ANTCRATE_CONFIG_HOME" "$ANTCRATE_DATA_HOME" "$ANTCRATE_STATE_HOME"
+
+# migrate a legacy ~/.antcrate before --init touches the new dirs
+ac_migrate_xdg
 
 # binaries (rewrite LIB_DIR path on copy; temp+rename so a RUNNING wrapper that
 # invoked --install-from-source is never truncated in place mid-execution — the
@@ -38,17 +52,16 @@ if [[ -d "$SRC/templates" ]]; then
 fi
 
 # hook templates (sibling to lib so lib/hooks.sh's ../hooks/templates path resolves)
-HOOKS_DIR="$PREFIX/share/antcrate/hooks"
 if [[ -d "$SRC/hooks" ]]; then
     mkdir -p "$HOOKS_DIR"
     cp -rf "$SRC/hooks"/. "$HOOKS_DIR/"
 fi
 
-# state dir
+# initialize state (idempotent; XDG dirs already created + migrated above)
 "$BIN_DIR/antcrate" --init >/dev/null
 
 # remember the source root so --selfsrc / --selftest / --selfedit work
-CONFIG="$HOME/.antcrate/config"
+CONFIG="$ANTCRATE_CONFIG"
 if [[ -f "$CONFIG" ]] && ! grep -q '^ANTCRATE_SELFSRC=' "$CONFIG"; then
     printf '\nANTCRATE_SELFSRC="%s"\n' "$SRC" >> "$CONFIG"
 elif [[ -f "$CONFIG" ]]; then
