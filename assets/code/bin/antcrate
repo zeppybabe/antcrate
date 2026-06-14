@@ -427,7 +427,7 @@ cmd_list() {
 
 # load user config if present
 # shellcheck source=/dev/null
-[[ -f "$ANTCRATE_HOME/config" ]] && . "$ANTCRATE_HOME/config"
+[[ -f "$ANTCRATE_CONFIG" ]] && . "$ANTCRATE_CONFIG"
 
 # arg parsing
 [[ $# -eq 0 ]] && { usage; exit 0; }

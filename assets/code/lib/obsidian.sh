@@ -128,9 +128,9 @@ _ac_obsidian_write_registry() {
         printf '\n'
 
         # Registry graph (if available)
-        if [[ -f "$ANTCRATE_HOME/registry.mmd" ]]; then
+        if [[ -f "$ANTCRATE_REGISTRY_MMD" ]]; then
             printf '```mermaid\n'
-            cat "$ANTCRATE_HOME/registry.mmd"
+            cat "$ANTCRATE_REGISTRY_MMD"
             printf '\n```\n'
         else
             printf '_(no registry.mmd — run `antcrate --registry-diagram`)_\n'

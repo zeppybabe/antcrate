@@ -16,9 +16,9 @@ ac_triage_email() {
     if [[ -n "${ANTCRATE_EMAIL:-}" ]]; then
         printf '%s' "$ANTCRATE_EMAIL"; return
     fi
-    if [[ -f "$ANTCRATE_HOME/config" ]]; then
-        # shellcheck disable=SC1091  # user config path resolved at runtime; not statically followable
-        . "$ANTCRATE_HOME/config"
+    if [[ -f "$ANTCRATE_CONFIG" ]]; then
+        # shellcheck disable=SC1090,SC1091  # user config path resolved at runtime; not statically followable
+        . "$ANTCRATE_CONFIG"
         printf '%s' "${ANTCRATE_EMAIL:-}"
     fi
 }

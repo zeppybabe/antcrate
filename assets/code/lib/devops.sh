@@ -282,7 +282,7 @@ ac_devops_diff() {
 ac_devops_selfsrc() {
     if [[ ! -d "$ANTCRATE_SELFSRC" ]]; then
         ac_error "selfsrc: skill source not found at $ANTCRATE_SELFSRC"
-        ac_error "selfsrc: set ANTCRATE_SELFSRC in $ANTCRATE_HOME/config"
+        ac_error "selfsrc: set ANTCRATE_SELFSRC in $ANTCRATE_CONFIG"
         return 1
     fi
     printf '%s\n' "$ANTCRATE_SELFSRC"

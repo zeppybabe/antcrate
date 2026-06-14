@@ -94,7 +94,7 @@ ac_diagrams_registry_to_mermaid() {
 
 # ac_diagrams_registry_emit [out_path] — write the registry diagram to disk
 ac_diagrams_registry_emit() {
-    local out="${1:-$ANTCRATE_HOME/registry.mmd}"
+    local out="${1:-$ANTCRATE_REGISTRY_MMD}"
     mkdir -p "$(dirname "$out")"
     ac_diagrams_registry_to_mermaid > "$out"
     ac_info "diagrams: registry → $out"
@@ -236,7 +236,7 @@ ac_diagrams_auto_regen() {
 
     # registry-level — always
     {
-        local out="$ANTCRATE_HOME/registry.mmd"
+        local out="$ANTCRATE_REGISTRY_MMD"
         mkdir -p "$(dirname "$out")" 2>/dev/null || true
         ac_diagrams_registry_to_mermaid 2>/dev/null | ac_diagrams_write_if_changed "$out"
     } >/dev/null 2>&1 || true
