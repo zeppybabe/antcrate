@@ -118,6 +118,36 @@ line two'"
     [ "$output" = "/tmp/repo/duties.md" ]
 }
 
+@test "duties-clear: flips ALL open items done and stamps each" {
+    src "ac_duty_add 'alpha'" >/dev/null
+    src "ac_duty_add 'beta'" >/dev/null
+    src "ac_duty_add 'gamma'" >/dev/null
+    run src "ac_duty_done_all"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"Cleared 3 open duties"* ]]
+    [ "$(grep -c '^- \[ \]' "$ANTCRATE_DUTIES_FILE")" -eq 0 ]
+    [ "$(grep -c '^- \[x\]' "$ANTCRATE_DUTIES_FILE")" -eq 3 ]
+    grep -Eq '^- \[x\] .* — gamma \(done [0-9]{4}-[0-9]{2}-[0-9]{2}\)$' "$ANTCRATE_DUTIES_FILE"
+}
+
+@test "duties-clear: leaves already-done items untouched (no double-stamp)" {
+    src "ac_duty_add 'one'" >/dev/null
+    src "ac_duty_add 'two'" >/dev/null
+    src "ac_duty_done 1" >/dev/null
+    run src "ac_duty_done_all"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"Cleared 1 open duty"* ]]
+    [ "$(grep -Ec '\(done [0-9]{4}-[0-9]{2}-[0-9]{2}\)' "$ANTCRATE_DUTIES_FILE")" -eq 2 ]
+}
+
+@test "duties-clear: empty/no-open exits 0 with 'No open duties to clear'" {
+    src "ac_duty_add 'solo'" >/dev/null
+    src "ac_duty_done_all" >/dev/null
+    run src "ac_duty_done_all"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"No open duties to clear"* ]]
+}
+
 @test "duties: status line counts open only" {
     src "ac_duty_add 'a'" >/dev/null
     src "ac_duty_add 'b'" >/dev/null

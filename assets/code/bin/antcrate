@@ -205,6 +205,7 @@ Commands:
                                       types: policy|command|research|debug (untyped = policy)
   --duties                            numbered list of OPEN duties (typed tags shown)
   --duty-done <n>                     mark nth open duty done (user-driven)
+  --duties-clear                      mark ALL open duties done at once (never deletes)
   --duty-involvement                  print effective duty_involvement (lean|standard|hands-on)
   --fetch <url> [--name <slug>]       no-LLM web fetch: normalize + snapshot to
                                       ~/.antcrate/fetch/<slug>/ (append-only, hash-keyed);
@@ -667,6 +668,7 @@ while (( $# > 0 )); do
             fi ;;
         --duties)            ACTION="duties"; shift ;;
         --duty-done)         ACTION="duty-done"; DUTY_N="${2:-}"; shift 2 ;;
+        --duties-clear)      ACTION="duties-clear"; shift ;;
         --duty-involvement)  ACTION="duty_involvement"; shift ;;
         --fetch)
             ACTION="fetch"
@@ -1099,6 +1101,7 @@ case "$ACTION" in
         fi ;;
     duties)    ac_duty_list ;;
     duty-done) ac_duty_done "$DUTY_N" ;;
+    duties-clear) ac_duty_done_all ;;
     duty_involvement) ac_duty_involvement ;;
     fetch)
         if [[ -n "$FETCH_NAME" ]]; then

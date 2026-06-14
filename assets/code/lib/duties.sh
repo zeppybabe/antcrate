@@ -121,6 +121,27 @@ ac_duty_done() {
     printf 'Duty #%s marked done.\n' "$n"
 }
 
+# bulk-clear: flip EVERY open item to done in one pass. Quarantine philosophy
+# holds — items are marked done, never removed (mirrors ac_duty_done). User, or
+# agent on explicit user instruction.
+ac_duty_done_all() {
+    local f
+    f=$(_ac_duties_file) || { ac_error "duties-clear: cannot resolve duties.md"; return 1; }
+    [[ -f "$f" ]] || { ac_error "duties-clear: no duties file at $f"; return 1; }
+    local n
+    n=$(grep -c '^- \[ \]' "$f") || n=0
+    if [[ "$n" -eq 0 ]]; then
+        printf 'No open duties to clear (%s).\n' "$f"
+        return 0
+    fi
+    local today; today=$(date -u +%F)
+    # one pass: every open line gains an [x] and a (done DATE) stamp at EOL
+    sed -i -E "s/^- \[ \](.*)\$/- [x]\1 (done ${today})/" "$f"
+    ac_info "duty: cleared $n open in $f"
+    printf 'Cleared %s open dut%s — all marked done (not deleted).\n' \
+        "$n" "$([[ "$n" -eq 1 ]] && printf y || printf ies)"
+}
+
 # one-liner for cmd_status (mirrors ac_intel_status_line)
 ac_duties_status_line() {
     local f n=0
