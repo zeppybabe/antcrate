@@ -112,6 +112,8 @@ LIB_DIR="$SCRIPT_DIR/../lib"
 . "$LIB_DIR/policy.sh"
 # shellcheck disable=SC1091
 . "$LIB_DIR/tooling.sh"
+# shellcheck disable=SC1091
+. "$LIB_DIR/scan.sh"
 
 # ANTCRATE_HOME / ANTCRATE_ROOT and all other path vars are set by paths.sh
 # (sourced first), which honors $XDG_*_HOME and defaults to ~/Projects.
@@ -230,6 +232,9 @@ Commands:
                                       local-install guard hook. Tools: shellcheck, bats
   --tool-list                         list known tools and install status
   --tool-path                         print the local tools bin dir (add to PATH)
+  --scan [path]                       leak scan (gitleaks secrets + dev-internal
+                                      marker grep) over [path] (default: cwd);
+                                      exit 1 on any finding. Powers the pre-push guard
   --selfinstall                       run install.sh from selfsrc
   --install-from-source               run install.sh from the registered 'antcrate'
                                       project path (bypasses ANTCRATE_SELFSRC cache)
@@ -429,7 +434,7 @@ NAME="" DOMAIN="" META="" REL="" EXPAND="" RESUME="" AUTO_YES="" GH_VIS="private
 ADDR_CODE="" RENAME_NEW="" LOGS_LINES="50" CMD_ARGS=() RELPATH="" REG_PATH="" DIAG_OUT=""
 LOOP_OBJECTIVE="" LOOP_ID="" LOOP_VERDICT="" LOOP_NOTE="" LOOP_MAX_ITER="" LOOP_BUDGET="" LOOP_PORCELAIN="" LOOP_REASON=""
 COMMIT_MSG="" COMMIT_MODE=""
-TOOL_NAME="" TOOL_FORCE=""
+TOOL_NAME="" TOOL_FORCE="" SCAN_PATH=""
 EVENT_KIND="" EVENT_TTL="" EVENT_LABEL="" EVENT_AGENT=""
 WATCH_ONCE="" WATCH_INTERVAL="" WATCH_NOCOLOR="" WATCH_DEPTH="" WATCH_FOLLOW=""
 WATCH_SMOKE_KIND="" WATCH_SMOKE_REL=""
@@ -724,6 +729,9 @@ while (( $# > 0 )); do
             if [[ "${1:-}" == "--force" ]]; then TOOL_FORCE="--force"; shift; fi ;;
         --tool-list)         ACTION="tool-list"; shift ;;
         --tool-path)         ACTION="tool-path"; shift ;;
+        --scan)
+            ACTION="scan"; shift
+            if [[ -n "${1:-}" && "${1:0:2}" != "--" ]]; then SCAN_PATH="$1"; shift; fi ;;
         --selfinstall)       ACTION="selfinstall"; shift ;;
         --install-from-source) ACTION="install-from-source"; shift ;;
         --canary-init)
@@ -1151,6 +1159,7 @@ case "$ACTION" in
         ac_tool_install "$TOOL_NAME" "$TOOL_FORCE" ;;
     tool-list)  ac_tool_list ;;
     tool-path)  ac_tool_path ;;
+    scan)       ac_scan_run "${SCAN_PATH:-$PWD}" ;;
     selfinstall) ac_devops_selfinstall ;;
     install-from-source) ac_devops_install_from_source ;;
     selftest)  ac_devops_selftest "$NAME" ;;
