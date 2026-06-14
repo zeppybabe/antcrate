@@ -2,7 +2,7 @@
 
 ## Orientation
 
-Before opening an issue or PR, read [`state.md`](state.md) (live project state and current priorities) and [`ledger.md`](ledger.md) (append-only decision log explaining why things are the way they are). Then skim [`assets/code/AGENTS.md`](assets/code/AGENTS.md) for the hard rules governing structural and destructive operations, and [`assets/docs/PATTERNS.md`](assets/docs/PATTERNS.md) for the full flag index.
+Before opening an issue or PR, skim [`assets/code/AGENTS.md`](assets/code/AGENTS.md) for the hard rules governing structural and destructive operations, and [`assets/docs/PATTERNS.md`](assets/docs/PATTERNS.md) for the full flag index. (Maintainers keep live project state and the append-only decision log in a local `dev/` tree that is not published.)
 
 ## Test gate
 

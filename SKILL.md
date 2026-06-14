@@ -41,7 +41,7 @@ Model tiers + per-model session budgets live in `~/.antcrate/anycrate/policy.jso
 
 - **Code change**: edit → `antcrate --ci` → append `ledger.md` entry (newest first, ISO date) → update `state.md` "Top of mind" → `antcrate --commit antcrate -m "..."` → `antcrate --pp antcrate`.
 - **Decision / policy change**: append to `ledger.md`. If it's a rule, also add to `assets/code/AGENTS.md`. If it's cross-session feedback, save to `~/.claude/projects/-home-twntydotsix/memory/` and link in `MEMORY.md`.
-- **Phase / state change**: rewrite `state.md` freely (overwrite mode) — but it is ROLLING since 2026-06-10: keep only the current + prior session blocks; move older blocks verbatim into `state-archive.md` (append-only, newest first). Never rewrite `ledger.md` or `state-archive.md` (both append-only).
+- **Phase / state change**: rewrite `dev/state.md` freely (overwrite mode) — but it is ROLLING since 2026-06-10: keep only the current + prior session blocks; move older blocks verbatim into `dev/state-archive.md` (append-only, newest first). Never rewrite `dev/ledger.md` or `dev/state-archive.md` (both append-only). These records live under the git-ignored `dev/` tree (maintainer-local).
 - **Skill metadata change**: edit `SKILL.md` when major new surfaces land.
 - **gh CLI use**: log every invocation in `assets/docs/GH_PIPELINE_PLAN.md` "Observed `gh` usage" section. The rule is durable — see memory file `feedback_gh_pipeline.md`.
 

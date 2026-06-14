@@ -130,7 +130,7 @@ git config core.hooksPath .githooks
 
 **699 bats tests** across 57 files, shellcheck clean, 17 doctest cases on the C++ core (`antcrate-core`, Wave 1: the compaction-canary subsystem). Baseline sha `77d6d8e`.
 
-Solo-maintained, pre-1.0; the CLI surface may still shift before a v1 tag. The current work queue lives in [`state.md`](state.md); the append-only decision history in [`ledger.md`](ledger.md). AntCrate develops AntCrate: this repo is itself a registered project, pushed via `antcrate --pp antcrate`, gated by its own hooks and CI.
+Solo-maintained, pre-1.0; the CLI surface may still shift before a v1 tag. The live work queue and append-only decision log are kept in the maintainers' local `dev/` records (not published). AntCrate develops AntCrate: this repo is itself a registered project, pushed via `antcrate --pp antcrate`, gated by its own hooks and CI.
 
 ## Contributing
 
