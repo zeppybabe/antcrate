@@ -725,7 +725,7 @@ while (( $# > 0 )); do
         --tool-install)
             ACTION="tool-install"; shift
             if [[ "${1:-}" == "--force" ]]; then TOOL_FORCE="--force"; shift; fi
-            TOOL_NAME="${1:-}"; [[ -n "$TOOL_NAME" ]] && shift || true
+            TOOL_NAME="${1:-}"; if [[ -n "$TOOL_NAME" ]]; then shift || true; fi
             if [[ "${1:-}" == "--force" ]]; then TOOL_FORCE="--force"; shift; fi ;;
         --tool-list)         ACTION="tool-list"; shift ;;
         --tool-path)         ACTION="tool-path"; shift ;;

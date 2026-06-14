@@ -64,7 +64,7 @@ ac_scan_run() {
             printf 'scan: secrets   FINDINGS — run gitleaks detect for detail\n' >&2; rc=1
         fi
     fi
-    ac_scan_devtree  "$dir" && printf 'scan: dev-tree  OK (dev/ not tracked)\n'             || rc=1
-    ac_scan_markers  "$dir" && printf 'scan: markers   OK\n'                                || rc=1
+    if ac_scan_devtree "$dir"; then printf 'scan: dev-tree  OK (dev/ not tracked)\n'; else rc=1; fi
+    if ac_scan_markers "$dir"; then printf 'scan: markers   OK\n';                else rc=1; fi
     return "$rc"
 }
