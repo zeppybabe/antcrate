@@ -321,30 +321,23 @@ USAGE
 }
 
 cmd_init() {
-    mkdir -p "$ANTCRATE_HOME"/{log,templates}
+    mkdir -p "$ANTCRATE_CONFIG_HOME" "$ANTCRATE_DATA_HOME" "$ANTCRATE_STATE_HOME" \
+             "$ANTCRATE_LOG_DIR" "$ANTCRATE_TEMPLATES"
     mkdir -p "$ANTCRATE_ROOT"
     ac_registry_init
-    if [[ ! -f "$ANTCRATE_HOME/config" ]]; then
-        cat > "$ANTCRATE_HOME/config" <<EOF
+    if [[ ! -f "$ANTCRATE_CONFIG" ]]; then
+        if [[ -f "$ANTCRATE_TEMPLATES/config.example" ]]; then
+            cp "$ANTCRATE_TEMPLATES/config.example" "$ANTCRATE_CONFIG"
+        else
+            cat > "$ANTCRATE_CONFIG" <<'EOF'
 # antcrate user config — sourced by wrapper and daemon
 # ANTCRATE_EMAIL="you@example.com"
 # ANTCRATE_GIT_REMOTE_PREFIX="https://github.com/youruser/"
-# ANTCRATE_LOG_LEVEL="info"
-#
-# DESTRUCTIVE-OP CONTROLS (default: maximally safe)
-# Set to 1 ONLY for fully unattended pipelines — all destructive ops still
-# require a successful backup tarball first; this only bypasses the y/N prompt.
-# ANTCRATE_REMOVAL_PREAPPROVED=0
-#
-# Path-zone widening (default 0). Even when 1, backup + approval still apply.
-# ANTCRATE_ALLOW_OUTSIDE_ROOT=0
-#
-# Backup retention (per project)
-# ANTCRATE_BACKUP_RETENTION=20
 EOF
-        ac_info "init: created $ANTCRATE_HOME/config (edit to set email + remote prefix)"
+        fi
+        ac_info "init: created $ANTCRATE_CONFIG (edit to set email + remote prefix)"
     fi
-    ac_info "init: ready (root=$ANTCRATE_ROOT, home=$ANTCRATE_HOME)"
+    ac_info "init: ready (root=$ANTCRATE_ROOT, config=$ANTCRATE_CONFIG, data=$ANTCRATE_DATA_HOME, state=$ANTCRATE_STATE_HOME)"
 }
 
 cmd_pipe_file() {

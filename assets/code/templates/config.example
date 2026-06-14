@@ -1,0 +1,23 @@
+# antcrate user config — sourced by wrapper and daemon.
+# Copy to $XDG_CONFIG_HOME/antcrate/config (default ~/.config/antcrate/config)
+# and uncomment what you need. All keys are optional.
+
+# ANTCRATE_EMAIL="you@example.com"
+# ANTCRATE_GIT_REMOTE_PREFIX="https://github.com/youruser/"
+# ANTCRATE_LOG_LEVEL="info"
+
+# Destructive-op controls (default: maximally safe). Even when set to 1, every
+# destructive op still requires a successful backup tarball first; this only
+# bypasses the y/N prompt — for fully unattended pipelines.
+# ANTCRATE_REMOVAL_PREAPPROVED=0
+# ANTCRATE_COMMIT_PREAPPROVED=0
+
+# Path-zone widening (default 0). Even when 1, backup + approval still apply.
+# ANTCRATE_ALLOW_OUTSIDE_ROOT=0
+
+# Local tool provisioning / install guard (see --tool-install, local-install-guard.sh)
+# ANTCRATE_ALLOW_SYSTEM_INSTALL=0    # 1 = permit system-wide installs (audited)
+# ANTCRATE_INSTALL_GUARD_DISABLE=0   # 1 = disable the local-install guard hook
+
+# Backup retention (per project)
+# ANTCRATE_BACKUP_RETENTION=20
