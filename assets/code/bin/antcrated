@@ -26,6 +26,8 @@ ANTCRATE_BIN="$SCRIPT_DIR/antcrate"
 # SC1091 disables below: $LIB_DIR is rewritten by install.sh at copy time,
 # so lib paths are runtime-resolved and not statically followable.
 # shellcheck disable=SC1091
+. "$LIB_DIR/paths.sh"
+# shellcheck disable=SC1091
 . "$LIB_DIR/log.sh"
 # shellcheck disable=SC1091
 . "$LIB_DIR/lock.sh"
@@ -42,14 +44,13 @@ ANTCRATE_BIN="$SCRIPT_DIR/antcrate"
 # shellcheck disable=SC1091
 . "$LIB_DIR/quarantine.sh"
 
-: "${ANTCRATE_HOME:=$HOME/.antcrate}"
-: "${ANTCRATE_ROOT:=$HOME/projects}"
+# ANTCRATE_HOME / ANTCRATE_ROOT and the path vars come from paths.sh (sourced first).
 : "${ANTCRATE_DEBOUNCE_MS:=200}"
 : "${ANTCRATE_TREE_DEBOUNCE_MS:=600}"
 
 # load user config if present
 # shellcheck source=/dev/null
-[[ -f "$ANTCRATE_HOME/config" ]] && . "$ANTCRATE_HOME/config"
+[[ -f "$ANTCRATE_CONFIG" ]] && . "$ANTCRATE_CONFIG"
 
 PID_FILE="$ANTCRATE_HOME/daemon.pid"
 

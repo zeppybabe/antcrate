@@ -23,6 +23,8 @@ LIB_DIR="$SCRIPT_DIR/../lib"
 # SC1091 disables below: $LIB_DIR is rewritten by install.sh at copy time,
 # so lib paths are runtime-resolved and not statically followable.
 # shellcheck disable=SC1091
+. "$LIB_DIR/paths.sh"
+# shellcheck disable=SC1091
 . "$LIB_DIR/log.sh"
 # shellcheck disable=SC1091
 . "$LIB_DIR/lock.sh"
@@ -108,9 +110,11 @@ LIB_DIR="$SCRIPT_DIR/../lib"
 . "$LIB_DIR/fetch.sh"
 # shellcheck disable=SC1091
 . "$LIB_DIR/policy.sh"
+# shellcheck disable=SC1091
+. "$LIB_DIR/tooling.sh"
 
-: "${ANTCRATE_HOME:=$HOME/.antcrate}"
-: "${ANTCRATE_ROOT:=$HOME/projects}"
+# ANTCRATE_HOME / ANTCRATE_ROOT and all other path vars are set by paths.sh
+# (sourced first), which honors $XDG_*_HOME and defaults to ~/Projects.
 
 usage() {
     cat <<'USAGE'
@@ -219,6 +223,13 @@ Commands:
   --logs [project] [lines]            tail wrapper/daemon/conflict logs (+git log if project)
   --diff <project>                    git status + diff via git -C (no cd)
   --selfsrc                           print the antcrate skill source root
+  --tool-install <tool> [--force]     provision a pinned, sha256-verified dev tool
+                                      locally (no root) under the XDG data dir;
+                                      appends an auditable manifest line. The
+                                      no-root, no-sudo alternative gated by the
+                                      local-install guard hook. Tools: shellcheck, bats
+  --tool-list                         list known tools and install status
+  --tool-path                         print the local tools bin dir (add to PATH)
   --selfinstall                       run install.sh from selfsrc
   --install-from-source               run install.sh from the registered 'antcrate'
                                       project path (bypasses ANTCRATE_SELFSRC cache)
@@ -425,6 +436,7 @@ NAME="" DOMAIN="" META="" REL="" EXPAND="" RESUME="" AUTO_YES="" GH_VIS="private
 ADDR_CODE="" RENAME_NEW="" LOGS_LINES="50" CMD_ARGS=() RELPATH="" REG_PATH="" DIAG_OUT=""
 LOOP_OBJECTIVE="" LOOP_ID="" LOOP_VERDICT="" LOOP_NOTE="" LOOP_MAX_ITER="" LOOP_BUDGET="" LOOP_PORCELAIN="" LOOP_REASON=""
 COMMIT_MSG="" COMMIT_MODE=""
+TOOL_NAME="" TOOL_FORCE=""
 EVENT_KIND="" EVENT_TTL="" EVENT_LABEL="" EVENT_AGENT=""
 WATCH_ONCE="" WATCH_INTERVAL="" WATCH_NOCOLOR="" WATCH_DEPTH="" WATCH_FOLLOW=""
 WATCH_SMOKE_KIND="" WATCH_SMOKE_REL=""
@@ -712,6 +724,13 @@ while (( $# > 0 )); do
             else shift; fi ;;
         --diff)              ACTION="diff"; NAME="${2:-}"; shift 2 ;;
         --selfsrc)           ACTION="selfsrc"; shift ;;
+        --tool-install)
+            ACTION="tool-install"; shift
+            if [[ "${1:-}" == "--force" ]]; then TOOL_FORCE="--force"; shift; fi
+            TOOL_NAME="${1:-}"; [[ -n "$TOOL_NAME" ]] && shift || true
+            if [[ "${1:-}" == "--force" ]]; then TOOL_FORCE="--force"; shift; fi ;;
+        --tool-list)         ACTION="tool-list"; shift ;;
+        --tool-path)         ACTION="tool-path"; shift ;;
         --selfinstall)       ACTION="selfinstall"; shift ;;
         --install-from-source) ACTION="install-from-source"; shift ;;
         --canary-init)
@@ -1134,6 +1153,11 @@ case "$ACTION" in
     logs)      ac_devops_logs "$NAME" "$LOGS_LINES" ;;
     diff)      ac_devops_diff "$NAME" ;;
     selfsrc)   ac_devops_selfsrc ;;
+    tool-install)
+        [[ -z "$TOOL_NAME" ]] && { ac_error "--tool-install requires <tool> (see --tool-list)"; exit 2; }
+        ac_tool_install "$TOOL_NAME" "$TOOL_FORCE" ;;
+    tool-list)  ac_tool_list ;;
+    tool-path)  ac_tool_path ;;
     selfinstall) ac_devops_selfinstall ;;
     install-from-source) ac_devops_install_from_source ;;
     selftest)  ac_devops_selftest "$NAME" ;;
