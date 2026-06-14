@@ -36,3 +36,11 @@ assets/code/core/build/
 
 # dev-internal records — local to maintainers, never pushed to the public repo
 dev/
+# antcrate's lifecycle/md-scaffold regenerates these record skeletons at the
+# project root; anchor-ignore them so a regenerated stub can never reach the
+# public repo. The real records live under dev/. stack.md stays public.
+/ledger.md
+/state.md
+/state-archive.md
+/duties.md
+/composes.md
