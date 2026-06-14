@@ -16,6 +16,11 @@ SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$SRC/lib/paths.sh"
 # shellcheck disable=SC1091
 . "$SRC/lib/migrate.sh"
+# shellcheck disable=SC1091
+. "$SRC/lib/preflight.sh"
+
+# fail fast (with per-distro hints) if a required runtime tool is missing
+ac_preflight_deps jq git inotifywait
 
 LIB_DIR="$ANTCRATE_DATA_HOME/lib"
 TPL_DIR="$ANTCRATE_TEMPLATES"
