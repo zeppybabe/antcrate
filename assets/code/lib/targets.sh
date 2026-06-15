@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# antcrate :: lib/targets.sh — backup target registry + dispatch.
+# Sourced after the individual lib/targets/<name>.sh files.
+
+: "${ANTCRATE_HOME:=$HOME/.antcrate}"
+: "${ANTCRATE_CONFIG:=$ANTCRATE_HOME/config}"
+
+# ac_targets_enabled -> enabled target names, one per line, priority order.
+# Source: config 'backup_targets=a,b,c' (rule-#13 human-only). Default: local.
+ac_targets_enabled() {
+    local list=""
+    [[ -f "$ANTCRATE_CONFIG" ]] && \
+        list=$(grep -E '^backup_targets=' "$ANTCRATE_CONFIG" | tail -1 | cut -d= -f2)
+    [[ -z "$list" ]] && list="local"
+    printf '%s\n' "${list//,/$'\n'}" | sed '/^[[:space:]]*$/d'
+}
+
+# ac_target_call <name> <verb> [args...] -> invoke target_<name>_<verb>
+ac_target_call() {
+    local name="$1" verb="$2"; shift 2
+    local fn="target_${name}_${verb}"
+    if ! declare -F "$fn" >/dev/null 2>&1; then
+        ac_error "target: unknown target/verb: ${name}/${verb}"
+        return 2
+    fi
+    "$fn" "$@"
+}
