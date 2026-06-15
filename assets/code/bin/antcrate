@@ -39,6 +39,10 @@ LIB_DIR="$SCRIPT_DIR/../lib"
 # shellcheck disable=SC1091
 . "$LIB_DIR/backup.sh"
 # shellcheck disable=SC1091
+. "$LIB_DIR/targets/local.sh"
+# shellcheck disable=SC1091
+. "$LIB_DIR/targets.sh"
+# shellcheck disable=SC1091
 . "$LIB_DIR/safety.sh"
 # shellcheck disable=SC1091
 . "$LIB_DIR/gh.sh"
@@ -1068,7 +1072,7 @@ case "$ACTION" in
         [[ -z "$NAME" ]] && { ac_error "--backup requires <project>"; exit 2; }
         ac_registry_has "$NAME" || { ac_error "unknown project: $NAME"; exit 1; }
         p=$(ac_registry_get "$NAME" path)
-        ac_backup_create "$NAME" "$p" ;;
+        ac_backup_run "$NAME" "$p" ;;
     backups)
         [[ -z "$NAME" ]] && { ac_error "--backups requires <project>"; exit 2; }
         ac_backup_list "$NAME" ;;

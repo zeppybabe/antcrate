@@ -32,6 +32,16 @@ src() {
     [ "${lines[2]}" = "git-mirror" ]
 }
 
+@test "enabled: config present without backup_targets defaults to local (errexit-safe)" {
+    printf 'duty_involvement=lean\n' > "$ANTCRATE_CONFIG"
+    run bash -c "set -euo pipefail
+        export ANTCRATE_HOME='$ANTCRATE_HOME' ANTCRATE_CONFIG='$ANTCRATE_CONFIG' ANTCRATE_LOG_LEVEL=error
+        . '$LIB/log.sh'; . '$LIB/backup.sh'; . '$LIB/targets/local.sh'; . '$LIB/targets.sh'
+        ac_targets_enabled"
+    [ "$status" -eq 0 ]
+    [ "$output" = "local" ]
+}
+
 @test "call: dispatches verb to the named target" {
     run src "ac_target_call local scopes"
     [ "$status" -eq 0 ]

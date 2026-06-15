@@ -9,8 +9,11 @@
 # Source: config 'backup_targets=a,b,c' (rule-#13 human-only). Default: local.
 ac_targets_enabled() {
     local list=""
-    [[ -f "$ANTCRATE_CONFIG" ]] && \
-        list=$(grep -E '^backup_targets=' "$ANTCRATE_CONFIG" | tail -1 | cut -d= -f2)
+    # '|| true': a config with no backup_targets line makes grep exit 1, which
+    # under the wrapper's `set -euo pipefail` would abort before we default.
+    if [[ -f "$ANTCRATE_CONFIG" ]]; then
+        list=$(grep -E '^backup_targets=' "$ANTCRATE_CONFIG" 2>/dev/null | tail -1 | cut -d= -f2) || true
+    fi
     [[ -z "$list" ]] && list="local"
     printf '%s\n' "${list//,/$'\n'}" | sed '/^[[:space:]]*$/d'
 }

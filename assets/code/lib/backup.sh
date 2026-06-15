@@ -119,3 +119,48 @@ ac_backup_restore() {
     fi
     ac_info "restore: $project ← $tarball"
 }
+
+# ac_backup_run <project> <source-path> — fan 'project'-scope push to every
+# enabled+available target; report per-target result. Non-zero only if EVERY
+# scope-eligible target failed. Requires lib/targets.sh sourced.
+ac_backup_run() {
+    local project="$1" src="$2"
+    local any=0 ok=0 name scopes
+    while read -r name; do
+        [[ -z "$name" ]] && continue
+        scopes=$(ac_target_call "$name" scopes 2>/dev/null) || { ac_warn "backup: skip $name (no contract)"; continue; }
+        [[ "$scopes" == *project* ]] || continue
+        any=1
+        if ! ac_target_call "$name" available 2>/dev/null; then
+            printf '  %s : skip (unavailable)\n' "$name"; continue
+        fi
+        if ac_target_call "$name" push "$project" "$src" >/dev/null 2>&1; then
+            printf '  %s : OK\n' "$name"; ok=1
+        else
+            printf '  %s : FAIL\n' "$name"
+        fi
+    done < <(ac_targets_enabled)
+    (( any == 0 )) && { ac_error "backup: no project-scope target enabled"; return 1; }
+    (( ok == 1 )) || { ac_error "backup: all targets failed"; return 1; }
+    return 0
+}
+
+# ac_backup_restore_best <project> <dest-parent> — restore newest VERIFIED
+# 'project'-scope snapshot across enabled targets, walked in priority order.
+# (Wired into the CLI restore path in Phase 2, when a second target exists;
+# Phase 1 keeps the safety-guarded ac_backup_restore for the local path.)
+ac_backup_restore_best() {
+    local project="$1" dest="$2" name id best_id="" best_name="" best_t=0 t
+    while read -r name; do
+        [[ -z "$name" ]] && continue
+        ac_target_call "$name" available 2>/dev/null || continue
+        while read -r id; do
+            [[ -z "$id" ]] && continue
+            ac_target_call "$name" verify "$project" "$id" 2>/dev/null || continue
+            t=$(stat -c %Y "$id" 2>/dev/null || stat -f %m "$id" 2>/dev/null || echo 0)
+            if (( t >= best_t )); then best_t=$t; best_id=$id; best_name=$name; fi
+        done < <(ac_target_call "$name" list "$project" 2>/dev/null)
+    done < <(ac_targets_enabled)
+    [[ -z "$best_id" ]] && { ac_error "restore: no verified snapshot found"; return 1; }
+    ac_target_call "$best_name" pull "$project" "$best_id" "$dest"
+}

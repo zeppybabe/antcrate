@@ -51,6 +51,18 @@ for f in "$SRC"/lib/*.sh; do
     mv -f "$LIB_DIR/.$(basename "$f").tmp.$$" "$LIB_DIR/$(basename "$f")"
 done
 
+# lib subdirs (e.g. targets/) — same temp+rename discipline, generic for any depth-1 dir
+for d in "$SRC"/lib/*/; do
+    [[ -d "$d" ]] || continue
+    sub="$LIB_DIR/$(basename "$d")"
+    mkdir -p "$sub"
+    for f in "$d"*.sh; do
+        [[ -e "$f" ]] || continue
+        cp -f "$f" "$sub/.$(basename "$f").tmp.$$"
+        mv -f "$sub/.$(basename "$f").tmp.$$" "$sub/$(basename "$f")"
+    done
+done
+
 # templates
 if [[ -d "$SRC/templates" ]]; then
     cp -rf "$SRC/templates"/. "$TPL_DIR/"
