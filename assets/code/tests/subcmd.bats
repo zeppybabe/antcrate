@@ -65,6 +65,26 @@ setup() {
     [[ "$output" == *"unknown command"* ]]
 }
 
+@test "subcmd: st shows ghosts + backups posture lines (Plan 2)" {
+    run "$BIN" st
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"ghosts    :"* ]]
+    [[ "$output" == *"backups   :"* ]]
+}
+
+@test "subcmd: help --all prints the full flag reference" {
+    run "$BIN" help --all
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"--hook-autoinstall"* ]]
+}
+
+@test "subcmd: bare help is the compact one-screen form" {
+    run "$BIN" help
+    [ "$status" -eq 0 ]
+    [[ "$output" != *"--hook-autoinstall"* ]]
+    [[ "$output" == *"Non-interactive by default"* ]]
+}
+
 @test "subcmd: legacy --flags still work" {
     run "$BIN" --status
     [ "$status" -eq 0 ]

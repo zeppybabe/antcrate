@@ -124,6 +124,32 @@ LIB_DIR="$SCRIPT_DIR/../lib"
 # ANTCRATE_HOME / ANTCRATE_ROOT and all other path vars are set by paths.sh
 # (sourced first), which honors $XDG_*_HOME and defaults to ~/Projects.
 
+usage_compact() {
+    cat <<'USAGE'
+antcrate — deterministic project ops (compact form; `antcrate help --all` = full flag reference)
+
+Commands:
+  st                      status dashboard (daemon, registry, duties, backups, ghosts)
+  pp <p>                  pre-push panel (versions, milestone, diff, backup age), then commit+push
+  info <p>                registry record + the same panel, read-only
+  new <n> --domain <d>    full project bundle: scaffold + git init + md skeletons + agent pointer
+  reg <n> <path>          register an existing tree
+  commit <p> -m "…" [--all-tracked | -- <files…>]   guarded commit (secret-pattern scan, preview)
+  bak <p> [ls|restore [--at <ts>]]                  backups
+  duty [add ["-…"]|done N|clear|ls]                 human-action checklist (duties)
+  hook <ls|log|install|rm|debug|smoke|render|bypass|audit|auto> <p>
+  self <check|test|ci|src|edit|install>             antcrate itself
+  tool <install|ls|path>                            pinned local dev tools (no root)
+  gc <p> | gc ghosts                                cleanup candidates / ghost registry entries
+  mv <old> <new> · arc [-u] <p> · rm <p>            rename / (un)archive / remove — all backed up
+  in <p> -- <cmd> · map <p> · watch [<p>] · scan [path] · fetch <url>
+  list · diff <p> · logs [p [n]] · propose <name> "<intent>"
+
+Non-interactive by default: no -y, no PREAPPROVED env. Destructive ops back up
+first and file a review duty (`antcrate duties`) when no human is present.
+USAGE
+}
+
 usage() {
     cat <<'USAGE'
 antcrate — pure-Bash deterministic project scaffolder
@@ -433,6 +459,23 @@ cmd_status() {
     local duties_out
     duties_out=$(ac_duties_status_line 2>/dev/null) || true
     [[ -n "$duties_out" ]] && printf '  %s\n' "${duties_out/: /    : }"
+    # ghost entries (registered path gone) — cheap registry walk (Plan 2)
+    local ghosts=0 gp
+    while IFS=$'\t' read -r _ gp; do
+        [[ -d "$gp" ]] || ghosts=$((ghosts + 1))
+    done < <(ac_registry_dump 2>/dev/null \
+        | jq -r '.projects | to_entries[] | "\(.key)\t\(.value.path)"' 2>/dev/null)
+    printf '  ghosts    : %s\n' "$ghosts"
+    # backup posture: newest tarball anywhere (Plan 2)
+    local newest_b
+    newest_b=$(find "${ANTCRATE_BACKUP_DIR:-$ANTCRATE_HOME/backups}" -name '*.tar.gz' \
+        -printf '%T@\t%p\n' 2>/dev/null | sort -rn | head -1 | cut -f2-) || newest_b=""
+    if [[ -n "$newest_b" ]]; then
+        printf '  backups   : newest %s (%s ago)\n' \
+            "$(basename "$newest_b")" "$(_ac_pp_age "$(stat -c %Y "$newest_b")")"
+    else
+        printf '  backups   : none\n'
+    fi
 }
 
 cmd_list() {
@@ -447,7 +490,7 @@ cmd_list() {
 [[ -f "$ANTCRATE_CONFIG" ]] && . "$ANTCRATE_CONFIG"
 
 # arg parsing
-[[ $# -eq 0 ]] && { usage; exit 0; }
+[[ $# -eq 0 ]] && { usage_compact; exit 0; }
 
 # ── subcommand dispatcher (audit 2026-07-10) ────────────────────────────────
 # Compact words rewrite argv into the canonical --flag form; the parser below
@@ -455,7 +498,8 @@ cmd_list() {
 if [[ "${1:0:1}" != "-" ]]; then
     _sub="$1"; shift
     case "$_sub" in
-        help)   usage; exit 0 ;;
+        help)   if [[ "${1:-}" == "--all" || "${1:-}" == "all" ]]; then usage; else usage_compact; fi
+                exit 0 ;;
         st)     set -- --status "$@" ;;
         new)    set -- --start "$@" ;;
         reg)    set -- --register "$@" ;;
