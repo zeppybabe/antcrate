@@ -54,6 +54,21 @@ ac_safety_check_path() {
     return 1
 }
 
+# ac_gate_confirm <prompt> — TTY-optional confirmation (audit 2026-07-10).
+# Non-interactive callers proceed: Claude Code's permission layer is the
+# outer gate; the inner y/N only fires when a human is actually present.
+# Test hook: ANTCRATE_ASSUME_TTY=1 forces the prompt path under bats.
+ac_gate_confirm() {
+    local prompt="$1"
+    if [[ ! -t 0 && "${ANTCRATE_ASSUME_TTY:-0}" != "1" ]]; then
+        ac_info "gate: non-interactive — proceeding ($prompt)"
+        return 0
+    fi
+    local ans=""
+    read -r -p "$prompt [y/N] " ans || true
+    case "${ans,,}" in y|yes) return 0 ;; *) return 1 ;; esac
+}
+
 # ac_safety_guard <op-description> <path>  — abort if path is outside zones
 # Override: ANTCRATE_ALLOW_OUTSIDE_ROOT=1 ac_safety_guard ...
 ac_safety_guard() {
