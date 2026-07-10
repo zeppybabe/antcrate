@@ -1,4 +1,4 @@
-%% antcrate tree — generated 2026-07-10T19:35:43Z
+%% antcrate tree — generated 2026-07-10T20:10:27Z
 graph TD
   root(["antcrate"])
   1["AGENTS.md"]
@@ -165,42 +165,44 @@ graph TD
   8a8 --> 8a8af
   8a8ag["policy.sh"]
   8a8 --> 8a8ag
-  8a8ah["preflight.sh"]
+  8a8ah["pp.sh"]
   8a8 --> 8a8ah
-  8a8ai["profile.sh"]
+  8a8ai["preflight.sh"]
   8a8 --> 8a8ai
-  8a8aj["propose.sh"]
+  8a8aj["profile.sh"]
   8a8 --> 8a8aj
-  8a8ak["quarantine.sh"]
+  8a8ak["propose.sh"]
   8a8 --> 8a8ak
-  8a8al["registry.sh"]
+  8a8al["quarantine.sh"]
   8a8 --> 8a8al
-  8a8am["relocate.sh"]
+  8a8am["registry.sh"]
   8a8 --> 8a8am
-  8a8an["safety.sh"]
+  8a8an["relocate.sh"]
   8a8 --> 8a8an
-  8a8ao["scaffold.sh"]
+  8a8ao["safety.sh"]
   8a8 --> 8a8ao
-  8a8ap["scan.sh"]
+  8a8ap["scaffold.sh"]
   8a8 --> 8a8ap
-  8a8aq["schema.sh"]
+  8a8aq["scan.sh"]
   8a8 --> 8a8aq
-  8a8ar["selfcheck.sh"]
+  8a8ar["schema.sh"]
   8a8 --> 8a8ar
-  8a8as["subbranch.sh"]
+  8a8as["selfcheck.sh"]
   8a8 --> 8a8as
-  8a8at[/targets/]
+  8a8at["subbranch.sh"]
   8a8 --> 8a8at
-  8a8at1["local.sh"]
-  8a8at --> 8a8at1
-  8a8au["targets.sh"]
+  8a8au[/targets/]
   8a8 --> 8a8au
-  8a8av["tooling.sh"]
+  8a8au1["local.sh"]
+  8a8au --> 8a8au1
+  8a8av["targets.sh"]
   8a8 --> 8a8av
-  8a8aw["watch.sh"]
+  8a8aw["tooling.sh"]
   8a8 --> 8a8aw
-  8a8ax["watch_window.sh"]
+  8a8ax["watch.sh"]
   8a8 --> 8a8ax
+  8a8ay["watch_window.sh"]
+  8a8 --> 8a8ay
   8a9[/systemd/]
   8a --> 8a9
   8a9a["antcrate-backup.service"]
@@ -337,66 +339,70 @@ graph TD
   8a11 --> 8a11aj
   8a11ak["migrate.bats"]
   8a11 --> 8a11ak
-  8a11al["obsidian.bats"]
+  8a11al["new_bundle.bats"]
   8a11 --> 8a11al
-  8a11am["paths.bats"]
+  8a11am["obsidian.bats"]
   8a11 --> 8a11am
-  8a11an["policy.bats"]
+  8a11an["paths.bats"]
   8a11 --> 8a11an
-  8a11ao["pp_gate.bats"]
+  8a11ao["policy.bats"]
   8a11 --> 8a11ao
-  8a11ap["preflight.bats"]
+  8a11ap["pp_gate.bats"]
   8a11 --> 8a11ap
-  8a11aq["profile.bats"]
+  8a11aq["pp_panel.bats"]
   8a11 --> 8a11aq
-  8a11ar["propose.bats"]
+  8a11ar["preflight.bats"]
   8a11 --> 8a11ar
-  8a11as["quarantine.bats"]
+  8a11as["profile.bats"]
   8a11 --> 8a11as
-  8a11at["register.bats"]
+  8a11at["propose.bats"]
   8a11 --> 8a11at
-  8a11au["registry.bats"]
+  8a11au["quarantine.bats"]
   8a11 --> 8a11au
-  8a11av["relocate.bats"]
+  8a11av["register.bats"]
   8a11 --> 8a11av
-  8a11aw["safety_gate.bats"]
+  8a11aw["registry.bats"]
   8a11 --> 8a11aw
-  8a11ax["safety_zones.bats"]
+  8a11ax["relocate.bats"]
   8a11 --> 8a11ax
-  8a11ay["scaffold.bats"]
+  8a11ay["safety_gate.bats"]
   8a11 --> 8a11ay
-  8a11az["scan.bats"]
+  8a11az["safety_zones.bats"]
   8a11 --> 8a11az
-  8a11ba["schema.bats"]
+  8a11ba["scaffold.bats"]
   8a11 --> 8a11ba
-  8a11bb["selfcheck.bats"]
+  8a11bb["scan.bats"]
   8a11 --> 8a11bb
-  8a11bc["session_budget_guard_models.bats"]
+  8a11bc["schema.bats"]
   8a11 --> 8a11bc
-  8a11bd["session_gate.bats"]
+  8a11bd["selfcheck.bats"]
   8a11 --> 8a11bd
-  8a11be["shellcheck_on_save.bats"]
+  8a11be["session_budget_guard_models.bats"]
   8a11 --> 8a11be
-  8a11bf["skills_builder.bats"]
+  8a11bf["session_gate.bats"]
   8a11 --> 8a11bf
-  8a11bg["subcmd.bats"]
+  8a11bg["shellcheck_on_save.bats"]
   8a11 --> 8a11bg
-  8a11bh["targets.bats"]
+  8a11bh["skills_builder.bats"]
   8a11 --> 8a11bh
-  8a11bi["targets_local.bats"]
+  8a11bi["subcmd.bats"]
   8a11 --> 8a11bi
-  8a11bj["tooling.bats"]
+  8a11bj["targets.bats"]
   8a11 --> 8a11bj
-  8a11bk["watch.bats"]
+  8a11bk["targets_local.bats"]
   8a11 --> 8a11bk
-  8a11bl["watch_live.bats"]
+  8a11bl["tooling.bats"]
   8a11 --> 8a11bl
-  8a11bm["watch_smoke.bats"]
+  8a11bm["watch.bats"]
   8a11 --> 8a11bm
-  8a11bn["watch_window.bats"]
+  8a11bn["watch_live.bats"]
   8a11 --> 8a11bn
-  8a11bo["wrapper_dispatch.bats"]
+  8a11bo["watch_smoke.bats"]
   8a11 --> 8a11bo
+  8a11bp["watch_window.bats"]
+  8a11 --> 8a11bp
+  8a11bq["wrapper_dispatch.bats"]
+  8a11 --> 8a11bq
   8b[/docs/]
   8 --> 8b
   8b1["AntCrate_blueprint_v0.pdf"]
@@ -499,6 +505,8 @@ graph TD
   9b1 --> 9b1f
   9b1g["2026-07-10-bundling-p1-detty-dispatcher.md"]
   9b1 --> 9b1g
+  9b1h["2026-07-10-bundling-p2-pp-panel-new-bundle.md"]
+  9b1 --> 9b1h
   9b2[/specs/]
   9b --> 9b2
   9b2a["2026-05-31-harness-enforcement-layer.md"]
