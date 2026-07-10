@@ -49,9 +49,13 @@ The anchor mechanism gives every project (and every file in it) a stable handle 
 
 **Address conventions:** entries at each depth are sorted lexicographically (`LC_ALL=C`), then indexed 1-based. Hidden files (`.foo`) and noise dirs (`.git`, `node_modules`, `target`, `dist`, `build`, `__pycache__`, `.next`, `.cache`, `.svelte-kit`) are filtered. Override with `ANTCRATE_ADDR_INCLUDE_HIDDEN=1`.
 
+## Non-interactive by default (audit 2026-07-10)
+
+Every command is TTY-free: no `-y`, no `ANTCRATE_COMMIT_PREAPPROVED=1` / `ANTCRATE_REMOVAL_PREAPPROVED=1` prefixes (they still work this release, then retire with the `--flag` aliases). Commits/`pp` show the Gateway preview and proceed; destructive ops back up first, proceed, and append a `[command]` review duty (`antcrate duties`) when no human is at the terminal. A TTY still gets the y/N prompt. Prefer the compact word forms (`antcrate pp <p>`, `antcrate duty ls`, `antcrate self test`) over `--flags`.
+
 ## Destructive ops (always backed by AGENTS.md rule #1)
 
-Every entry forces a backup tarball + human approval before touching disk. Never use bare `mv`/`rm` on a registered project path.
+Every entry forces a backup tarball before touching disk; approval is the TTY prompt or the non-interactive review-duty record (rule #1 as amended). Never use bare `mv`/`rm` on a registered project path.
 
 | Intent | Command | Notes |
 |---|---|---|

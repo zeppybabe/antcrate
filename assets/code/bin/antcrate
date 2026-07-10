@@ -126,6 +126,15 @@ usage() {
     cat <<'USAGE'
 antcrate — pure-Bash deterministic project scaffolder
 
+Compact form (audit 2026-07-10; --flags below remain valid one release):
+  st · pp <p> · new <n> -d <dom> · reg <n> <path> · commit <p> -m "…"
+  bak <p> [ls|restore] · duty [add|done N|clear|ls] · duties
+  hook <sub> <p> · self <check|test|ci|src|edit|install> · tool <install|ls|path>
+  gc <p>|ghosts · mv <old> <new> · arc [-u] <p> · rm <p>
+  in <p> -- <cmd> · map · watch · scan · fetch · info · list · diff · logs · help
+  All prompts are non-interactive-safe: no -y / PREAPPROVED needed; destructive
+  ops back up first and file a review duty when no human is present.
+
 Commands:
   --init                              first-run setup ($HOME/.antcrate, config)
   --start <n> --domain <d>         create new project; --meta "csv" or "k=v"
