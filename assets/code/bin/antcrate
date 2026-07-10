@@ -374,9 +374,9 @@ cmd_pp() {
     [[ -d "$p" ]] || { ac_error "pp: path missing: $p"; exit 1; }
 
     if [[ -n "$(git -C "$p" status --porcelain 2>/dev/null)" ]]; then
-        if [[ "$auto_yes" != "-y" ]]; then
-            read -r -p "Uncommitted changes in $project. Commit & push? [y/N] " ans
-            [[ "${ans,,}" == "y" ]] || { ac_warn "pp: aborted by user"; exit 0; }
+        if [[ "$auto_yes" != "-y" ]] \
+           && ! ac_gate_confirm "Uncommitted changes in $project. Commit & push?"; then
+            ac_warn "pp: aborted by user"; exit 0
         fi
         git -C "$p" add -A
         git -C "$p" commit -qm "antcrate: auto-commit $(date -u +%Y-%m-%dT%H:%M:%SZ)" || true
