@@ -435,6 +435,70 @@ cmd_list() {
 # arg parsing
 [[ $# -eq 0 ]] && { usage; exit 0; }
 
+# ── subcommand dispatcher (audit 2026-07-10) ────────────────────────────────
+# Compact words rewrite argv into the canonical --flag form; the parser below
+# is untouched. Legacy --flags remain valid one release, then retire.
+if [[ "${1:0:1}" != "-" ]]; then
+    _sub="$1"; shift
+    case "$_sub" in
+        help)   usage; exit 0 ;;
+        st)     set -- --status "$@" ;;
+        new)    set -- --start "$@" ;;
+        reg)    set -- --register "$@" ;;
+        mv)     set -- --rename "$@" ;;
+        arc)    if [[ "${1:-}" == "-u" ]]; then shift; set -- --unarchive "$@"
+                else set -- --archive "$@"; fi ;;
+        rm)     set -- --remove "$@" ;;
+        gc)     if [[ "${1:-}" == "ghosts" ]]; then shift; set -- --ghosts "$@"
+                else set -- --cleanup "$@"; fi ;;
+        bak)    case "${1:-}" in
+                    ls)      shift; set -- --backups "$@" ;;
+                    restore) shift; set -- --restore "$@" ;;
+                    *)       set -- --backup "$@" ;;
+                esac ;;
+        duty)   case "${1:-}" in
+                    ls|'')   [[ $# -gt 0 ]] && shift; set -- --duties "$@" ;;
+                    done)    shift; set -- --duty-done "$@" ;;
+                    clear)   shift; set -- --duties-clear "$@" ;;
+                    add)     shift; set -- --duty "$@" ;;
+                    *)       set -- --duty "$@" ;;
+                esac ;;
+        duties) set -- --duties "$@" ;;
+        hook)   case "${1:-}" in
+                    ls)      shift; set -- --hooks "$@" ;;
+                    log)     shift; set -- --hook-log "$@" ;;
+                    install) shift; set -- --hook-install "$@" ;;
+                    rm)      shift; set -- --hook-remove "$@" ;;
+                    debug)   shift; set -- --hook-debug "$@" ;;
+                    smoke)   shift; set -- --hook-smoke "$@" ;;
+                    render)  shift; set -- --hook-render "$@" ;;
+                    bypass)  shift; set -- --hook-bypass "$@" ;;
+                    audit)   shift; set -- --hook-audit "$@" ;;
+                    auto)    shift; set -- --hook-autoinstall "$@" ;;
+                    *)       ac_error "hook: unknown sub '${1:-}' (ls|log|install|rm|debug|smoke|render|bypass|audit|auto)"; exit 2 ;;
+                esac ;;
+        self)   case "${1:-}" in
+                    check)   shift; set -- --selfcheck "$@" ;;
+                    test)    shift; set -- --selftest "$@" ;;
+                    ci)      shift; set -- --ci "$@" ;;
+                    src)     shift; set -- --selfsrc "$@" ;;
+                    edit)    shift; set -- --selfedit "$@" ;;
+                    install) shift; set -- --selfinstall "$@" ;;
+                    *)       ac_error "self: unknown sub '${1:-}' (check|test|ci|src|edit|install)"; exit 2 ;;
+                esac ;;
+        tool)   case "${1:-}" in
+                    ls)      shift; set -- --tool-list "$@" ;;
+                    path)    shift; set -- --tool-path "$@" ;;
+                    install) shift; set -- --tool-install "$@" ;;
+                    *)       set -- --tool-install "$@" ;;
+                esac ;;
+        pp|commit|watch|scan|fetch|map|anchor|in|info|list|status|start|branch|link|ingest|backup|backups|restore|propose|proposals|policy|diff|logs|ci|ghosts|deregister|cleanup|relocate|archive|unarchive|remove|rename|bootstrap|register|init|selftest|selfcheck|selfsrc|profile)
+                set -- "--$_sub" "$@" ;;
+        *)      ac_error "unknown command: $_sub (try: antcrate help)"; exit 2 ;;
+    esac
+    unset _sub
+fi
+
 NAME="" DOMAIN="" META="" REL="" EXPAND="" RESUME="" AUTO_YES="" GH_VIS="private" RESTORE_TS="" PROPOSE_DESC=""
 ADDR_CODE="" RENAME_NEW="" LOGS_LINES="50" CMD_ARGS=() RELPATH="" REG_PATH="" DIAG_OUT=""
 LOOP_OBJECTIVE="" LOOP_ID="" LOOP_VERDICT="" LOOP_NOTE="" LOOP_MAX_ITER="" LOOP_BUDGET="" LOOP_PORCELAIN="" LOOP_REASON=""

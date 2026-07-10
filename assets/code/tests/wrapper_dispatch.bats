@@ -11,9 +11,15 @@ setup() {
     export ANTCRATE_REGISTRY="$ANTCRATE_HOME/registry.json"
     export ANTCRATE_ROOT="$BATS_TEST_TMPDIR/projects"
     export ANTCRATE_LOG_LEVEL="error"
-    # canary gate ACTIVE with no state -> every destructive op fails closed,
-    # giving a deterministic refused-primary to test exit propagation with
-    export ANTCRATE_CANARY_DISABLE=0
+    export ANTCRATE_CANARY_DISABLE=1
+    # unwritable backup dir -> mandatory backup fails -> every destructive op
+    # refuses (rule #1), giving a deterministic refused-primary to test exit
+    # propagation with. (Was the canary-missing gate pre fail-open, audit
+    # 2026-07-10.) Duties file pinned to tmp so the guard never touches the
+    # real dev/duties.md.
+    touch "$BATS_TEST_TMPDIR/backup-blocker"
+    export ANTCRATE_BACKUP_DIR="$BATS_TEST_TMPDIR/backup-blocker/backups"
+    export ANTCRATE_DUTIES_FILE="$BATS_TEST_TMPDIR/duties.md"
     mkdir -p "$ANTCRATE_HOME" "$ANTCRATE_ROOT/myproj"
     jq -n --arg p "$ANTCRATE_ROOT/myproj" \
         '{projects:{myproj:{path:$p,parent:"scripts",linked_nodes:[],git_remote:""}}}' \
