@@ -44,3 +44,11 @@ dev/
 /state-archive.md
 /duties.md
 /composes.md
+
+# maintainer-local gateway records at the repo root (publication boundary,
+# audit 2026-07-10): the public rules ship at assets/code/AGENTS.md; the
+# root copies + agent pointers are this machine's operator config. Anchored
+# so --pp's add -A can never sweep them into the public tree.
+/AGENTS.md
+/CLAUDE.md
+/.claude/

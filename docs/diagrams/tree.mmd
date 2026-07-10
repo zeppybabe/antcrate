@@ -1,479 +1,543 @@
-%% antcrate tree — generated 2026-06-12T20:38:31Z
+%% antcrate tree — generated 2026-07-10T19:35:43Z
 graph TD
   root(["antcrate"])
-  1["CONTRIBUTING.md"]
+  1["AGENTS.md"]
   root --> 1
-  2[(LICENSE)]
+  2["CLAUDE.md"]
   root --> 2
-  3["README.md"]
+  3["CONTRIBUTING.md"]
   root --> 3
-  4["SECURITY.md"]
+  4[(LICENSE)]
   root --> 4
-  5["SKILL.md"]
+  5["README.md"]
   root --> 5
-  6[/assets/]
+  6["SECURITY.md"]
   root --> 6
-  6a[/code/]
-  6 --> 6a
-  6a1["AGENTS.md"]
-  6a --> 6a1
-  6a2["CLAUDE_CODE.md"]
-  6a --> 6a2
-  6a3["README.md"]
-  6a --> 6a3
-  6a4[/bin/]
-  6a --> 6a4
-  6a4a["antcrate"]
-  6a4 --> 6a4a
-  6a4b["antcrated"]
-  6a4 --> 6a4b
-  6a5[/core/]
-  6a --> 6a5
-  6a5a["CMakeLists.txt"]
-  6a5 --> 6a5a
-  6a5b["README.md"]
-  6a5 --> 6a5b
-  6a5c[/include/]
-  6a5 --> 6a5c
-  6a5c1["canary.hpp"]
-  6a5c --> 6a5c1
-  6a5c2["json.hpp"]
-  6a5c --> 6a5c2
-  6a5d[/src/]
-  6a5 --> 6a5d
-  6a5d1["canary.cpp"]
-  6a5d --> 6a5d1
-  6a5d2["main.cpp"]
-  6a5d --> 6a5d2
-  6a5e[/tests/]
-  6a5 --> 6a5e
-  6a5e1["CMakeLists.txt"]
-  6a5e --> 6a5e1
-  6a5e2[/doctest/]
-  6a5e --> 6a5e2
-  6a5e2a["doctest.h"]
-  6a5e2 --> 6a5e2a
-  6a5e3["test_canary.cpp"]
-  6a5e --> 6a5e3
-  6a5e4["test_smoke.cpp"]
-  6a5e --> 6a5e4
-  6a6[/hooks/]
-  6a --> 6a6
-  6a6a[/claude/]
-  6a6 --> 6a6a
-  6a6a1["_zones.sh"]
-  6a6a --> 6a6a1
-  6a6a2["activity-emitter.sh"]
-  6a6a --> 6a6a2
-  6a6a3["cost-anticipator.sh"]
-  6a6a --> 6a6a3
-  6a6a4["env-guard.sh"]
-  6a6a --> 6a6a4
-  6a6a5["gateway-guard.sh"]
-  6a6a --> 6a6a5
-  6a6a6["session-budget-guard.sh"]
-  6a6a --> 6a6a6
-  6a6a7["shellcheck-on-save.sh"]
-  6a6a --> 6a6a7
-  6a6b[/templates/]
-  6a6 --> 6a6b
-  6a6b1["pre-commit-ci"]
-  6a6b --> 6a6b1
-  6a6b2["pre-commit-docsguard"]
-  6a6b --> 6a6b2
-  6a6b3["pre-commit-secrets"]
-  6a6b --> 6a6b3
-  6a6b4["pre-commit-stack-bash"]
-  6a6b --> 6a6b4
-  6a6b5["pre-push-docsguard"]
-  6a6b --> 6a6b5
-  6a6b6["pre-push-tests"]
-  6a6b --> 6a6b6
-  6a7["install.sh"]
-  6a --> 6a7
-  6a8[/lib/]
-  6a --> 6a8
-  6a8a["address.sh"]
-  6a8 --> 6a8a
-  6a8b["agent_init.sh"]
-  6a8 --> 6a8b
-  6a8c["anchor.sh"]
-  6a8 --> 6a8c
-  6a8d["backup.sh"]
-  6a8 --> 6a8d
-  6a8e["bootstrap.sh"]
-  6a8 --> 6a8e
-  6a8f["canary.sh"]
-  6a8 --> 6a8f
-  6a8g["cleanup.sh"]
-  6a8 --> 6a8g
-  6a8h["commit.sh"]
-  6a8 --> 6a8h
-  6a8i["cost.sh"]
-  6a8 --> 6a8i
-  6a8j["delegate.sh"]
-  6a8 --> 6a8j
-  6a8k["devops.sh"]
-  6a8 --> 6a8k
-  6a8l["diagrams.sh"]
-  6a8 --> 6a8l
-  6a8m["duties.sh"]
-  6a8 --> 6a8m
-  6a8n["env_scan.sh"]
-  6a8 --> 6a8n
-  6a8o["events.sh"]
-  6a8 --> 6a8o
-  6a8p["fetch.sh"]
-  6a8 --> 6a8p
-  6a8q["gh.sh"]
-  6a8 --> 6a8q
-  6a8r["git_init.sh"]
-  6a8 --> 6a8r
-  6a8s["git_triage.sh"]
-  6a8 --> 6a8s
-  6a8t["hook_autoinstall.sh"]
-  6a8 --> 6a8t
-  6a8u["hooks.sh"]
-  6a8 --> 6a8u
-  6a8v["hygiene.sh"]
-  6a8 --> 6a8v
-  6a8w["ingest.sh"]
-  6a8 --> 6a8w
-  6a8x["intel.sh"]
-  6a8 --> 6a8x
-  6a8y["lifecycle.sh"]
-  6a8 --> 6a8y
-  6a8z["lock.sh"]
-  6a8 --> 6a8z
-  6a8aa["log.sh"]
-  6a8 --> 6a8aa
-  6a8ab["loop.sh"]
-  6a8 --> 6a8ab
-  6a8ac["md_scaffold.sh"]
-  6a8 --> 6a8ac
-  6a8ad["obsidian.sh"]
-  6a8 --> 6a8ad
-  6a8ae["policy.sh"]
-  6a8 --> 6a8ae
-  6a8af["profile.sh"]
-  6a8 --> 6a8af
-  6a8ag["propose.sh"]
-  6a8 --> 6a8ag
-  6a8ah["quarantine.sh"]
-  6a8 --> 6a8ah
-  6a8ai["registry.sh"]
-  6a8 --> 6a8ai
-  6a8aj["relocate.sh"]
-  6a8 --> 6a8aj
-  6a8ak["safety.sh"]
-  6a8 --> 6a8ak
-  6a8al["scaffold.sh"]
-  6a8 --> 6a8al
-  6a8am["schema.sh"]
-  6a8 --> 6a8am
-  6a8an["selfcheck.sh"]
-  6a8 --> 6a8an
-  6a8ao["subbranch.sh"]
-  6a8 --> 6a8ao
-  6a8ap["watch.sh"]
-  6a8 --> 6a8ap
-  6a8aq["watch_window.sh"]
-  6a8 --> 6a8aq
-  6a9[/systemd/]
-  6a --> 6a9
-  6a9a["antcrate-backup.service"]
-  6a9 --> 6a9a
-  6a9b["antcrate-backup.timer"]
-  6a9 --> 6a9b
-  6a9c["antcrate-intel.service"]
-  6a9 --> 6a9c
-  6a9d["antcrate-intel.timer"]
-  6a9 --> 6a9d
-  6a9e["antcrated.service"]
-  6a9 --> 6a9e
-  6a10[/templates/]
-  6a --> 6a10
-  6a10a[/_generic/]
-  6a10 --> 6a10a
-  6a10a1["README.md"]
-  6a10a --> 6a10a1
-  6a10a2[/docs/]
-  6a10a --> 6a10a2
-  6a10a2a[/diagrams/]
-  6a10a2 --> 6a10a2a
-  6a10a2a1["architecture.mmd"]
-  6a10a2a --> 6a10a2a1
-  6a10a3[/src/]
-  6a10a --> 6a10a3
-  6a10b[/md/]
-  6a10 --> 6a10b
-  6a10b1["AGENTS.md"]
-  6a10b --> 6a10b1
-  6a10b2["CLAUDE.md"]
-  6a10b --> 6a10b2
-  6a10b3["ledger.md"]
-  6a10b --> 6a10b3
-  6a10b4["state.md"]
-  6a10b --> 6a10b4
-  6a10c[/notes/]
-  6a10 --> 6a10c
-  6a10c1["INDEX.md"]
-  6a10c --> 6a10c1
-  6a10d[/projects/]
-  6a10 --> 6a10d
-  6a10d1["README.md"]
-  6a10d --> 6a10d1
-  6a10d2[/docs/]
-  6a10d --> 6a10d2
-  6a10d3[/src/]
-  6a10d --> 6a10d3
-  6a10d4[/tests/]
-  6a10d --> 6a10d4
-  6a10e[/scripts/]
-  6a10 --> 6a10e
-  6a10e1["main.sh"]
-  6a10e --> 6a10e1
-  6a10f[/webapps/]
-  6a10 --> 6a10f
-  6a10f1["README.md"]
-  6a10f --> 6a10f1
-  6a11[/tests/]
-  6a --> 6a11
-  6a11a["README.md"]
-  6a11 --> 6a11a
-  6a11b["activity_emitter.bats"]
-  6a11 --> 6a11b
-  6a11c["address.bats"]
-  6a11 --> 6a11c
-  6a11d["agent_init.bats"]
-  6a11 --> 6a11d
-  6a11e["backup.bats"]
-  6a11 --> 6a11e
-  6a11f["bootstrap.bats"]
-  6a11 --> 6a11f
-  6a11g["canary.bats"]
-  6a11 --> 6a11g
-  6a11h["ci_snapshot.bats"]
-  6a11 --> 6a11h
-  6a11i["cleanup.bats"]
-  6a11 --> 6a11i
-  6a11j["commit.bats"]
-  6a11 --> 6a11j
-  6a11k["cost.bats"]
-  6a11 --> 6a11k
-  6a11l["cost_anticipator.bats"]
-  6a11 --> 6a11l
-  6a11m["delegate.bats"]
-  6a11 --> 6a11m
-  6a11n["diagrams.bats"]
-  6a11 --> 6a11n
-  6a11o["docsguard_templates.bats"]
-  6a11 --> 6a11o
-  6a11p["duties.bats"]
-  6a11 --> 6a11p
-  6a11q["duties_typed.bats"]
-  6a11 --> 6a11q
-  6a11r["env_guard.bats"]
-  6a11 --> 6a11r
-  6a11s["env_scan.bats"]
-  6a11 --> 6a11s
-  6a11t["events.bats"]
-  6a11 --> 6a11t
-  6a11u["fetch.bats"]
-  6a11 --> 6a11u
-  6a11v["gateway_guard.bats"]
-  6a11 --> 6a11v
-  6a11w["git_init.bats"]
-  6a11 --> 6a11w
-  6a11x["git_triage.bats"]
-  6a11 --> 6a11x
-  6a11y["hook_autoinstall.bats"]
-  6a11 --> 6a11y
-  6a11z["hook_smoke.bats"]
-  6a11 --> 6a11z
-  6a11aa["hooks.bats"]
-  6a11 --> 6a11aa
-  6a11ab["hygiene.bats"]
-  6a11 --> 6a11ab
-  6a11ac["ingest.bats"]
-  6a11 --> 6a11ac
-  6a11ad["install_from_source.bats"]
-  6a11 --> 6a11ad
-  6a11ae["intel.bats"]
-  6a11 --> 6a11ae
-  6a11af["lifecycle.bats"]
-  6a11 --> 6a11af
-  6a11ag["loop.bats"]
-  6a11 --> 6a11ag
-  6a11ah["md_scaffold.bats"]
-  6a11 --> 6a11ah
-  6a11ai["obsidian.bats"]
-  6a11 --> 6a11ai
-  6a11aj["policy.bats"]
-  6a11 --> 6a11aj
-  6a11ak["profile.bats"]
-  6a11 --> 6a11ak
-  6a11al["propose.bats"]
-  6a11 --> 6a11al
-  6a11am["quarantine.bats"]
-  6a11 --> 6a11am
-  6a11an["register.bats"]
-  6a11 --> 6a11an
-  6a11ao["registry.bats"]
-  6a11 --> 6a11ao
-  6a11ap["relocate.bats"]
-  6a11 --> 6a11ap
-  6a11aq["safety_zones.bats"]
-  6a11 --> 6a11aq
-  6a11ar["scaffold.bats"]
-  6a11 --> 6a11ar
-  6a11as["schema.bats"]
-  6a11 --> 6a11as
-  6a11at["selfcheck.bats"]
-  6a11 --> 6a11at
-  6a11au["session_budget_guard_models.bats"]
-  6a11 --> 6a11au
-  6a11av["session_gate.bats"]
-  6a11 --> 6a11av
-  6a11aw["shellcheck_on_save.bats"]
-  6a11 --> 6a11aw
-  6a11ax["skills_builder.bats"]
-  6a11 --> 6a11ax
-  6a11ay["watch.bats"]
-  6a11 --> 6a11ay
-  6a11az["watch_live.bats"]
-  6a11 --> 6a11az
-  6a11ba["watch_smoke.bats"]
-  6a11 --> 6a11ba
-  6a11bb["watch_window.bats"]
-  6a11 --> 6a11bb
-  6a11bc["wrapper_dispatch.bats"]
-  6a11 --> 6a11bc
-  6b[/docs/]
-  6 --> 6b
-  6b1["AntCrate_blueprint_v0.pdf"]
-  6b --> 6b1
-  6b2["BUNDLE_SPEC.md"]
-  6b --> 6b2
-  6b3["DIAGRAM_AUTOMATION_GUIDE.md"]
-  6b --> 6b3
-  6b4["DIAGRAM_PLAN.md"]
-  6b --> 6b4
-  6b5["GH_PIPELINE_PLAN.md"]
-  6b --> 6b5
-  6b6["HOOK_PLAN.md"]
-  6b --> 6b6
-  6b7["LIB_MAP.md"]
-  6b --> 6b7
-  6b8["PATTERNS.md"]
-  6b --> 6b8
-  6b9["POST_DEV_BACKLOG.md"]
-  6b --> 6b9
-  6b10["architecture.md"]
-  6b --> 6b10
-  6b11[/examples/]
-  6b --> 6b11
-  6b11a[/bundles/]
-  6b11 --> 6b11a
-  6b11a1["README.md"]
-  6b11a --> 6b11a1
-  6b11a2[/composite/]
-  6b11a --> 6b11a2
-  6b11a2a["STATUS"]
-  6b11a2 --> 6b11a2a
-  6b11a2b["manifest.json"]
-  6b11a2 --> 6b11a2b
-  6b11a2c["research.md"]
-  6b11a2 --> 6b11a2c
-  6b11a3[/git-pinned/]
-  6b11a --> 6b11a3
-  6b11a3a["STATUS"]
-  6b11a3 --> 6b11a3a
-  6b11a3b["claude.md"]
-  6b11a3 --> 6b11a3b
-  6b11a3c[/diagrams/]
-  6b11a3 --> 6b11a3c
-  6b11a3c1["architecture.mmd"]
-  6b11a3c --> 6b11a3c1
-  6b11a3d["manifest.json"]
-  6b11a3 --> 6b11a3d
-  6b11a3e["research.md"]
-  6b11a3 --> 6b11a3e
-  6b11a3f[/skill/]
-  6b11a3 --> 6b11a3f
-  6b11a3f1["SKILL.md"]
-  6b11a3f --> 6b11a3f1
-  6b11a4[/supersedes/]
-  6b11a --> 6b11a4
-  6b11a4a["STATUS"]
-  6b11a4 --> 6b11a4a
-  6b11a4b["manifest.json"]
-  6b11a4 --> 6b11a4b
-  6b11a4c["research.md"]
-  6b11a4 --> 6b11a4c
-  6b11a5[/theoretical/]
-  6b11a --> 6b11a5
-  6b11a5a["STATUS"]
-  6b11a5 --> 6b11a5a
-  6b11a5b["manifest.json"]
-  6b11a5 --> 6b11a5b
-  6b11a5c["research.md"]
-  6b11a5 --> 6b11a5c
-  6c[/skills/]
-  6 --> 6c
-  6c1[/builder/]
-  6c --> 6c1
-  6c1a["SKILL.md"]
-  6c1 --> 6c1a
-  6c2[/intel/]
-  6c --> 6c2
-  6c2a["SKILL.md"]
-  6c2 --> 6c2a
-  7["composes.md"]
+  7["SKILL.md"]
   root --> 7
-  8[/docs/]
+  8[/assets/]
   root --> 8
-  8a["MANUAL.md"]
+  8a[/code/]
   8 --> 8a
-  8b[/diagrams/]
+  8a1["AGENTS.md"]
+  8a --> 8a1
+  8a2["CLAUDE_CODE.md"]
+  8a --> 8a2
+  8a3["README.md"]
+  8a --> 8a3
+  8a4[/bin/]
+  8a --> 8a4
+  8a4a["antcrate"]
+  8a4 --> 8a4a
+  8a4b["antcrated"]
+  8a4 --> 8a4b
+  8a5[/core/]
+  8a --> 8a5
+  8a5a["CMakeLists.txt"]
+  8a5 --> 8a5a
+  8a5b["README.md"]
+  8a5 --> 8a5b
+  8a5c[/include/]
+  8a5 --> 8a5c
+  8a5c1["canary.hpp"]
+  8a5c --> 8a5c1
+  8a5c2["json.hpp"]
+  8a5c --> 8a5c2
+  8a5d[/src/]
+  8a5 --> 8a5d
+  8a5d1["canary.cpp"]
+  8a5d --> 8a5d1
+  8a5d2["main.cpp"]
+  8a5d --> 8a5d2
+  8a5e[/tests/]
+  8a5 --> 8a5e
+  8a5e1["CMakeLists.txt"]
+  8a5e --> 8a5e1
+  8a5e2[/doctest/]
+  8a5e --> 8a5e2
+  8a5e2a["doctest.h"]
+  8a5e2 --> 8a5e2a
+  8a5e3["test_canary.cpp"]
+  8a5e --> 8a5e3
+  8a5e4["test_smoke.cpp"]
+  8a5e --> 8a5e4
+  8a6[/hooks/]
+  8a --> 8a6
+  8a6a[/claude/]
+  8a6 --> 8a6a
+  8a6a1["_zones.sh"]
+  8a6a --> 8a6a1
+  8a6a2["activity-emitter.sh"]
+  8a6a --> 8a6a2
+  8a6a3["cost-anticipator.sh"]
+  8a6a --> 8a6a3
+  8a6a4["env-guard.sh"]
+  8a6a --> 8a6a4
+  8a6a5["gateway-guard.sh"]
+  8a6a --> 8a6a5
+  8a6a6["local-install-guard.sh"]
+  8a6a --> 8a6a6
+  8a6a7["session-budget-guard.sh"]
+  8a6a --> 8a6a7
+  8a6a8["shellcheck-on-save.sh"]
+  8a6a --> 8a6a8
+  8a6b[/templates/]
+  8a6 --> 8a6b
+  8a6b1["pre-commit-ci"]
+  8a6b --> 8a6b1
+  8a6b2["pre-commit-docsguard"]
+  8a6b --> 8a6b2
+  8a6b3["pre-commit-secrets"]
+  8a6b --> 8a6b3
+  8a6b4["pre-commit-stack-bash"]
+  8a6b --> 8a6b4
+  8a6b5["pre-push-docsguard"]
+  8a6b --> 8a6b5
+  8a6b6["pre-push-tests"]
+  8a6b --> 8a6b6
+  8a7["install.sh"]
+  8a --> 8a7
+  8a8[/lib/]
+  8a --> 8a8
+  8a8a["address.sh"]
+  8a8 --> 8a8a
+  8a8b["agent_init.sh"]
+  8a8 --> 8a8b
+  8a8c["anchor.sh"]
+  8a8 --> 8a8c
+  8a8d["backup.sh"]
+  8a8 --> 8a8d
+  8a8e["bootstrap.sh"]
+  8a8 --> 8a8e
+  8a8f["canary.sh"]
+  8a8 --> 8a8f
+  8a8g["cleanup.sh"]
+  8a8 --> 8a8g
+  8a8h["commit.sh"]
+  8a8 --> 8a8h
+  8a8i["cost.sh"]
+  8a8 --> 8a8i
+  8a8j["delegate.sh"]
+  8a8 --> 8a8j
+  8a8k["devops.sh"]
+  8a8 --> 8a8k
+  8a8l["diagrams.sh"]
+  8a8 --> 8a8l
+  8a8m["duties.sh"]
+  8a8 --> 8a8m
+  8a8n["env_scan.sh"]
+  8a8 --> 8a8n
+  8a8o["events.sh"]
+  8a8 --> 8a8o
+  8a8p["fetch.sh"]
+  8a8 --> 8a8p
+  8a8q["gh.sh"]
+  8a8 --> 8a8q
+  8a8r["git_init.sh"]
+  8a8 --> 8a8r
+  8a8s["git_triage.sh"]
+  8a8 --> 8a8s
+  8a8t["hook_autoinstall.sh"]
+  8a8 --> 8a8t
+  8a8u["hooks.sh"]
+  8a8 --> 8a8u
+  8a8v["hygiene.sh"]
+  8a8 --> 8a8v
+  8a8w["ingest.sh"]
+  8a8 --> 8a8w
+  8a8x["intel.sh"]
+  8a8 --> 8a8x
+  8a8y["lifecycle.sh"]
+  8a8 --> 8a8y
+  8a8z["lock.sh"]
+  8a8 --> 8a8z
+  8a8aa["log.sh"]
+  8a8 --> 8a8aa
+  8a8ab["loop.sh"]
+  8a8 --> 8a8ab
+  8a8ac["md_scaffold.sh"]
+  8a8 --> 8a8ac
+  8a8ad["migrate.sh"]
+  8a8 --> 8a8ad
+  8a8ae["obsidian.sh"]
+  8a8 --> 8a8ae
+  8a8af["paths.sh"]
+  8a8 --> 8a8af
+  8a8ag["policy.sh"]
+  8a8 --> 8a8ag
+  8a8ah["preflight.sh"]
+  8a8 --> 8a8ah
+  8a8ai["profile.sh"]
+  8a8 --> 8a8ai
+  8a8aj["propose.sh"]
+  8a8 --> 8a8aj
+  8a8ak["quarantine.sh"]
+  8a8 --> 8a8ak
+  8a8al["registry.sh"]
+  8a8 --> 8a8al
+  8a8am["relocate.sh"]
+  8a8 --> 8a8am
+  8a8an["safety.sh"]
+  8a8 --> 8a8an
+  8a8ao["scaffold.sh"]
+  8a8 --> 8a8ao
+  8a8ap["scan.sh"]
+  8a8 --> 8a8ap
+  8a8aq["schema.sh"]
+  8a8 --> 8a8aq
+  8a8ar["selfcheck.sh"]
+  8a8 --> 8a8ar
+  8a8as["subbranch.sh"]
+  8a8 --> 8a8as
+  8a8at[/targets/]
+  8a8 --> 8a8at
+  8a8at1["local.sh"]
+  8a8at --> 8a8at1
+  8a8au["targets.sh"]
+  8a8 --> 8a8au
+  8a8av["tooling.sh"]
+  8a8 --> 8a8av
+  8a8aw["watch.sh"]
+  8a8 --> 8a8aw
+  8a8ax["watch_window.sh"]
+  8a8 --> 8a8ax
+  8a9[/systemd/]
+  8a --> 8a9
+  8a9a["antcrate-backup.service"]
+  8a9 --> 8a9a
+  8a9b["antcrate-backup.timer"]
+  8a9 --> 8a9b
+  8a9c["antcrate-intel.service"]
+  8a9 --> 8a9c
+  8a9d["antcrate-intel.timer"]
+  8a9 --> 8a9d
+  8a9e["antcrated.service"]
+  8a9 --> 8a9e
+  8a10[/templates/]
+  8a --> 8a10
+  8a10a[/_generic/]
+  8a10 --> 8a10a
+  8a10a1["README.md"]
+  8a10a --> 8a10a1
+  8a10a2[/docs/]
+  8a10a --> 8a10a2
+  8a10a2a[/diagrams/]
+  8a10a2 --> 8a10a2a
+  8a10a2a1["architecture.mmd"]
+  8a10a2a --> 8a10a2a1
+  8a10a3[/src/]
+  8a10a --> 8a10a3
+  8a10b["config.example"]
+  8a10 --> 8a10b
+  8a10c[/md/]
+  8a10 --> 8a10c
+  8a10c1["AGENTS.md"]
+  8a10c --> 8a10c1
+  8a10c2["CLAUDE.md"]
+  8a10c --> 8a10c2
+  8a10c3["ledger.md"]
+  8a10c --> 8a10c3
+  8a10c4["state.md"]
+  8a10c --> 8a10c4
+  8a10d[/notes/]
+  8a10 --> 8a10d
+  8a10d1["INDEX.md"]
+  8a10d --> 8a10d1
+  8a10e[/projects/]
+  8a10 --> 8a10e
+  8a10e1["README.md"]
+  8a10e --> 8a10e1
+  8a10e2[/docs/]
+  8a10e --> 8a10e2
+  8a10e3[/src/]
+  8a10e --> 8a10e3
+  8a10e4[/tests/]
+  8a10e --> 8a10e4
+  8a10f[/scripts/]
+  8a10 --> 8a10f
+  8a10f1["main.sh"]
+  8a10f --> 8a10f1
+  8a10g[/webapps/]
+  8a10 --> 8a10g
+  8a10g1["README.md"]
+  8a10g --> 8a10g1
+  8a11[/tests/]
+  8a --> 8a11
+  8a11a["README.md"]
+  8a11 --> 8a11a
+  8a11b["activity_emitter.bats"]
+  8a11 --> 8a11b
+  8a11c["address.bats"]
+  8a11 --> 8a11c
+  8a11d["agent_init.bats"]
+  8a11 --> 8a11d
+  8a11e["backup.bats"]
+  8a11 --> 8a11e
+  8a11f["backup_orchestrator.bats"]
+  8a11 --> 8a11f
+  8a11g["bootstrap.bats"]
+  8a11 --> 8a11g
+  8a11h["canary.bats"]
+  8a11 --> 8a11h
+  8a11i["ci_snapshot.bats"]
+  8a11 --> 8a11i
+  8a11j["cleanup.bats"]
+  8a11 --> 8a11j
+  8a11k["commit.bats"]
+  8a11 --> 8a11k
+  8a11l["cost.bats"]
+  8a11 --> 8a11l
+  8a11m["cost_anticipator.bats"]
+  8a11 --> 8a11m
+  8a11n["delegate.bats"]
+  8a11 --> 8a11n
+  8a11o["diagrams.bats"]
+  8a11 --> 8a11o
+  8a11p["docsguard_templates.bats"]
+  8a11 --> 8a11p
+  8a11q["duties.bats"]
+  8a11 --> 8a11q
+  8a11r["duties_typed.bats"]
+  8a11 --> 8a11r
+  8a11s["env_guard.bats"]
+  8a11 --> 8a11s
+  8a11t["env_scan.bats"]
+  8a11 --> 8a11t
+  8a11u["events.bats"]
+  8a11 --> 8a11u
+  8a11v["fetch.bats"]
+  8a11 --> 8a11v
+  8a11w["gate.bats"]
+  8a11 --> 8a11w
+  8a11x["gateway_guard.bats"]
+  8a11 --> 8a11x
+  8a11y["git_init.bats"]
+  8a11 --> 8a11y
+  8a11z["git_triage.bats"]
+  8a11 --> 8a11z
+  8a11aa["hook_autoinstall.bats"]
+  8a11 --> 8a11aa
+  8a11ab["hook_smoke.bats"]
+  8a11 --> 8a11ab
+  8a11ac["hooks.bats"]
+  8a11 --> 8a11ac
+  8a11ad["hygiene.bats"]
+  8a11 --> 8a11ad
+  8a11ae["ingest.bats"]
+  8a11 --> 8a11ae
+  8a11af["install_from_source.bats"]
+  8a11 --> 8a11af
+  8a11ag["intel.bats"]
+  8a11 --> 8a11ag
+  8a11ah["lifecycle.bats"]
+  8a11 --> 8a11ah
+  8a11ai["loop.bats"]
+  8a11 --> 8a11ai
+  8a11aj["md_scaffold.bats"]
+  8a11 --> 8a11aj
+  8a11ak["migrate.bats"]
+  8a11 --> 8a11ak
+  8a11al["obsidian.bats"]
+  8a11 --> 8a11al
+  8a11am["paths.bats"]
+  8a11 --> 8a11am
+  8a11an["policy.bats"]
+  8a11 --> 8a11an
+  8a11ao["pp_gate.bats"]
+  8a11 --> 8a11ao
+  8a11ap["preflight.bats"]
+  8a11 --> 8a11ap
+  8a11aq["profile.bats"]
+  8a11 --> 8a11aq
+  8a11ar["propose.bats"]
+  8a11 --> 8a11ar
+  8a11as["quarantine.bats"]
+  8a11 --> 8a11as
+  8a11at["register.bats"]
+  8a11 --> 8a11at
+  8a11au["registry.bats"]
+  8a11 --> 8a11au
+  8a11av["relocate.bats"]
+  8a11 --> 8a11av
+  8a11aw["safety_gate.bats"]
+  8a11 --> 8a11aw
+  8a11ax["safety_zones.bats"]
+  8a11 --> 8a11ax
+  8a11ay["scaffold.bats"]
+  8a11 --> 8a11ay
+  8a11az["scan.bats"]
+  8a11 --> 8a11az
+  8a11ba["schema.bats"]
+  8a11 --> 8a11ba
+  8a11bb["selfcheck.bats"]
+  8a11 --> 8a11bb
+  8a11bc["session_budget_guard_models.bats"]
+  8a11 --> 8a11bc
+  8a11bd["session_gate.bats"]
+  8a11 --> 8a11bd
+  8a11be["shellcheck_on_save.bats"]
+  8a11 --> 8a11be
+  8a11bf["skills_builder.bats"]
+  8a11 --> 8a11bf
+  8a11bg["subcmd.bats"]
+  8a11 --> 8a11bg
+  8a11bh["targets.bats"]
+  8a11 --> 8a11bh
+  8a11bi["targets_local.bats"]
+  8a11 --> 8a11bi
+  8a11bj["tooling.bats"]
+  8a11 --> 8a11bj
+  8a11bk["watch.bats"]
+  8a11 --> 8a11bk
+  8a11bl["watch_live.bats"]
+  8a11 --> 8a11bl
+  8a11bm["watch_smoke.bats"]
+  8a11 --> 8a11bm
+  8a11bn["watch_window.bats"]
+  8a11 --> 8a11bn
+  8a11bo["wrapper_dispatch.bats"]
+  8a11 --> 8a11bo
+  8b[/docs/]
   8 --> 8b
-  8b1["tree.mmd"]
+  8b1["AntCrate_blueprint_v0.pdf"]
   8b --> 8b1
-  8c[/plans/]
+  8b2["BUNDLE_SPEC.md"]
+  8b --> 8b2
+  8b3["DIAGRAM_AUTOMATION_GUIDE.md"]
+  8b --> 8b3
+  8b4["DIAGRAM_PLAN.md"]
+  8b --> 8b4
+  8b5["GH_PIPELINE_PLAN.md"]
+  8b --> 8b5
+  8b6["HOOK_PLAN.md"]
+  8b --> 8b6
+  8b7["LIB_MAP.md"]
+  8b --> 8b7
+  8b8["PATTERNS.md"]
+  8b --> 8b8
+  8b9["POST_DEV_BACKLOG.md"]
+  8b --> 8b9
+  8b10["architecture.md"]
+  8b --> 8b10
+  8b11[/examples/]
+  8b --> 8b11
+  8b11a[/bundles/]
+  8b11 --> 8b11a
+  8b11a1["README.md"]
+  8b11a --> 8b11a1
+  8b11a2[/composite/]
+  8b11a --> 8b11a2
+  8b11a2a["STATUS"]
+  8b11a2 --> 8b11a2a
+  8b11a2b["manifest.json"]
+  8b11a2 --> 8b11a2b
+  8b11a2c["research.md"]
+  8b11a2 --> 8b11a2c
+  8b11a3[/git-pinned/]
+  8b11a --> 8b11a3
+  8b11a3a["STATUS"]
+  8b11a3 --> 8b11a3a
+  8b11a3b["claude.md"]
+  8b11a3 --> 8b11a3b
+  8b11a3c[/diagrams/]
+  8b11a3 --> 8b11a3c
+  8b11a3c1["architecture.mmd"]
+  8b11a3c --> 8b11a3c1
+  8b11a3d["manifest.json"]
+  8b11a3 --> 8b11a3d
+  8b11a3e["research.md"]
+  8b11a3 --> 8b11a3e
+  8b11a3f[/skill/]
+  8b11a3 --> 8b11a3f
+  8b11a3f1["SKILL.md"]
+  8b11a3f --> 8b11a3f1
+  8b11a4[/supersedes/]
+  8b11a --> 8b11a4
+  8b11a4a["STATUS"]
+  8b11a4 --> 8b11a4a
+  8b11a4b["manifest.json"]
+  8b11a4 --> 8b11a4b
+  8b11a4c["research.md"]
+  8b11a4 --> 8b11a4c
+  8b11a5[/theoretical/]
+  8b11a --> 8b11a5
+  8b11a5a["STATUS"]
+  8b11a5 --> 8b11a5a
+  8b11a5b["manifest.json"]
+  8b11a5 --> 8b11a5b
+  8b11a5c["research.md"]
+  8b11a5 --> 8b11a5c
+  8c[/skills/]
   8 --> 8c
-  8c1["2026-06-01-gateway-rule-violations-fix.md"]
+  8c1[/builder/]
   8c --> 8c1
-  8c2["2026-06-06-relocate-command.md"]
+  8c1a["SKILL.md"]
+  8c1 --> 8c1a
+  8c2[/intel/]
   8c --> 8c2
-  8c3["2026-06-10-session-budget-gate-and-duties.md"]
-  8c --> 8c3
-  8c4["2026-06-11-least-cost-allocation-and-skill-scoping.md"]
-  8c --> 8c4
-  8d[/specs/]
-  8 --> 8d
-  8d1["2026-05-31-harness-enforcement-layer.md"]
-  8d --> 8d1
-  8d2["2026-06-01-gateway-rule-violations-fix-design.md"]
-  8d --> 8d2
-  8d3["2026-06-06-relocate-command-design.md"]
-  8d --> 8d3
-  8d4["2026-06-09-loop-engine-harness-design.md"]
-  8d --> 8d4
-  8d5["2026-06-10-anthropic-intel-tracker-design.md"]
-  8d --> 8d5
-  8d6["2026-06-10-anycrate-capability-layer-design.md"]
-  8d --> 8d6
-  8d7["2026-06-10-session-budget-gate-and-duties-design.md"]
-  8d --> 8d7
-  8d8["2026-06-11-least-cost-allocation-and-skill-scoping-design.md"]
-  8d --> 8d8
-  9["duties.md"]
+  8c2a["SKILL.md"]
+  8c2 --> 8c2a
+  9[/dev/]
   root --> 9
-  10["ledger.md"]
+  9a["composes.md"]
+  9 --> 9a
+  9b[/docs/]
+  9 --> 9b
+  9b1[/plans/]
+  9b --> 9b1
+  9b1a["2026-06-01-gateway-rule-violations-fix.md"]
+  9b1 --> 9b1a
+  9b1b["2026-06-06-relocate-command.md"]
+  9b1 --> 9b1b
+  9b1c["2026-06-10-session-budget-gate-and-duties.md"]
+  9b1 --> 9b1c
+  9b1d["2026-06-11-least-cost-allocation-and-skill-scoping.md"]
+  9b1 --> 9b1d
+  9b1e["2026-06-13-xdg-path-layout.md"]
+  9b1 --> 9b1e
+  9b1f["2026-06-14-multi-target-backup-foundation.md"]
+  9b1 --> 9b1f
+  9b1g["2026-07-10-bundling-p1-detty-dispatcher.md"]
+  9b1 --> 9b1g
+  9b2[/specs/]
+  9b --> 9b2
+  9b2a["2026-05-31-harness-enforcement-layer.md"]
+  9b2 --> 9b2a
+  9b2b["2026-06-01-gateway-rule-violations-fix-design.md"]
+  9b2 --> 9b2b
+  9b2c["2026-06-06-relocate-command-design.md"]
+  9b2 --> 9b2c
+  9b2d["2026-06-09-loop-engine-harness-design.md"]
+  9b2 --> 9b2d
+  9b2e["2026-06-10-anthropic-intel-tracker-design.md"]
+  9b2 --> 9b2e
+  9b2f["2026-06-10-anycrate-capability-layer-design.md"]
+  9b2 --> 9b2f
+  9b2g["2026-06-10-session-budget-gate-and-duties-design.md"]
+  9b2 --> 9b2g
+  9b2h["2026-06-11-least-cost-allocation-and-skill-scoping-design.md"]
+  9b2 --> 9b2h
+  9b2i["2026-06-13-local-tooling-and-install-guard-design.md"]
+  9b2 --> 9b2i
+  9b2j["2026-06-13-universal-install-and-publication-boundary-design.md"]
+  9b2 --> 9b2j
+  9b2k["2026-06-14-multi-target-backup-and-dev-mirror-design.md"]
+  9b2 --> 9b2k
+  9c["duties.md"]
+  9 --> 9c
+  9d["ledger.md"]
+  9 --> 9d
+  9e["state-archive.md"]
+  9 --> 9e
+  9f["state.md"]
+  9 --> 9f
+  10[/docs/]
   root --> 10
+  10a["MANUAL.md"]
+  10 --> 10a
+  10b[/diagrams/]
+  10 --> 10b
+  10b1["tree.mmd"]
+  10b --> 10b1
   11["stack.md"]
   root --> 11
-  12["state-archive.md"]
-  root --> 12
-  13["state.md"]
-  root --> 13
