@@ -17,9 +17,10 @@
 #    id_rsa/dsa/ed25519/ecdsa, *.p12, *.pfx, secrets.y*ml, *.credentials,
 #    credentials.json, .netrc). On match: unstages, lists matches, aborts.
 #  - Shows diff stat + commit message preview (Gateway Law step 4).
-#  - Prompts y/N (Gateway Law step 5). Bypass with ANTCRATE_COMMIT_PREAPPROVED=1
-#    (sanctioned for non-TTY automation; analogous to ANTCRATE_REMOVAL_PREAPPROVED
-#    for rule #1).
+#  - Approval (Gateway Law step 5): TTY prompts y/N; non-TTY proceeds — the
+#    diff preview + Claude Code's permission layer are the approval surface
+#    (audit 2026-07-10). ANTCRATE_COMMIT_PREAPPROVED=1 still short-circuits
+#    (compat; retires with the flag aliases next release).
 #  - Then commits (Gateway Law step 6). Echoes new commit SHA to stdout.
 
 # ac_commit_secret_match <basename> — exit 0 if it matches a secret pattern
@@ -101,16 +102,11 @@ ac_commit_run() {
     git -C "$p" diff --cached --stat
     printf '\nstaged file count: %d\n\n' "${#staged_files[@]}"
 
-    # approval (Gateway Law step 5)
+    # approval (Gateway Law step 5) — the preview above + Claude Code's own
+    # permission gate are the approval surface; non-TTY proceeds (audit
+    # 2026-07-10). PREAPPROVED kept one release for compat.
     if [[ "${ANTCRATE_COMMIT_PREAPPROVED:-0}" != "1" ]]; then
-        if [[ ! -t 0 ]]; then
-            ac_error "commit: not a TTY and ANTCRATE_COMMIT_PREAPPROVED=1 not set; refusing"
-            git -C "$p" reset HEAD >/dev/null 2>&1 || true
-            return 3
-        fi
-        local ans
-        read -r -p "Proceed with commit? [y/N] " ans
-        if [[ "${ans,,}" != "y" ]]; then
+        if ! ac_gate_confirm "Proceed with commit?"; then
             ac_warn "commit: aborted by user; staged set preserved for inspection"
             return 0
         fi

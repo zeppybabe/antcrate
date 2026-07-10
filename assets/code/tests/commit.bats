@@ -33,6 +33,7 @@ src() {
         export ANTCRATE_COMMIT_PREAPPROVED="'"$ANTCRATE_COMMIT_PREAPPROVED"'"
         . "'"$LIB"'/log.sh"
         . "'"$LIB"'/registry.sh"
+        . "'"$LIB"'/safety.sh"
         . "'"$LIB"'/commit.sh"
         '"$1"
 }
@@ -155,7 +156,7 @@ src() {
     [ "$(git -C "$R" log --oneline | wc -l)" -eq 1 ]
 }
 
-@test "commit: refuses without TTY when not preapproved" {
+@test "commit: non-TTY proceeds without PREAPPROVED (audit 2026-07-10)" {
     src "ac_registry_upsert proj '$R' scripts ''"
     echo "x" >> "$R/README.md"
     run bash -c '
@@ -163,11 +164,28 @@ src() {
         export ANTCRATE_REGISTRY="'"$ANTCRATE_REGISTRY"'"
         export ANTCRATE_LOG_LEVEL="'"$ANTCRATE_LOG_LEVEL"'"
         unset ANTCRATE_COMMIT_PREAPPROVED
-        . "'"$LIB"'/log.sh"; . "'"$LIB"'/registry.sh"; . "'"$LIB"'/commit.sh"
+        . "'"$LIB"'/log.sh"; . "'"$LIB"'/registry.sh"; . "'"$LIB"'/safety.sh"; . "'"$LIB"'/commit.sh"
         ac_commit_run proj "feat: x" all < /dev/null
     '
-    [ "$status" -ne 0 ]
-    [[ "$output" == *"not a TTY"* ]]
+    [ "$status" -eq 0 ]
+    [ "$(git -C "$R" log --oneline | wc -l)" -eq 2 ]
+    [ "$(git -C "$R" log -1 --pretty=%s)" = "feat: x" ]
+}
+
+@test "commit: ASSUME_TTY decline aborts, staged set preserved" {
+    src "ac_registry_upsert proj '$R' scripts ''"
+    echo "y" >> "$R/README.md"
+    run bash -c '
+        export ANTCRATE_HOME="'"$ANTCRATE_HOME"'"
+        export ANTCRATE_REGISTRY="'"$ANTCRATE_REGISTRY"'"
+        export ANTCRATE_LOG_LEVEL="'"$ANTCRATE_LOG_LEVEL"'"
+        unset ANTCRATE_COMMIT_PREAPPROVED
+        export ANTCRATE_ASSUME_TTY=1
+        . "'"$LIB"'/log.sh"; . "'"$LIB"'/registry.sh"; . "'"$LIB"'/safety.sh"; . "'"$LIB"'/commit.sh"
+        ac_commit_run proj "declined" all <<< "n"
+    '
+    [ "$status" -eq 0 ]
+    # ac_warn is level-suppressed in tests; the behavioral contract is: no commit
     [ "$(git -C "$R" log --oneline | wc -l)" -eq 1 ]
 }
 
