@@ -1,4 +1,4 @@
-%% antcrate tree — generated 2026-07-10T20:26:23Z
+%% antcrate tree — generated 2026-07-10T20:50:05Z
 graph TD
   root(["antcrate"])
   1["AGENTS.md"]
@@ -137,34 +137,36 @@ graph TD
   8a8 --> 8a8af
   8a8ag["quarantine.sh"]
   8a8 --> 8a8ag
-  8a8ah["registry.sh"]
+  8a8ah["rag.sh"]
   8a8 --> 8a8ah
-  8a8ai["relocate.sh"]
+  8a8ai["registry.sh"]
   8a8 --> 8a8ai
-  8a8aj["safety.sh"]
+  8a8aj["relocate.sh"]
   8a8 --> 8a8aj
-  8a8ak["scaffold.sh"]
+  8a8ak["safety.sh"]
   8a8 --> 8a8ak
-  8a8al["scan.sh"]
+  8a8al["scaffold.sh"]
   8a8 --> 8a8al
-  8a8am["schema.sh"]
+  8a8am["scan.sh"]
   8a8 --> 8a8am
-  8a8an["selfcheck.sh"]
+  8a8an["schema.sh"]
   8a8 --> 8a8an
-  8a8ao["subbranch.sh"]
+  8a8ao["selfcheck.sh"]
   8a8 --> 8a8ao
-  8a8ap[/targets/]
+  8a8ap["subbranch.sh"]
   8a8 --> 8a8ap
-  8a8ap1["local.sh"]
-  8a8ap --> 8a8ap1
-  8a8aq["targets.sh"]
+  8a8aq[/targets/]
   8a8 --> 8a8aq
-  8a8ar["tooling.sh"]
+  8a8aq1["local.sh"]
+  8a8aq --> 8a8aq1
+  8a8ar["targets.sh"]
   8a8 --> 8a8ar
-  8a8as["watch.sh"]
+  8a8as["tooling.sh"]
   8a8 --> 8a8as
-  8a8at["watch_window.sh"]
+  8a8at["watch.sh"]
   8a8 --> 8a8at
+  8a8au["watch_window.sh"]
+  8a8 --> 8a8au
   8a9[/systemd/]
   8a --> 8a9
   8a9a["antcrate-backup.service"]
@@ -311,50 +313,52 @@ graph TD
   8a11 --> 8a11ao
   8a11ap["quarantine.bats"]
   8a11 --> 8a11ap
-  8a11aq["register.bats"]
+  8a11aq["rag.bats"]
   8a11 --> 8a11aq
-  8a11ar["registry.bats"]
+  8a11ar["register.bats"]
   8a11 --> 8a11ar
-  8a11as["relocate.bats"]
+  8a11as["registry.bats"]
   8a11 --> 8a11as
-  8a11at["safety_gate.bats"]
+  8a11at["relocate.bats"]
   8a11 --> 8a11at
-  8a11au["safety_zones.bats"]
+  8a11au["safety_gate.bats"]
   8a11 --> 8a11au
-  8a11av["scaffold.bats"]
+  8a11av["safety_zones.bats"]
   8a11 --> 8a11av
-  8a11aw["scan.bats"]
+  8a11aw["scaffold.bats"]
   8a11 --> 8a11aw
-  8a11ax["schema.bats"]
+  8a11ax["scan.bats"]
   8a11 --> 8a11ax
-  8a11ay["selfcheck.bats"]
+  8a11ay["schema.bats"]
   8a11 --> 8a11ay
-  8a11az["session_budget_guard_models.bats"]
+  8a11az["selfcheck.bats"]
   8a11 --> 8a11az
-  8a11ba["session_gate.bats"]
+  8a11ba["session_budget_guard_models.bats"]
   8a11 --> 8a11ba
-  8a11bb["shellcheck_on_save.bats"]
+  8a11bb["session_gate.bats"]
   8a11 --> 8a11bb
-  8a11bc["skills_builder.bats"]
+  8a11bc["shellcheck_on_save.bats"]
   8a11 --> 8a11bc
-  8a11bd["subcmd.bats"]
+  8a11bd["skills_builder.bats"]
   8a11 --> 8a11bd
-  8a11be["targets.bats"]
+  8a11be["subcmd.bats"]
   8a11 --> 8a11be
-  8a11bf["targets_local.bats"]
+  8a11bf["targets.bats"]
   8a11 --> 8a11bf
-  8a11bg["tooling.bats"]
+  8a11bg["targets_local.bats"]
   8a11 --> 8a11bg
-  8a11bh["watch.bats"]
+  8a11bh["tooling.bats"]
   8a11 --> 8a11bh
-  8a11bi["watch_live.bats"]
+  8a11bi["watch.bats"]
   8a11 --> 8a11bi
-  8a11bj["watch_smoke.bats"]
+  8a11bj["watch_live.bats"]
   8a11 --> 8a11bj
-  8a11bk["watch_window.bats"]
+  8a11bk["watch_smoke.bats"]
   8a11 --> 8a11bk
-  8a11bl["wrapper_dispatch.bats"]
+  8a11bl["watch_window.bats"]
   8a11 --> 8a11bl
+  8a11bm["wrapper_dispatch.bats"]
+  8a11 --> 8a11bm
   8b[/docs/]
   8 --> 8b
   8b1["AntCrate_blueprint_v0.pdf"]
@@ -461,6 +465,8 @@ graph TD
   9b1 --> 9b1h
   9b1i["2026-07-10-bundling-p3-attic-cuts.md"]
   9b1 --> 9b1i
+  9b1j["2026-07-10-bundling-p4-rag.md"]
+  9b1 --> 9b1j
   9b2[/specs/]
   9b --> 9b2
   9b2a["2026-05-31-harness-enforcement-layer.md"]
