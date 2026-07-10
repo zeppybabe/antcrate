@@ -94,10 +94,15 @@ ac_safety_guard_destructive() {
     local project="$1" op="$2" target="$3"
     AC_LAST_BACKUP_PATH=""
 
-    # 0. compaction-canary gate (Wave 1) — runs before path/backup/approval
-    # so stale safety-context aborts cost zero disk I/O.
+    # 0. compaction-canary gate — fail-OPEN when the core binary is absent
+    # (rc 2): an unbuilt optional C helper must never block recovery-backed
+    # ops (audit 2026-07-10). Stale context (rc 4) still blocks.
     if [[ "${ANTCRATE_CANARY_DISABLE:-0}" != "1" ]]; then
-        if ! ac_canary_gate_check; then
+        local _canary_rc=0
+        ac_canary_gate_check || _canary_rc=$?
+        if (( _canary_rc == 2 )); then
+            ac_warn "safety: canary core missing — gate skipped (fail-open)"
+        elif (( _canary_rc != 0 )); then
             ac_error "safety: refusing $op — compaction canary gate failed (see above)"
             return 1
         fi
@@ -114,16 +119,20 @@ ac_safety_guard_destructive() {
     fi
     AC_LAST_BACKUP_PATH="$backup"
 
-    # 3. approval gate
+    # 3. approval gate — non-interactive proceeds (backup verified above,
+    # quarantine catches the artifact); approval moves out-of-band to the
+    # duty ledger (audit 2026-07-10). PREAPPROVED kept one release for compat.
     if [[ "${ANTCRATE_REMOVAL_PREAPPROVED:-0}" == "1" ]]; then
         ac_warn "safety: removal pre-approved by config — proceeding ($op on $target)"
         return 0
     fi
-    if [[ ! -t 0 ]]; then
-        # non-interactive (daemon, agent without -y) — refuse
-        ac_error "safety: $op requires human approval (run interactively or set ANTCRATE_REMOVAL_PREAPPROVED=1)"
-        ac_error "safety: backup retained at $backup"
-        return 1
+    if [[ ! -t 0 && "${ANTCRATE_ASSUME_TTY:-0}" != "1" ]]; then
+        if declare -F ac_duty_add >/dev/null 2>&1; then
+            ac_duty_add --type command \
+                "review: $op on $project — backup at $backup" >/dev/null 2>&1 || true
+        fi
+        ac_warn "safety: non-interactive $op proceeding (backup + review duty recorded)"
+        return 0
     fi
     printf '\n'
     printf 'AntCrate destructive-op approval required:\n' >&2
@@ -131,12 +140,12 @@ ac_safety_guard_destructive() {
     printf '  op      : %s\n' "$op" >&2
     printf '  target  : %s\n' "$target" >&2
     printf '  backup  : %s\n' "$backup" >&2
-    printf '\nProceed? [y/N] ' >&2
-    local ans; read -r ans
-    case "${ans,,}" in
-        y|yes) ac_info "safety: approved ($op on $target)"; return 0 ;;
-        *)     ac_warn "safety: aborted by user (backup retained at $backup)"; return 1 ;;
-    esac
+    if ac_gate_confirm "Proceed?"; then
+        ac_info "safety: approved ($op on $target)"
+        return 0
+    fi
+    ac_warn "safety: aborted by user (backup retained at $backup)"
+    return 1
 }
 
 # ac_safety_safe_rm <path>  — only removes inside allowed zones

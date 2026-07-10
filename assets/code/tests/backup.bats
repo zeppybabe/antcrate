@@ -48,13 +48,13 @@ src() {
     [[ "$output" == *"VALID"* ]]
 }
 
-@test "destructive guard: refuses without TTY and no preapproval" {
+@test "destructive guard: non-TTY proceeds after backup (audit 2026-07-10)" {
     run src '
         ac_action_start alpha webapps html
         path=$(ac_registry_get alpha path)
         ac_safety_guard_destructive alpha "test-rm" "$path"
         echo "rc=$?"'
-    [[ "$output" == *"rc=1"* ]]
+    [[ "$output" == *"rc=0"* ]]
 }
 
 @test "destructive guard: PREAPPROVED=1 allows op with backup" {
