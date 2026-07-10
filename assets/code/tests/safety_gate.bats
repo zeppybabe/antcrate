@@ -30,7 +30,6 @@ src() {
         . "'"$LIB"'/backup.sh"
         . "'"$LIB"'/devops.sh"
         . "'"$LIB"'/duties.sh"
-        . "'"$LIB"'/canary.sh"
         . "'"$LIB"'/safety.sh"
         . "'"$LIB"'/quarantine.sh"
         . "'"$LIB"'/scaffold.sh"
@@ -74,12 +73,4 @@ src() {
     [[ "$output" == *"rc=0"* ]]
 }
 
-@test "destructive: canary core missing fails OPEN (warn, proceed)" {
-    export ANTCRATE_CANARY_DISABLE=0
-    run src '
-        ac_action_start alpha webapps html
-        path=$(ac_registry_get alpha path)
-        ac_safety_guard_destructive alpha "test-op" "$path" </dev/null
-        echo "rc=$?"'
-    [[ "$output" == *"rc=0"* ]]
-}
+# (canary fail-open test removed with the canary module — atticked 2026-07-10)

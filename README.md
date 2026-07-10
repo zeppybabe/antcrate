@@ -2,7 +2,7 @@
 
 Bash, jq, and inotify. One controllable surface for human + AI development.
 
-AntCrate is a pure-Bash orchestration shell that wraps every structural, destructive, or remote-facing operation a solo developer — or the AI agent working beside them — repeats across projects: scaffolding, a JSON registry as single source of truth, guarded commits and pushes, backups with verified manifests, git-hook management, autonomous work loops with hard budget stops, and a safety layer that makes the dangerous paths *narrow, audited, and reversible*.
+AntCrate is a pure-Bash orchestration shell that wraps every structural, destructive, or remote-facing operation a solo developer — or the AI agent working beside them — repeats across projects: scaffolding, a JSON registry as single source of truth, guarded commits and pushes, backups with verified manifests, git-hook management, and a safety layer that makes the dangerous paths *narrow, audited, and reversible*.
 
 It began as a project scaffolder. It has evolved into an **agent-governance layer**: the boundary that lets a coding agent operate at full speed inside registered project trees while every risky action — rename, remove, push, hook execution, secret exposure — routes through a single auditable entry point with backup and approval gates. Nothing runs elevated; all state lives under your XDG base directories (`~/.config`, `~/.local/share`, `~/.local/state`) and the registered trees.
 
@@ -46,15 +46,15 @@ antcrate --map coolapp
 
 **Registry.** `~/.local/share/antcrate/registry.json` is the single source of truth: paths, domains, parent/child nesting, linked nodes, git remotes, recent removals. Every read and write goes through `lib/registry.sh` using atomic jq + temp-file replacement. No direct edits, no concurrent corruption.
 
-**Safety gate.** Destructive operations funnel through one chokepoint that enforces backup-before-touch and human approval, and is itself gated by the *compaction canary* (below). The `--pp` push-pipe captures git rejection, generates a truncated diff, and routes it to email before halting — never a silent failed push.
+**Safety gate.** Destructive operations funnel through one chokepoint that enforces backup-before-touch and approval — a TTY y/N, or (non-interactively) a verified backup plus a review duty on the duty ledger. The `--pp` push-pipe captures git rejection, generates a truncated diff, and routes it to email before halting — never a silent failed push.
 
 ## Capability tour
 
-AntCrate ships **88 commands** backed by 41 lib modules. The groups below are the shape of the tool; [docs/MANUAL.md](docs/MANUAL.md) documents every flag.
+AntCrate ships **~60 commands** (compact words + legacy flags) backed by 45 lib modules; the 2026-07-10 audit atticked five modules (loop, delegate, canary+core, cost, obsidian) obsoleted by native harness features — preserved on branch `attic`. The groups below are the shape of the tool; [docs/MANUAL.md](docs/MANUAL.md) documents every flag.
 
 ### Project lifecycle and navigation
 
-`--start`, `--register`, `--branch`, `--link`, `--resume --expand` (atomic sub-branching), `--rename`, `--archive` / `--unarchive`, `--touch` / `--mkdir`, `--info`, `--list`, `--map`.
+`--start`, `--register`, `--branch`, `--link`, `--resume --expand` (atomic sub-branching), `--rename`, `--archive` / `--unarchive`, `--info`, `--list`, `--map`.
 
 No `cd` is ever needed: `--in <project> -- <cmd>` runs anchored at the project root, `--anchor` exports a stable handle, and the **layered address system** gives every file a positional code (`1a3` = 3rd entry inside the 1st sub-branch of the 1st top-level dir) resolvable via `--addr`.
 
@@ -62,7 +62,6 @@ No `cd` is ever needed: `--in <project> -- <cmd>` runs anchored at the project r
 
 - **Backups:** `--backup` / `--backups` / `--restore [--at <ts>]` — verified tar.gz + sha256 manifests, retention pruning, pre-restore auto-backup.
 - **Quarantine:** `--quarantine-list` / `--quarantine-restore` — capture-first removal staging. No purge flag exists, by design.
-- **Compaction canary:** `--canary-init` / `--canary-verify` / `--canary-status` — a token-and-TTL gate (backed by the C++ `antcrate-core` binary) that forces an agent to re-read the hard rules before any destructive op when its context may have been compacted. Every destructive flag runs through it.
 - **Registry hygiene:** `--ghosts` lists entries whose path vanished; `--deregister` drops a ghost capture-first, and *refuses* if the path still exists.
 
 ### Git, GitHub, and hooks
@@ -77,19 +76,15 @@ No `cd` is ever needed: `--in <project> -- <cmd>` runs anchored at the project r
 The layer that makes AntCrate an AI-development boundary rather than just a CLI:
 
 - **Claude Code hooks** (`assets/code/hooks/claude/`): `gateway-guard.sh` blocks bare destructive shell commands before they execute; `env-guard.sh` keeps secret *values* out of the transcript (names and assignment are fine; display sinks are blocked); `session-budget-guard.sh` gates on context-window size — soft warn at 100k tokens, hard block at 140k with a wrap-up whitelist, so a session can never run itself off a cliff; `shellcheck-on-save.sh` lints every shell edit on write; `local-install-guard.sh` blocks reflexive system-wide and opaque (`curl | bash`) installs, steering to the local, pinned `--tool-install` path with an audited bypass.
-- **Delegation:** `--delegate` hands a focused edit to a project-scoped agent with an attempt counter that refuses after a threshold — no infinite retry loops. `--agent-init`, `--md-scaffold`, `--profile`, and `--env-scan` provision a project for agent work.
+- **Provisioning:** `--agent-init`, `--md-scaffold`, `--profile`, and `--env-scan` provision a project for agent work. (Delegation attempt-budgets moved to the harness's native subagents; atticked.)
 - **Duties:** `--duty` / `--duties` / `--duty-done` — a first-class checklist for actions only the human may perform (key rotation, policy approvals, config edits). Agents file duties; they never close them.
 - **Proposals:** `--propose` / `--proposals` — the escape valve described in the contract above.
-
-### Loop engine
-
-`--loop "<objective>" --project <p>` starts a durable autonomous work loop that composes with Claude Code's `/loop`: each `--loop-tick` advances the objective under **three hard stops** (max iterations, no-progress detection, budget — wall-clock seconds or real USD) and a **two-key verify**: the loop cannot sign itself off; a reviewer records the semantic verdict via `--loop-signoff`. `--loop-status`, `--loop-list`, `--loop-resume`, `--loop-halt` manage the fleet. Halts checkpoint and quarantine — nothing is lost mid-objective.
 
 ### Awareness and accounting
 
 - **Activity stream:** `--emit-activity` appends durable JSONL events; `--watch` paints a live colored project tree from them (severity-ordered: delete > modify > delegate > think > read); `--watch-window` spawns it in a detached terminal.
+
 - **Intel tracker:** `--intel-pull` / `--intel-new` / `--intel-ack` / `--intel-status` — snapshot-on-change tracking of pinned Anthropic-official sources (any other host is refused before fetch). A daily timer retrieves; classification stays with the human/agent. Append-only; nothing is ever deleted.
-- **Cost:** `--cost` computes real-dollar spend from Claude Code session transcripts, per-model — and backs the loop engine's USD budget mode.
 - **Health:** `--selfcheck` verifies the tool's own persistence (registry path, skill link, git state, unpushed work, backup age); `--status` carries one-line summaries of intel, audit cadence, and open duties.
 - **Diagrams:** Mermaid views of the whole registry and every project tree, auto-regenerated on every mutating action and filesystem event. Diagrams are a function of state, not a snapshot.
 
@@ -114,11 +109,11 @@ The layer that makes AntCrate an AI-development boundary rather than just a CLI:
 
 **Required:** Bash 5+, jq, inotify-tools, git, mailx or sendmail, flock (util-linux). `--init` reports anything missing.
 
-**Optional:** `gh` for GitHub repo creation; `mmdc` / `plantuml` / `d2` for diagram rendering (Mermaid sources render inline on GitHub regardless); `cmake` + `g++` for the `antcrate-core` C++ helper; `bats-core` + `shellcheck` to run the test/lint suite — fetch both locally with `antcrate --tool-install bats` / `--tool-install shellcheck` (no root). `--ci` detects absent optional tools and skips their stage with a log line.
+**Optional:** `gh` for GitHub repo creation; `mmdc` / `plantuml` / `d2` for diagram rendering (Mermaid sources render inline on GitHub regardless); `bats-core` + `shellcheck` to run the test/lint suite — fetch both locally with `antcrate --tool-install bats` / `--tool-install shellcheck` (no root). `--ci` detects absent optional tools and skips their stage with a log line.
 
 ## CI
 
-`antcrate --ci` runs shellcheck on every `.sh` file, the full bats suite, and cmake build + ctest for the C++ core — fail-fast, exit 0 only when all pass. Every PASS records a snapshot to `~/.local/state/antcrate/ci-baseline.json`, which drives a periodic codebase-audit cadence surfaced in `--status`.
+`antcrate --ci` runs shellcheck on every `.sh` file and the full bats suite — fail-fast, exit 0 only when all pass. Every PASS records a snapshot to `~/.local/state/antcrate/ci-baseline.json`, which drives a periodic codebase-audit cadence surfaced in `--status`.
 
 The same `--ci` runs in GitHub Actions on every push and PR, and is available locally as an opt-in pre-commit hook:
 
@@ -128,7 +123,7 @@ git config core.hooksPath .githooks
 
 ## Status
 
-**756 bats tests** across 68 files, shellcheck clean, 17 doctest cases on the C++ core (`antcrate-core`, Wave 1: the compaction-canary subsystem). Baseline sha `70ac95a`.
+**660 bats tests** across 63 files, shellcheck clean. (The Wave-1 C++ canary core is preserved on the `attic` branch, audit 2026-07-10.) Baseline sha `70ac95a`.
 
 Solo-maintained, pre-1.0; the CLI surface may still shift before a v1 tag. The live work queue and append-only decision log are kept in the maintainers' local `dev/` records (not published). AntCrate develops AntCrate: this repo is itself a registered project, pushed via `antcrate --pp antcrate`, gated by its own hooks and CI.
 

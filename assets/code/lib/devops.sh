@@ -430,21 +430,6 @@ ac_devops_ci() {
     else
         ac_warn "ci: shellcheck not on PATH — skipping"
     fi
-    printf '\n=== antcrate-core (cmake/ctest) ===\n'
-    if ! command -v cmake >/dev/null 2>&1 || ! command -v g++ >/dev/null 2>&1; then
-        ac_warn "core: skip (cmake/g++ not found)"
-    else
-        local core_src="$src/core"
-        local core_build="$src/core/build"
-        if cmake -B "$core_build" -S "$core_src" -Wno-dev >/dev/null 2>&1 \
-            && cmake --build "$core_build" --parallel >/dev/null 2>&1 \
-            && ctest --test-dir "$core_build" --output-on-failure; then
-            printf 'core: clean\n'
-        else
-            printf 'core: FAILED\n'
-            rc=1
-        fi
-    fi
     printf '\n=== bats selftest ===\n'
     if command -v bats >/dev/null 2>&1; then
         if bats "$src/tests/"; then

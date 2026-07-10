@@ -26,7 +26,6 @@ src() {
         . '$LIB/log.sh'
         . '$LIB/registry.sh'
         . '$LIB/backup.sh'
-        . '$LIB/canary.sh'
         . '$LIB/safety.sh'
         . '$LIB/relocate.sh'
         $1

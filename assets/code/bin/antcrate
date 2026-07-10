@@ -93,21 +93,11 @@ LIB_DIR="$SCRIPT_DIR/../lib"
 # shellcheck disable=SC1091
 . "$LIB_DIR/lifecycle.sh"
 # shellcheck disable=SC1091
-. "$LIB_DIR/delegate.sh"
-# shellcheck disable=SC1091
-. "$LIB_DIR/canary.sh"
-# shellcheck disable=SC1091
-. "$LIB_DIR/obsidian.sh"
-# shellcheck disable=SC1091
 . "$LIB_DIR/hygiene.sh"
 # shellcheck disable=SC1091
 . "$LIB_DIR/quarantine.sh"
 # shellcheck disable=SC1091
-. "$LIB_DIR/loop.sh"
-# shellcheck disable=SC1091
 . "$LIB_DIR/selfcheck.sh"
-# shellcheck disable=SC1091
-. "$LIB_DIR/cost.sh"
 # shellcheck disable=SC1091
 . "$LIB_DIR/intel.sh"
 # shellcheck disable=SC1091
@@ -222,16 +212,6 @@ Commands:
                                       install picked hook template per slot,
                                       patch .gitignore for env safety. Idempotent.
                                       --dry-run prints the plan only.
-  --delegate <project> --key <key> --task "<desc>" [--file <relpath>]
-                                      hand a focused edit to <project>-cody:
-                                      increments cody-attempts.json[$key],
-                                      refuses on >= ANTCRATE_DELEGATE_THRESHOLD
-                                      (default 3) with exit 3, emits a
-                                      delegate event, prints the handoff block
-                                      Clyde feeds to Cody.
-  --delegate-reset <project> [--key <key>]
-                                      zero one key, or all if --key omitted
-  --delegate-status <project>         list non-zero attempt counters
   --bootstrap <project> [-m "<msg>"] [--with-remote [--public|--private]]
                                       one-liner: --git-init + default .gitignore + first commit;
                                       --with-remote chains --gh-init (private default)
@@ -262,8 +242,6 @@ Commands:
   --remove <project>                  PERMANENT delete (backup + approval; recovery via tarball only)
   --relocate <project> [--no-watch]   move a project out of ~/.claude into ~/projects (symlink left
                                       behind; --no-watch keeps the daemon off it)
-  --touch <project> <relpath>         create a file via wrapper (auto-mkdir parents); echoes abs path
-  --mkdir <project> <relpath>         create a directory via wrapper (mkdir -p); echoes abs path
   --logs [project] [lines]            tail wrapper/daemon/conflict logs (+git log if project)
   --diff <project>                    git status + diff via git -C (no cd)
   --selfsrc                           print the antcrate skill source root
@@ -285,9 +263,7 @@ Commands:
   --diagrams <project>                render docs/diagrams/*.{mmd,puml,d2} to .svg if tools present
   --registry-diagram [out]            emit Mermaid graph of the entire registry
   --tree-diagram <project> [out]      emit Mermaid graph of project's addressed tree
-  --obsidian-mirror [project] [--with-docs]
-                                      Mirror registry + project notes into the Obsidian vault (read-only)
-  --ci [--snapshot] [--source <path>] run shellcheck + cmake/ctest + bats; nonzero on any
+  --ci [--snapshot] [--source <path>] run shellcheck + bats; nonzero on any
                                       failure. PASS updates ci-baseline.json .last;
                                       --snapshot also sets .baseline (audit cadence);
                                       --source CIs an alternate tree (e.g. a worktree)
@@ -322,17 +298,6 @@ Commands:
   --hook-audit <project> [N]          unified view of three hook audit sinks (global JSONL filtered
                                       to project, per-project plain, human-readable hook log). N
                                       caps lines per sink (default 20). Read-only.
-  --loop "<objective>" --project <p>  start an autonomous objective loop
-                                      [--max-iter N] [--budget SECONDS|$DOLLARS];
-                                      integer budget = wall-clock seconds (legacy),
-                                      decimal or $-prefixed = real USD via --cost;
-                                      prints the /loop command to paste into Claude Code
-  --loop-tick <id>                    run one loop tick (driven by Claude /loop)
-  --loop-signoff <id> <pass|fail>     record Claudia's semantic verdict
-  --loop-status <id> [--porcelain]    show one loop's state
-  --loop-list                         list all loops
-  --loop-resume <id>                  resume a halted loop (emits context)
-  --loop-halt <id> [--reason <r>]     manually halt a loop (checkpoint+quarantine)
   --quarantine-list <project>         list quarantine entries for a project (read-only, DESC by timestamp)
   --quarantine-restore <project> --at <ts>
                                       restore a quarantined entry to its original_path;
@@ -346,9 +311,6 @@ Commands:
   --selfcheck [--quiet]               self-source persistence health (path, skill link,
                                       git, unpushed, uncommitted, backup age);
                                       exit 0 ok / 1 critical / 2 warnings
-  --cost [--since <ts|epoch>]         real-dollar spend from Claude Code session
-         [--session <file>]           transcripts (~/.claude/projects); per-model
-         [--porcelain]                table + total; --porcelain prints bare USD
   --intel-pull [--source <id>]        fetch pinned Anthropic-only sources; snapshot +
                [--quiet]              unread row on change (exit 2 on non-Anthropic host)
   --intel-new [--json]                unread intel items (new minus acked)
@@ -559,7 +521,6 @@ fi
 
 NAME="" DOMAIN="" META="" REL="" EXPAND="" RESUME="" AUTO_YES="" GH_VIS="private" RESTORE_TS="" PROPOSE_DESC=""
 ADDR_CODE="" RENAME_NEW="" LOGS_LINES="50" CMD_ARGS=() RELPATH="" REG_PATH="" DIAG_OUT=""
-LOOP_OBJECTIVE="" LOOP_ID="" LOOP_VERDICT="" LOOP_NOTE="" LOOP_MAX_ITER="" LOOP_BUDGET="" LOOP_PORCELAIN="" LOOP_REASON=""
 COMMIT_MSG="" COMMIT_MODE=""
 TOOL_NAME="" TOOL_FORCE="" SCAN_PATH=""
 EVENT_KIND="" EVENT_TTL="" EVENT_LABEL="" EVENT_AGENT=""
@@ -573,7 +534,6 @@ HOOK_WITH_STASH="" HOOK_NO_TRACE=""
 HOOK_BYPASS_REASON=""
 MD_FORCE=""
 SELFCHECK_QUIET=""
-COST_SINCE="" COST_SESSION="" COST_PORCELAIN=""
 INTEL_SOURCE="" INTEL_QUIET="" INTEL_JSON="" INTEL_SHA=""
 DUTY_TEXT="" DUTY_N="" DUTY_TYPE=""
 FETCH_URL="" FETCH_NAME=""
@@ -582,9 +542,6 @@ HOOKSMOKE_ARGS=()
 PROFILE_RAW=""
 ENV_APPLY=""
 HOOK_AUTO_DRY=""
-DELEGATE_KEY="" DELEGATE_TASK="" DELEGATE_FILE=""
-CANARY_TTL="" CANARY_MAX="" CANARY_WITH_CLAUDEMD="" CANARY_TOKEN=""
-OBSIDIAN_PROJECT="" OBSIDIAN_WITH_DOCS=0
 QUARANTINE_PROJECT="" QUARANTINE_TS=""
 RELOCATE_NO_WATCH=0
 ACTION=""
@@ -596,15 +553,6 @@ while (( $# > 0 )); do
         --selfcheck)
             ACTION="selfcheck"
             if [[ "${2:-}" == "--quiet" ]]; then SELFCHECK_QUIET="--quiet"; shift 2; else shift; fi ;;
-        --cost)
-            ACTION="cost"; shift
-            while [[ "${1:-}" == "--since" || "${1:-}" == "--session" || "${1:-}" == "--porcelain" ]]; do
-                case "$1" in
-                    --since)     COST_SINCE="${2:-}"; shift 2 ;;
-                    --session)   COST_SESSION="${2:-}"; shift 2 ;;
-                    --porcelain) COST_PORCELAIN=1; shift ;;
-                esac
-            done ;;
         --intel-pull)
             ACTION="intel-pull"; shift
             while [[ "${1:-}" == "--source" || "${1:-}" == "--quiet" ]]; do
@@ -728,34 +676,6 @@ while (( $# > 0 )); do
                     *)         break ;;
                 esac
             done ;;
-        --delegate)
-            ACTION="delegate"; NAME="${2:-}"; shift
-            [[ $# -gt 0 ]] && shift
-            DELEGATE_KEY=""; DELEGATE_TASK=""; DELEGATE_FILE=""
-            while (( $# > 0 )); do
-                case "${1:-}" in
-                    --key)   DELEGATE_KEY="${2:-}";  shift 2 ;;
-                    --task)  DELEGATE_TASK="${2:-}"; shift 2 ;;
-                    --file)  DELEGATE_FILE="${2:-}"; shift 2 ;;
-                    --*)     break ;;
-                    *)       break ;;
-                esac
-            done ;;
-        --delegate-reset)
-            ACTION="delegate-reset"; NAME="${2:-}"; shift
-            [[ $# -gt 0 ]] && shift
-            DELEGATE_KEY=""
-            while (( $# > 0 )); do
-                case "${1:-}" in
-                    --key) DELEGATE_KEY="${2:-}"; shift 2 ;;
-                    --*)   break ;;
-                    *)     break ;;
-                esac
-            done ;;
-        --delegate-status)
-            ACTION="delegate-status"; NAME="${2:-}"
-            if [[ $# -ge 2 ]]; then shift 2
-            else shift; fi ;;
         --bootstrap)
             ACTION="bootstrap"; NAME="${2:-}"; shift 2
             while (( $# > 0 )); do
@@ -834,14 +754,6 @@ while (( $# > 0 )); do
             ACTION="relocate"; NAME="${2:-}"
             if [[ $# -ge 2 ]]; then shift 2; else shift; fi
             while [[ "${1:-}" == "--no-watch" ]]; do RELOCATE_NO_WATCH=1; shift; done ;;
-        --touch)             ACTION="touch"; NAME="${2:-}"; RELPATH="${3:-}"
-                             if [[ $# -ge 3 ]]; then shift 3
-                             elif [[ $# -ge 2 ]]; then shift 2
-                             else shift; fi ;;
-        --mkdir)             ACTION="mkdir"; NAME="${2:-}"; RELPATH="${3:-}"
-                             if [[ $# -ge 3 ]]; then shift 3
-                             elif [[ $# -ge 2 ]]; then shift 2
-                             else shift; fi ;;
         --logs)
             ACTION="logs"; NAME="${2:-}"
             if [[ $# -ge 3 && "${3:-}" =~ ^[0-9]+$ ]]; then LOGS_LINES="$3"; shift 3
@@ -862,21 +774,6 @@ while (( $# > 0 )); do
             if [[ -n "${1:-}" && "${1:0:2}" != "--" ]]; then SCAN_PATH="$1"; shift; fi ;;
         --selfinstall)       ACTION="selfinstall"; shift ;;
         --install-from-source) ACTION="install-from-source"; shift ;;
-        --canary-init)
-            ACTION="canary-init"; shift
-            CANARY_TTL=""; CANARY_MAX=""; CANARY_WITH_CLAUDEMD=""
-            while (( $# > 0 )); do
-                case "${1:-}" in
-                    --ttl-seconds)     CANARY_TTL="$2"; shift 2 ;;
-                    --max-invocations) CANARY_MAX="$2"; shift 2 ;;
-                    --with-claudemd)   CANARY_WITH_CLAUDEMD="--with-claudemd"; shift ;;
-                    --*) break ;;
-                    *)   shift ;;
-                esac
-            done ;;
-        --canary-verify)      ACTION="canary-verify"; CANARY_TOKEN="${2:-}"; shift 2 ;;
-        --canary-status)      ACTION="canary-status"; shift ;;
-        --canary-gate-check)  ACTION="canary-gate-check"; shift ;;
         --selftest)
             ACTION="selftest"
             if [[ $# -ge 2 && -n "${2:-}" && "${2:0:2}" != "--" ]]; then NAME="$2"; shift 2
@@ -892,18 +789,6 @@ while (( $# > 0 )); do
             if [[ $# -ge 3 && -n "${3:-}" && "${3:0:2}" != "--" ]]; then DIAG_OUT="$3"; shift 3
             elif [[ $# -ge 2 ]]; then shift 2
             else shift; fi ;;
-        --obsidian-mirror)
-            ACTION="obsidian-mirror"
-            if [[ $# -ge 2 && -n "${2:-}" && "${2:0:2}" != "--" ]]; then
-                OBSIDIAN_PROJECT="$2"; shift 2
-            else
-                shift
-            fi
-            if [[ $# -ge 1 && "$1" == "--with-docs" ]]; then
-                OBSIDIAN_WITH_DOCS=1; shift
-            fi
-            ;;
-
         --ci)
             ACTION="ci"; shift
             while [[ "${1:-}" == "--snapshot" || "${1:-}" == "--source" ]]; do
@@ -1006,18 +891,6 @@ while (( $# > 0 )); do
             if [[ $# -gt 0 && "${1:0:2}" != "--" ]]; then NAME="$1"; shift; fi ;;
         --public)            GH_VIS="public"; shift ;;
         --private)           GH_VIS="private"; shift ;;
-        --loop)              ACTION="loop-init"; LOOP_OBJECTIVE="${2:-}"; shift 2 ;;
-        --loop-tick)         ACTION="loop-tick"; LOOP_ID="${2:-}"; shift 2 ;;
-        --loop-signoff)      ACTION="loop-signoff"; LOOP_ID="${2:-}"; LOOP_VERDICT="${3:-}"; LOOP_NOTE="${4:-}"; shift 3 ;;
-        --loop-status)       ACTION="loop-status"; LOOP_ID="${2:-}"; shift 2 ;;
-        --loop-list)         ACTION="loop-list"; shift ;;
-        --loop-resume)       ACTION="loop-resume"; LOOP_ID="${2:-}"; shift 2 ;;
-        --loop-halt)         ACTION="loop-halt"; LOOP_ID="${2:-}"; shift 2 ;;
-        --project)           NAME="${2:-}"; shift 2 ;;
-        --max-iter)          LOOP_MAX_ITER="${2:-}"; shift 2 ;;
-        --budget)            LOOP_BUDGET="${2:-}"; shift 2 ;;
-        --porcelain)         LOOP_PORCELAIN="1"; shift ;;
-        --reason)            LOOP_REASON="${2:-}"; shift 2 ;;
         --pipe-file)         ACTION="pipe-file"; NAME="$2"; shift 2 ;;
         --domain)            DOMAIN="$2"; shift 2 ;;
         --meta)              META="$2"; shift 2 ;;
@@ -1048,12 +921,6 @@ case "$ACTION" in
         [[ -z "$NAME" || -z "$INTEL_SHA" ]] && { ac_error "--intel-ack requires <source_id> <sha256>"; exit 2; }
         ac_intel_ack "$NAME" "$INTEL_SHA" ;;
     intel-status) ac_intel_status ;;
-    cost)
-        COST_ARGS=()
-        [[ -n "$COST_SINCE" ]]     && COST_ARGS+=(--since "$COST_SINCE")
-        [[ -n "$COST_SESSION" ]]   && COST_ARGS+=(--session "$COST_SESSION")
-        [[ -n "$COST_PORCELAIN" ]] && COST_ARGS+=(--porcelain)
-        ac_cost_report "${COST_ARGS[@]}" ;;
     list)      cmd_list ;;
     info)
         [[ -z "$NAME" ]] && { ac_error "--info requires <project>"; exit 2; }
@@ -1178,17 +1045,6 @@ case "$ACTION" in
         ha_args=( "$NAME" )
         [[ -n "$HOOK_AUTO_DRY" ]] && ha_args+=( "$HOOK_AUTO_DRY" )
         ac_with_lock ac_hook_autoinstall "${ha_args[@]}" ;;
-    delegate)
-        [[ -z "$NAME" ]]          && { ac_error "--delegate requires <project>"; exit 2; }
-        [[ -z "$DELEGATE_KEY" ]]  && { ac_error "--delegate requires --key <key>"; exit 2; }
-        [[ -z "$DELEGATE_TASK" ]] && { ac_error "--delegate requires --task <description>"; exit 2; }
-        ac_with_lock ac_delegate_run "$NAME" "$DELEGATE_KEY" "$DELEGATE_TASK" "$DELEGATE_FILE" ;;
-    delegate-reset)
-        [[ -z "$NAME" ]] && { ac_error "--delegate-reset requires <project>"; exit 2; }
-        ac_with_lock ac_delegate_reset "$NAME" "$DELEGATE_KEY" ;;
-    delegate-status)
-        [[ -z "$NAME" ]] && { ac_error "--delegate-status requires <project>"; exit 2; }
-        ac_delegate_status "$NAME" ;;
     bootstrap)
         [[ -z "$NAME" ]] && { ac_error "--bootstrap requires <project>"; exit 2; }
         ac_with_lock ac_bootstrap "$NAME" "$COMMIT_MSG" "$BOOTSTRAP_WITH_REMOTE" "$GH_VIS"
@@ -1275,14 +1131,6 @@ case "$ACTION" in
         relocate_args=( "$NAME" )
         (( RELOCATE_NO_WATCH == 1 )) && relocate_args+=( --no-watch )
         ac_with_lock ac_relocate "${relocate_args[@]}" ;;
-    touch)
-        [[ -z "$NAME" || -z "$RELPATH" ]] && { ac_error "--touch requires <project> <relpath>"; exit 2; }
-        ac_devops_touch "$NAME" "$RELPATH"
-        ac_diagrams_auto_regen "$NAME" ;;
-    mkdir)
-        [[ -z "$NAME" || -z "$RELPATH" ]] && { ac_error "--mkdir requires <project> <relpath>"; exit 2; }
-        ac_devops_mkdir "$NAME" "$RELPATH"
-        ac_diagrams_auto_regen "$NAME" ;;
     logs)      ac_devops_logs "$NAME" "$LOGS_LINES" ;;
     diff)      ac_devops_diff "$NAME" ;;
     selfsrc)   ac_devops_selfsrc ;;
@@ -1308,14 +1156,6 @@ case "$ACTION" in
         [[ -z "$NAME" ]] && { ac_error "--tree-diagram requires <project>"; exit 2; }
         ac_registry_has "$NAME" || { ac_error "unknown project: $NAME"; exit 1; }
         ac_diagrams_tree_emit "$NAME" "$DIAG_OUT" ;;
-    obsidian-mirror)
-        if [[ "$OBSIDIAN_WITH_DOCS" == "1" ]]; then
-            ac_obsidian_mirror "$OBSIDIAN_PROJECT" --with-docs
-        else
-            ac_obsidian_mirror "$OBSIDIAN_PROJECT"
-        fi
-        ;;
-
     ci)
         CI_ARGS=()
         [[ -n "$CI_SNAPSHOT" ]] && CI_ARGS+=(--snapshot)
@@ -1373,35 +1213,6 @@ case "$ACTION" in
     deregister)
         [[ -z "$NAME" ]] && { ac_error "--deregister requires <project>"; exit 2; }
         ac_hygiene_deregister "$NAME" ;;
-    canary-init)
-        ac_canary_init ${CANARY_TTL:+--ttl-seconds "$CANARY_TTL"} \
-                       ${CANARY_MAX:+--max-invocations "$CANARY_MAX"} \
-                       $CANARY_WITH_CLAUDEMD ;;
-    canary-verify)
-        [[ -z "$CANARY_TOKEN" ]] && { ac_error "--canary-verify requires <token>"; exit 2; }
-        ac_canary_verify "$CANARY_TOKEN" ;;
-    canary-status)      ac_canary_status ;;
-    canary-gate-check)  ac_canary_gate_check ;;
-    loop-init)
-        [[ -z "$NAME" ]] && { ac_error "--loop requires --project <p>"; exit 2; }
-        ac_loop_init "$LOOP_OBJECTIVE" "$NAME" "${LOOP_MAX_ITER:-}" "${LOOP_BUDGET:-}" ;;
-    loop-tick)
-        [[ -z "$LOOP_ID" ]] && { ac_error "--loop-tick requires <id>"; exit 2; }
-        ac_loop_tick "$LOOP_ID" ;;
-    loop-signoff)
-        [[ -z "$LOOP_ID" || -z "$LOOP_VERDICT" ]] && { ac_error "--loop-signoff requires <id> <pass|fail>"; exit 2; }
-        ac_loop_signoff "$LOOP_ID" "$LOOP_VERDICT" "$LOOP_NOTE" ;;
-    loop-status)
-        [[ -z "$LOOP_ID" ]] && { ac_error "--loop-status requires <id>"; exit 2; }
-        if [[ -n "$LOOP_PORCELAIN" ]]; then ac_loop_status "$LOOP_ID" --porcelain; else ac_loop_status "$LOOP_ID"; fi ;;
-    loop-list)
-        ac_loop_list ;;
-    loop-resume)
-        [[ -z "$LOOP_ID" ]] && { ac_error "--loop-resume requires <id>"; exit 2; }
-        ac_loop_resume "$LOOP_ID" ;;
-    loop-halt)
-        [[ -z "$LOOP_ID" ]] && { ac_error "--loop-halt requires <id>"; exit 2; }
-        ac_loop_halt "$LOOP_ID" "${LOOP_REASON:-manual}" ;;
     pipe-file) cmd_pipe_file "$NAME" ;;
     "")        usage; exit 2 ;;
 esac

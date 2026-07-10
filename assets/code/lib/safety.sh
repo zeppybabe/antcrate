@@ -94,19 +94,9 @@ ac_safety_guard_destructive() {
     local project="$1" op="$2" target="$3"
     AC_LAST_BACKUP_PATH=""
 
-    # 0. compaction-canary gate — fail-OPEN when the core binary is absent
-    # (rc 2): an unbuilt optional C helper must never block recovery-backed
-    # ops (audit 2026-07-10). Stale context (rc 4) still blocks.
-    if [[ "${ANTCRATE_CANARY_DISABLE:-0}" != "1" ]]; then
-        local _canary_rc=0
-        ac_canary_gate_check || _canary_rc=$?
-        if (( _canary_rc == 2 )); then
-            ac_warn "safety: canary core missing — gate skipped (fail-open)"
-        elif (( _canary_rc != 0 )); then
-            ac_error "safety: refusing $op — compaction canary gate failed (see above)"
-            return 1
-        fi
-    fi
+    # (The Wave-1 compaction-canary gate lived here until the 2026-07-10 audit
+    # atticked it: context summaries made compaction-loss a non-threat, and the
+    # gate had silently blocked ALL destructive ops on core-less installs.)
 
     # 1. path must be inside allowed zones
     ac_safety_guard "$op" "$target" || return 1

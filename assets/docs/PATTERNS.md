@@ -30,9 +30,7 @@ Goal of this file: Claude Code (or any agent) reads this **before** reaching for
 | Restore an archived project | `antcrate --unarchive <project>` | Backup + approval; reads `previous_parent` and moves back to `~/projects/<previous_parent>/<name>`. |
 | Permanently delete a project | `antcrate --remove <project>` | Backup + approval + loud "PERMANENT DELETE" banner. `rm -rf` + registry purge. Recovery only via the printed backup tarball. Prefer `--archive` if uncertain. |
 | List ghost entries (registered but path gone) | `antcrate --ghosts` | Read-only. Lists every registry entry whose on-disk `path` no longer exists. Run before a hygiene pass. |
-| Drop a ghost registry entry (registry-only) | `antcrate --deregister <project>` | For a GHOST only — capture-first to `~/.antcrate/deregistered/<project>/<ts>/` (`entry.json`+`registry.json`+`manifest.json`), then `ac_registry_delete`. **REFUSES (exit 1) if the path still exists** → use `--archive` instead. No `rm` of user data; not the canary/safety-guard path. See AGENTS.md #19 (three fates). |
-| Create a file inside a project | `antcrate --touch <project> <relpath>` | Auto-mkdirs parents. Refuses overwrite, absolute paths, `..` traversal. Stdout = absolute path (composes with `Write` / `$EDITOR`). |
-| Create a directory inside a project | `antcrate --mkdir <project> <relpath>` | `mkdir -p`. Same path-safety rules as `--touch`. Stdout = absolute path. |
+| Drop a ghost registry entry (registry-only) | `antcrate --deregister <project>` | For a GHOST only — capture-first to `~/.antcrate/deregistered/<project>/<ts>/` (`entry.json`+`registry.json`+`manifest.json`), then `ac_registry_delete`. **REFUSES (exit 1) if the path still exists** → use `--archive` instead. No `rm` of user data; not the safety-guard path. See AGENTS.md #19 (three fates). |
 
 ## Anchor & address (replaces `cd`)
 
@@ -110,7 +108,7 @@ AntCrate develops AntCrate. These flags route the build/test/edit loop through t
 
 Mermaid `.mmd` files render inline on GitHub without any tool installed — that's the default. SVG rendering is opt-in via `mmdc -i in.mmd -o out.svg`.
 
-**Auto-regen.** Every mutating wrapper action (`--start`, `--register`, `--branch`, `--link`, `--resume --expand`, `--rename`, `--archive`, `--unarchive`, `--remove`, `--touch`, `--mkdir`, `--restore`) silently refreshes `~/.antcrate/registry.mmd` and (when applicable) `<project>/docs/diagrams/tree.mmd` after the operation succeeds. You normally never need to call `--registry-diagram` or `--tree-diagram` by hand — they exist as a manual override / repair path.
+**Auto-regen.** Every mutating wrapper action (`--start`, `--register`, `--branch`, `--link`, `--resume --expand`, `--rename`, `--archive`, `--unarchive`, `--remove`, `--restore`) silently refreshes `~/.antcrate/registry.mmd` and (when applicable) `<project>/docs/diagrams/tree.mmd` after the operation succeeds. You normally never need to call `--registry-diagram` or `--tree-diagram` by hand — they exist as a manual override / repair path.
 
 Disable with `export ANTCRATE_AUTO_DIAGRAMS=0` (e.g. for batch scripted mutations where you want a single explicit regen at the end). Failures are swallowed: a diagram refresh never blocks the action that triggered it.
 
@@ -131,16 +129,6 @@ Disable with `export ANTCRATE_AUTO_DIAGRAMS=0` (e.g. for batch scripted mutation
 
 Findings become proposals via the `intel` skill — never direct code/config edits (Bash owns retrieval, Claude owns judgment).
 
-## Safety canary (Wave 1 compaction-canary gate — see AGENTS.md rule #15)
-
-| Intent | Command | Notes |
-|---|---|---|
-| Initialize canary state | `antcrate --canary-init [--ttl-seconds N] [--max-invocations N] [--with-claudemd]` | Generates 32-hex token, writes `~/.antcrate/canary/state.json`. With `--with-claudemd`, interactively patches the `__CANARY_TOKEN__` placeholder in `~/CLAUDE.md`. Without it, prints the snippet to add manually. Defaults: TTL=3600s, MAX=30 invocations. |
-| Verify canary (after re-reading rules) | `antcrate --canary-verify <TOKEN>` | Bumps `last_verified_ts`, resets `invocations_since_verify`. Required when the gate fires. Token lives in `~/CLAUDE.md` "## Safety Canary" section. |
-| Show canary state | `antcrate --canary-status` | Human-readable: initialized?, masked token, last verify, invocations / max, TTL. |
-| Debug: standalone gate check | `antcrate --canary-gate-check` | Exit 0 fresh, 4 stale, 2 missing state. Increments invocation counter. |
-
-The gate runs inside `ac_safety_guard_destructive` (rule #1 chokepoint) — so every destructive op (`--rename`, `--archive`, `--remove`, `--cleanup --apply`, `--ingest` supersedes, `--resume --expand` subbranch) is gated. Opt-out via `ANTCRATE_CANARY_DISABLE=1` is for CI/bats only; agents must not flip it (AGENTS.md rule #15).
 
 ## Hooks (full management surface — see `HOOK_PLAN.md` for design history)
 
@@ -161,15 +149,6 @@ The shipped opt-in pre-commit (`.githooks/pre-commit` in the antcrate
 repo) runs `antcrate --ci` and writes to that log. Enable with
 `git config core.hooksPath .githooks` per-clone.
 
-## Loop engine (durable objectives — composes with Claude Code `/loop`)
-
-| Intent | Command | Notes |
-|---|---|---|
-| Start an autonomous objective loop | `antcrate --loop "<objective>" --project <p> [--max-iter N] [--budget SECONDS\|$DOLLARS]` | Integer budget = wall-clock seconds; decimal or `$`-prefixed = real USD via `--cost`. Prints the `/loop` command to paste into Claude Code. |
-| Advance one iteration | `antcrate --loop-tick <id>` | Driven by `/loop`. Three hard stops: max-iter, no-progress, budget. |
-| Record the reviewer verdict | `antcrate --loop-signoff <id> <pass\|fail>` | Two-key verify — the loop never signs itself off. |
-| Inspect | `antcrate --loop-status <id> [--porcelain]` / `antcrate --loop-list` | One loop / all loops. |
-| Resume or halt | `antcrate --loop-resume <id>` / `antcrate --loop-halt <id> [--reason <r>]` | Halt checkpoints + quarantines; resume re-emits context. |
 
 ## Filename triggers (Positional Extension Schema)
 
@@ -298,17 +277,17 @@ Hooks backing this layer (wired in `~/.claude/settings.json`): `session-budget-g
 AntCrate is a **mediator, not a dominator**. It supplements tools so work can run locally; when a plugin/MCP already does that, AntCrate stays out of the way. It only steps in when something is missing or an AntCrate guideline is at stake. Every external surface sorts into one of three buckets:
 
 - **🟢 LET IT** — pure capability that touches no AntCrate invariant. Use freely; no antcrate involvement. Examples: `context7` (live library docs), `clangd-lsp` + the `cpp-check` skill (C++ for `antcrate-core`), `security-guidance` / `security-review`, `superpowers` method-skills (TDD, brainstorming, systematic-debugging — the *how*; AGENTS.md is the *what-you-may-touch*), `code-review` (cloud, opt-in deeper pass — `--ci` stays the must-pass LOCAL gate), `claude-code-setup`.
-- **🔵 FEED IT** — AntCrate generates, the surface renders; AntCrate stays the source of truth. **Obsidian** is the local read view-layer: `antcrate --obsidian-mirror [project] [--with-docs]` mirrors the registry graph + per-project tree/ledger/docs into `<vault>/AntCrate/` (one-way, read-only, never writes back). **Google Drive** is the research/producer side of `BUNDLE_SPEC` (proposal `drive-bundle`).
+- **🔵 FEED IT** — AntCrate generates, the surface renders; AntCrate stays the source of truth. (Obsidian mirroring was atticked 2026-07-10 — branch `attic`.) **Google Drive** is the research/producer side of `BUNDLE_SPEC` (proposal `drive-bundle`).
 - **🟡 GATE IT** — overlaps an AntCrate guideline, so the gate-bearing flag stays mandatory **for registered projects** (AGENTS.md rule #18). The `commit-commands` + `github` plugins overlap `--commit` / `--pp`: those flags own the commit/push step for any registered project (secret-guard, push-triage, private-default, Gateway-Law). The plugins handle non-registered trees + read-only GitHub queries.
 
 When a new plugin/MCP arrives, classify it into one of these buckets before reaching for it; if it would touch a registered project's structure, commits, or destructive ops, it's GATE-IT and the antcrate flag wins.
 
 ## Quick index by verb
 
-- **see**: `--status`, `--list`, `--map`, `--logs`, `--diff`, `--proposals`, `--registry-diagram`, `--tree-diagram`, `--watch`, `--watch-smoke`, `--watch-window`, `--selfcheck`, `--cost`, `--intel-new`, `--intel-status`
-- **make**: `--start`, `--register`, `--branch`, `--link`, `--gh-init`, `--touch`, `--mkdir`, `--diagrams`
+- **see**: `--status`, `--list`, `--map`, `--logs`, `--diff`, `--proposals`, `--registry-diagram`, `--tree-diagram`, `--watch`, `--watch-smoke`, `--watch-window`, `--selfcheck`, `--intel-new`, `--intel-status`
+- **make**: `--start`, `--register`, `--branch`, `--link`, `--gh-init`, `--diagrams`
 - **point at**: `--addr`, `--anchor`, `--in`
-- **change**: `--rename`, `--resume --expand`, `--restore`, `--touch`, `--mkdir`
+- **change**: `--rename`, `--resume --expand`, `--restore`
 - **soft-delete / restore**: `--archive`, `--unarchive`
 - **hard-delete**: `--remove` (backup-only recovery)
 - **safeguard**: `--backup`, `--backups`, `--restore`

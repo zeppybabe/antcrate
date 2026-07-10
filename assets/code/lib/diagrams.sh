@@ -252,11 +252,6 @@ ac_diagrams_auto_regen() {
         fi
     fi
 
-    # Trigger obsidian auto-regen if available
-    if command -v ac_obsidian_auto_regen >/dev/null 2>&1; then
-        ac_obsidian_auto_regen "$project" || true
-    fi
-
     return 0
 }
 
