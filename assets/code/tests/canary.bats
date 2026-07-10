@@ -6,6 +6,10 @@ setup() {
     LIB="$BATS_TEST_DIRNAME/../lib"
     export ANTCRATE_HOME="$BATS_TEST_TMPDIR/.antcrate"
     export ANTCRATE_REGISTRY="$ANTCRATE_HOME/registry.json"
+    # pin the backup store too — the guard tests create real tarballs and were
+    # leaking canary_ok/disable_proj into the live XDG state dir (caught by the
+    # st backup-posture line, Plan 2)
+    export ANTCRATE_BACKUP_DIR="$ANTCRATE_HOME/backups"
     export ANTCRATE_ROOT="$BATS_TEST_TMPDIR/projects"
     export ANTCRATE_LOG_LEVEL="error"
     mkdir -p "$ANTCRATE_HOME" "$ANTCRATE_ROOT"
