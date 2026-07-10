@@ -118,6 +118,8 @@ LIB_DIR="$SCRIPT_DIR/../lib"
 . "$LIB_DIR/tooling.sh"
 # shellcheck disable=SC1091
 . "$LIB_DIR/scan.sh"
+# shellcheck disable=SC1091
+. "$LIB_DIR/pp.sh"
 
 # ANTCRATE_HOME / ANTCRATE_ROOT and all other path vars are set by paths.sh
 # (sourced first), which honors $XDG_*_HOME and defaults to ~/Projects.
@@ -381,6 +383,9 @@ cmd_pp() {
     fi
     local p; p=$(ac_registry_get "$project" path)
     [[ -d "$p" ]] || { ac_error "pp: path missing: $p"; exit 1; }
+
+    # the bundled panel: full situational read before any action (Plan 2)
+    ac_pp_panel "$project" "$p"
 
     if [[ -n "$(git -C "$p" status --porcelain 2>/dev/null)" ]]; then
         if [[ "$auto_yes" != "-y" ]] \
@@ -1008,7 +1013,10 @@ case "$ACTION" in
     list)      cmd_list ;;
     info)
         [[ -z "$NAME" ]] && { ac_error "--info requires <project>"; exit 2; }
-        ac_registry_info "$NAME" ;;
+        ac_registry_info "$NAME"
+        # read-only sibling of the pp panel (Plan 2): same dense read, no push
+        INFO_PATH=$(ac_registry_get "$NAME" path 2>/dev/null) || INFO_PATH=""
+        [[ -n "$INFO_PATH" ]] && ac_pp_panel "$NAME" "$INFO_PATH" ;;
     start)
         [[ -z "$DOMAIN" ]] && { ac_error "--start requires --domain"; exit 2; }
         ac_with_lock ac_action_start "$NAME" "$DOMAIN" "${META_VALUES[@]}"
