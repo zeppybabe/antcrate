@@ -110,6 +110,8 @@ LIB_DIR="$SCRIPT_DIR/../lib"
 . "$LIB_DIR/scan.sh"
 # shellcheck disable=SC1091
 . "$LIB_DIR/pp.sh"
+# shellcheck disable=SC1091
+. "$LIB_DIR/rag.sh"
 
 # ANTCRATE_HOME / ANTCRATE_ROOT and all other path vars are set by paths.sh
 # (sourced first), which honors $XDG_*_HOME and defaults to ~/Projects.
@@ -149,6 +151,7 @@ Compact form (audit 2026-07-10; --flags below remain valid one release):
   bak <p> [ls|restore] · duty [add|done N|clear|ls] · duties
   hook <sub> <p> · self <check|test|ci|src|edit|install> · tool <install|ls|path>
   gc <p>|ghosts · mv <old> <new> · arc [-u] <p> · rm <p>
+  rag <init|index|q> <p> ["<query>" [n]]  deterministic FTS5/BM25 retrieval for agents
   in <p> -- <cmd> · map · watch · scan · fetch · info · list · diff · logs · help
   All prompts are non-interactive-safe: no -y / PREAPPROVED needed; destructive
   ops back up first and file a review duty when no human is present.
@@ -484,6 +487,12 @@ if [[ "${1:0:1}" != "-" ]]; then
                     *)       set -- --duty "$@" ;;
                 esac ;;
         duties) set -- --duties "$@" ;;
+        rag)    case "${1:-}" in
+                    init)  shift; set -- --rag-init "$@" ;;
+                    index) shift; set -- --rag-index "$@" ;;
+                    q)     shift; set -- --rag-q "$@" ;;
+                    *)     ac_error "rag: unknown sub '${1:-}' (init|index|q)"; exit 2 ;;
+                esac ;;
         hook)   case "${1:-}" in
                     ls)      shift; set -- --hooks "$@" ;;
                     log)     shift; set -- --hook-log "$@" ;;
@@ -543,6 +552,7 @@ PROFILE_RAW=""
 ENV_APPLY=""
 HOOK_AUTO_DRY=""
 QUARANTINE_PROJECT="" QUARANTINE_TS=""
+RAG_QUERY="" RAG_LIMIT=""
 RELOCATE_NO_WATCH=0
 ACTION=""
 while (( $# > 0 )); do
@@ -891,6 +901,13 @@ while (( $# > 0 )); do
             if [[ $# -gt 0 && "${1:0:2}" != "--" ]]; then NAME="$1"; shift; fi ;;
         --public)            GH_VIS="public"; shift ;;
         --private)           GH_VIS="private"; shift ;;
+        --rag-init)          ACTION="rag-init"; NAME="${2:-}"; shift 2 ;;
+        --rag-index)         ACTION="rag-index"; NAME="${2:-}"; shift 2 ;;
+        --rag-q)
+            ACTION="rag-query"; NAME="${2:-}"; RAG_QUERY="${3:-}"
+            if [[ $# -ge 4 && "${4:-}" =~ ^[0-9]+$ ]]; then RAG_LIMIT="$4"; shift 4
+            elif [[ $# -ge 3 ]]; then shift 3
+            else shift $#; fi ;;
         --pipe-file)         ACTION="pipe-file"; NAME="$2"; shift 2 ;;
         --domain)            DOMAIN="$2"; shift 2 ;;
         --meta)              META="$2"; shift 2 ;;
@@ -1213,6 +1230,15 @@ case "$ACTION" in
     deregister)
         [[ -z "$NAME" ]] && { ac_error "--deregister requires <project>"; exit 2; }
         ac_hygiene_deregister "$NAME" ;;
+    rag-init)
+        [[ -z "$NAME" ]] && { ac_error "rag init requires <project>"; exit 2; }
+        ac_rag_init "$NAME" ;;
+    rag-index)
+        [[ -z "$NAME" ]] && { ac_error "rag index requires <project>"; exit 2; }
+        ac_rag_index "$NAME" ;;
+    rag-query)
+        [[ -z "$NAME" || -z "$RAG_QUERY" ]] && { ac_error "rag q requires <project> \"<query>\""; exit 2; }
+        ac_rag_query "$NAME" "$RAG_QUERY" "${RAG_LIMIT:-8}" ;;
     pipe-file) cmd_pipe_file "$NAME" ;;
     "")        usage; exit 2 ;;
 esac

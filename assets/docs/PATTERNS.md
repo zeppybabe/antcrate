@@ -51,6 +51,16 @@ The anchor mechanism gives every project (and every file in it) a stable handle 
 
 Every command is TTY-free: no `-y`, no `ANTCRATE_COMMIT_PREAPPROVED=1` / `ANTCRATE_REMOVAL_PREAPPROVED=1` prefixes (they still work this release, then retire with the `--flag` aliases). Commits/`pp` show the Gateway preview and proceed; destructive ops back up first, proceed, and append a `[command]` review duty (`antcrate duties`) when no human is at the terminal. A TTY still gets the y/N prompt. Prefer the compact word forms (`antcrate pp <p>`, `antcrate duty ls`, `antcrate self test`) over `--flags`.
 
+## Retrieval (rag — read BEFORE grepping a big tree cold)
+
+Deterministic FTS5/BM25 over project text: zero keys, zero models, reproducible ranking. Bash owns retrieval; Claude owns judgment. No MCP needed — the Bash tool is the integration.
+
+| Intent | Command | Notes |
+|---|---|---|
+| Provision a project's retrieval db | `antcrate rag init <project>` | One sqlite db per project under the XDG data dir (`rag/<p>.db`). |
+| (Re)index after edits | `antcrate rag index <project>` | Incremental (mtime-driven); noise dirs pruned, text-only, 1MB cap, 60-line chunks with overlap; drops vanished files. ~1.4s for a 194-file tree. |
+| Ask before you grep | `antcrate rag q <project> "<query>" [n]` | BM25 top-n as `path:line \| snippet` — jump straight to the hot files. Default n=8. |
+
 ## Destructive ops (always backed by AGENTS.md rule #1)
 
 Every entry forces a backup tarball before touching disk; approval is the TTY prompt or the non-interactive review-duty record (rule #1 as amended). Never use bare `mv`/`rm` on a registered project path.

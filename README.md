@@ -50,7 +50,7 @@ antcrate --map coolapp
 
 ## Capability tour
 
-AntCrate ships **~60 commands** (compact words + legacy flags) backed by 45 lib modules; the 2026-07-10 audit atticked five modules (loop, delegate, canary+core, cost, obsidian) obsoleted by native harness features — preserved on branch `attic`. The groups below are the shape of the tool; [docs/MANUAL.md](docs/MANUAL.md) documents every flag.
+AntCrate ships **~60 commands** (compact words + legacy flags) backed by 46 lib modules; the 2026-07-10 audit atticked five modules (loop, delegate, canary+core, cost, obsidian) obsoleted by native harness features — preserved on branch `attic`. The groups below are the shape of the tool; [docs/MANUAL.md](docs/MANUAL.md) documents every flag.
 
 ### Project lifecycle and navigation
 
@@ -85,6 +85,7 @@ The layer that makes AntCrate an AI-development boundary rather than just a CLI:
 - **Activity stream:** `--emit-activity` appends durable JSONL events; `--watch` paints a live colored project tree from them (severity-ordered: delete > modify > delegate > think > read); `--watch-window` spawns it in a detached terminal.
 
 - **Intel tracker:** `--intel-pull` / `--intel-new` / `--intel-ack` / `--intel-status` — snapshot-on-change tracking of pinned Anthropic-official sources (any other host is refused before fetch). A daily timer retrieves; classification stays with the human/agent. Append-only; nothing is ever deleted.
+- **Retrieval:** `antcrate rag init|index|q` — deterministic FTS5/BM25 search over any registered project (zero keys, zero models); agents query before they grep.
 - **Health:** `--selfcheck` verifies the tool's own persistence (registry path, skill link, git state, unpushed work, backup age); `--status` carries one-line summaries of intel, audit cadence, and open duties.
 - **Diagrams:** Mermaid views of the whole registry and every project tree, auto-regenerated on every mutating action and filesystem event. Diagrams are a function of state, not a snapshot.
 
@@ -123,7 +124,7 @@ git config core.hooksPath .githooks
 
 ## Status
 
-**660 bats tests** across 63 files, shellcheck clean. (The Wave-1 C++ canary core is preserved on the `attic` branch, audit 2026-07-10.) Baseline sha `70ac95a`.
+**666 bats tests** across 64 files, shellcheck clean. (The Wave-1 C++ canary core is preserved on the `attic` branch, audit 2026-07-10.) Baseline sha `70ac95a`.
 
 Solo-maintained, pre-1.0; the CLI surface may still shift before a v1 tag. The live work queue and append-only decision log are kept in the maintainers' local `dev/` records (not published). AntCrate develops AntCrate: this repo is itself a registered project, pushed via `antcrate --pp antcrate`, gated by its own hooks and CI.
 
