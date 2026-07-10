@@ -1,4 +1,4 @@
-%% antcrate tree — generated 2026-07-10T20:10:27Z
+%% antcrate tree — generated 2026-07-10T20:26:23Z
 graph TD
   root(["antcrate"])
   1["AGENTS.md"]
@@ -33,34 +33,6 @@ graph TD
   8a4 --> 8a4b
   8a5[/core/]
   8a --> 8a5
-  8a5a["CMakeLists.txt"]
-  8a5 --> 8a5a
-  8a5b["README.md"]
-  8a5 --> 8a5b
-  8a5c[/include/]
-  8a5 --> 8a5c
-  8a5c1["canary.hpp"]
-  8a5c --> 8a5c1
-  8a5c2["json.hpp"]
-  8a5c --> 8a5c2
-  8a5d[/src/]
-  8a5 --> 8a5d
-  8a5d1["canary.cpp"]
-  8a5d --> 8a5d1
-  8a5d2["main.cpp"]
-  8a5d --> 8a5d2
-  8a5e[/tests/]
-  8a5 --> 8a5e
-  8a5e1["CMakeLists.txt"]
-  8a5e --> 8a5e1
-  8a5e2[/doctest/]
-  8a5e --> 8a5e2
-  8a5e2a["doctest.h"]
-  8a5e2 --> 8a5e2a
-  8a5e3["test_canary.cpp"]
-  8a5e --> 8a5e3
-  8a5e4["test_smoke.cpp"]
-  8a5e --> 8a5e4
   8a6[/hooks/]
   8a --> 8a6
   8a6a[/claude/]
@@ -109,100 +81,90 @@ graph TD
   8a8 --> 8a8d
   8a8e["bootstrap.sh"]
   8a8 --> 8a8e
-  8a8f["canary.sh"]
+  8a8f["cleanup.sh"]
   8a8 --> 8a8f
-  8a8g["cleanup.sh"]
+  8a8g["commit.sh"]
   8a8 --> 8a8g
-  8a8h["commit.sh"]
+  8a8h["devops.sh"]
   8a8 --> 8a8h
-  8a8i["cost.sh"]
+  8a8i["diagrams.sh"]
   8a8 --> 8a8i
-  8a8j["delegate.sh"]
+  8a8j["duties.sh"]
   8a8 --> 8a8j
-  8a8k["devops.sh"]
+  8a8k["env_scan.sh"]
   8a8 --> 8a8k
-  8a8l["diagrams.sh"]
+  8a8l["events.sh"]
   8a8 --> 8a8l
-  8a8m["duties.sh"]
+  8a8m["fetch.sh"]
   8a8 --> 8a8m
-  8a8n["env_scan.sh"]
+  8a8n["gh.sh"]
   8a8 --> 8a8n
-  8a8o["events.sh"]
+  8a8o["git_init.sh"]
   8a8 --> 8a8o
-  8a8p["fetch.sh"]
+  8a8p["git_triage.sh"]
   8a8 --> 8a8p
-  8a8q["gh.sh"]
+  8a8q["hook_autoinstall.sh"]
   8a8 --> 8a8q
-  8a8r["git_init.sh"]
+  8a8r["hooks.sh"]
   8a8 --> 8a8r
-  8a8s["git_triage.sh"]
+  8a8s["hygiene.sh"]
   8a8 --> 8a8s
-  8a8t["hook_autoinstall.sh"]
+  8a8t["ingest.sh"]
   8a8 --> 8a8t
-  8a8u["hooks.sh"]
+  8a8u["intel.sh"]
   8a8 --> 8a8u
-  8a8v["hygiene.sh"]
+  8a8v["lifecycle.sh"]
   8a8 --> 8a8v
-  8a8w["ingest.sh"]
+  8a8w["lock.sh"]
   8a8 --> 8a8w
-  8a8x["intel.sh"]
+  8a8x["log.sh"]
   8a8 --> 8a8x
-  8a8y["lifecycle.sh"]
+  8a8y["md_scaffold.sh"]
   8a8 --> 8a8y
-  8a8z["lock.sh"]
+  8a8z["migrate.sh"]
   8a8 --> 8a8z
-  8a8aa["log.sh"]
+  8a8aa["paths.sh"]
   8a8 --> 8a8aa
-  8a8ab["loop.sh"]
+  8a8ab["policy.sh"]
   8a8 --> 8a8ab
-  8a8ac["md_scaffold.sh"]
+  8a8ac["pp.sh"]
   8a8 --> 8a8ac
-  8a8ad["migrate.sh"]
+  8a8ad["preflight.sh"]
   8a8 --> 8a8ad
-  8a8ae["obsidian.sh"]
+  8a8ae["profile.sh"]
   8a8 --> 8a8ae
-  8a8af["paths.sh"]
+  8a8af["propose.sh"]
   8a8 --> 8a8af
-  8a8ag["policy.sh"]
+  8a8ag["quarantine.sh"]
   8a8 --> 8a8ag
-  8a8ah["pp.sh"]
+  8a8ah["registry.sh"]
   8a8 --> 8a8ah
-  8a8ai["preflight.sh"]
+  8a8ai["relocate.sh"]
   8a8 --> 8a8ai
-  8a8aj["profile.sh"]
+  8a8aj["safety.sh"]
   8a8 --> 8a8aj
-  8a8ak["propose.sh"]
+  8a8ak["scaffold.sh"]
   8a8 --> 8a8ak
-  8a8al["quarantine.sh"]
+  8a8al["scan.sh"]
   8a8 --> 8a8al
-  8a8am["registry.sh"]
+  8a8am["schema.sh"]
   8a8 --> 8a8am
-  8a8an["relocate.sh"]
+  8a8an["selfcheck.sh"]
   8a8 --> 8a8an
-  8a8ao["safety.sh"]
+  8a8ao["subbranch.sh"]
   8a8 --> 8a8ao
-  8a8ap["scaffold.sh"]
+  8a8ap[/targets/]
   8a8 --> 8a8ap
-  8a8aq["scan.sh"]
+  8a8ap1["local.sh"]
+  8a8ap --> 8a8ap1
+  8a8aq["targets.sh"]
   8a8 --> 8a8aq
-  8a8ar["schema.sh"]
+  8a8ar["tooling.sh"]
   8a8 --> 8a8ar
-  8a8as["selfcheck.sh"]
+  8a8as["watch.sh"]
   8a8 --> 8a8as
-  8a8at["subbranch.sh"]
+  8a8at["watch_window.sh"]
   8a8 --> 8a8at
-  8a8au[/targets/]
-  8a8 --> 8a8au
-  8a8au1["local.sh"]
-  8a8au --> 8a8au1
-  8a8av["targets.sh"]
-  8a8 --> 8a8av
-  8a8aw["tooling.sh"]
-  8a8 --> 8a8aw
-  8a8ax["watch.sh"]
-  8a8 --> 8a8ax
-  8a8ay["watch_window.sh"]
-  8a8 --> 8a8ay
   8a9[/systemd/]
   8a --> 8a9
   8a9a["antcrate-backup.service"]
@@ -279,130 +241,120 @@ graph TD
   8a11 --> 8a11f
   8a11g["bootstrap.bats"]
   8a11 --> 8a11g
-  8a11h["canary.bats"]
+  8a11h["ci_snapshot.bats"]
   8a11 --> 8a11h
-  8a11i["ci_snapshot.bats"]
+  8a11i["cleanup.bats"]
   8a11 --> 8a11i
-  8a11j["cleanup.bats"]
+  8a11j["commit.bats"]
   8a11 --> 8a11j
-  8a11k["commit.bats"]
+  8a11k["cost_anticipator.bats"]
   8a11 --> 8a11k
-  8a11l["cost.bats"]
+  8a11l["diagrams.bats"]
   8a11 --> 8a11l
-  8a11m["cost_anticipator.bats"]
+  8a11m["docsguard_templates.bats"]
   8a11 --> 8a11m
-  8a11n["delegate.bats"]
+  8a11n["duties.bats"]
   8a11 --> 8a11n
-  8a11o["diagrams.bats"]
+  8a11o["duties_typed.bats"]
   8a11 --> 8a11o
-  8a11p["docsguard_templates.bats"]
+  8a11p["env_guard.bats"]
   8a11 --> 8a11p
-  8a11q["duties.bats"]
+  8a11q["env_scan.bats"]
   8a11 --> 8a11q
-  8a11r["duties_typed.bats"]
+  8a11r["events.bats"]
   8a11 --> 8a11r
-  8a11s["env_guard.bats"]
+  8a11s["fetch.bats"]
   8a11 --> 8a11s
-  8a11t["env_scan.bats"]
+  8a11t["gate.bats"]
   8a11 --> 8a11t
-  8a11u["events.bats"]
+  8a11u["gateway_guard.bats"]
   8a11 --> 8a11u
-  8a11v["fetch.bats"]
+  8a11v["git_init.bats"]
   8a11 --> 8a11v
-  8a11w["gate.bats"]
+  8a11w["git_triage.bats"]
   8a11 --> 8a11w
-  8a11x["gateway_guard.bats"]
+  8a11x["hook_autoinstall.bats"]
   8a11 --> 8a11x
-  8a11y["git_init.bats"]
+  8a11y["hook_smoke.bats"]
   8a11 --> 8a11y
-  8a11z["git_triage.bats"]
+  8a11z["hooks.bats"]
   8a11 --> 8a11z
-  8a11aa["hook_autoinstall.bats"]
+  8a11aa["hygiene.bats"]
   8a11 --> 8a11aa
-  8a11ab["hook_smoke.bats"]
+  8a11ab["ingest.bats"]
   8a11 --> 8a11ab
-  8a11ac["hooks.bats"]
+  8a11ac["install_from_source.bats"]
   8a11 --> 8a11ac
-  8a11ad["hygiene.bats"]
+  8a11ad["intel.bats"]
   8a11 --> 8a11ad
-  8a11ae["ingest.bats"]
+  8a11ae["lifecycle.bats"]
   8a11 --> 8a11ae
-  8a11af["install_from_source.bats"]
+  8a11af["md_scaffold.bats"]
   8a11 --> 8a11af
-  8a11ag["intel.bats"]
+  8a11ag["migrate.bats"]
   8a11 --> 8a11ag
-  8a11ah["lifecycle.bats"]
+  8a11ah["new_bundle.bats"]
   8a11 --> 8a11ah
-  8a11ai["loop.bats"]
+  8a11ai["paths.bats"]
   8a11 --> 8a11ai
-  8a11aj["md_scaffold.bats"]
+  8a11aj["policy.bats"]
   8a11 --> 8a11aj
-  8a11ak["migrate.bats"]
+  8a11ak["pp_gate.bats"]
   8a11 --> 8a11ak
-  8a11al["new_bundle.bats"]
+  8a11al["pp_panel.bats"]
   8a11 --> 8a11al
-  8a11am["obsidian.bats"]
+  8a11am["preflight.bats"]
   8a11 --> 8a11am
-  8a11an["paths.bats"]
+  8a11an["profile.bats"]
   8a11 --> 8a11an
-  8a11ao["policy.bats"]
+  8a11ao["propose.bats"]
   8a11 --> 8a11ao
-  8a11ap["pp_gate.bats"]
+  8a11ap["quarantine.bats"]
   8a11 --> 8a11ap
-  8a11aq["pp_panel.bats"]
+  8a11aq["register.bats"]
   8a11 --> 8a11aq
-  8a11ar["preflight.bats"]
+  8a11ar["registry.bats"]
   8a11 --> 8a11ar
-  8a11as["profile.bats"]
+  8a11as["relocate.bats"]
   8a11 --> 8a11as
-  8a11at["propose.bats"]
+  8a11at["safety_gate.bats"]
   8a11 --> 8a11at
-  8a11au["quarantine.bats"]
+  8a11au["safety_zones.bats"]
   8a11 --> 8a11au
-  8a11av["register.bats"]
+  8a11av["scaffold.bats"]
   8a11 --> 8a11av
-  8a11aw["registry.bats"]
+  8a11aw["scan.bats"]
   8a11 --> 8a11aw
-  8a11ax["relocate.bats"]
+  8a11ax["schema.bats"]
   8a11 --> 8a11ax
-  8a11ay["safety_gate.bats"]
+  8a11ay["selfcheck.bats"]
   8a11 --> 8a11ay
-  8a11az["safety_zones.bats"]
+  8a11az["session_budget_guard_models.bats"]
   8a11 --> 8a11az
-  8a11ba["scaffold.bats"]
+  8a11ba["session_gate.bats"]
   8a11 --> 8a11ba
-  8a11bb["scan.bats"]
+  8a11bb["shellcheck_on_save.bats"]
   8a11 --> 8a11bb
-  8a11bc["schema.bats"]
+  8a11bc["skills_builder.bats"]
   8a11 --> 8a11bc
-  8a11bd["selfcheck.bats"]
+  8a11bd["subcmd.bats"]
   8a11 --> 8a11bd
-  8a11be["session_budget_guard_models.bats"]
+  8a11be["targets.bats"]
   8a11 --> 8a11be
-  8a11bf["session_gate.bats"]
+  8a11bf["targets_local.bats"]
   8a11 --> 8a11bf
-  8a11bg["shellcheck_on_save.bats"]
+  8a11bg["tooling.bats"]
   8a11 --> 8a11bg
-  8a11bh["skills_builder.bats"]
+  8a11bh["watch.bats"]
   8a11 --> 8a11bh
-  8a11bi["subcmd.bats"]
+  8a11bi["watch_live.bats"]
   8a11 --> 8a11bi
-  8a11bj["targets.bats"]
+  8a11bj["watch_smoke.bats"]
   8a11 --> 8a11bj
-  8a11bk["targets_local.bats"]
+  8a11bk["watch_window.bats"]
   8a11 --> 8a11bk
-  8a11bl["tooling.bats"]
+  8a11bl["wrapper_dispatch.bats"]
   8a11 --> 8a11bl
-  8a11bm["watch.bats"]
-  8a11 --> 8a11bm
-  8a11bn["watch_live.bats"]
-  8a11 --> 8a11bn
-  8a11bo["watch_smoke.bats"]
-  8a11 --> 8a11bo
-  8a11bp["watch_window.bats"]
-  8a11 --> 8a11bp
-  8a11bq["wrapper_dispatch.bats"]
-  8a11 --> 8a11bq
   8b[/docs/]
   8 --> 8b
   8b1["AntCrate_blueprint_v0.pdf"]
@@ -507,6 +459,8 @@ graph TD
   9b1 --> 9b1g
   9b1h["2026-07-10-bundling-p2-pp-panel-new-bundle.md"]
   9b1 --> 9b1h
+  9b1i["2026-07-10-bundling-p3-attic-cuts.md"]
+  9b1 --> 9b1i
   9b2[/specs/]
   9b --> 9b2
   9b2a["2026-05-31-harness-enforcement-layer.md"]
