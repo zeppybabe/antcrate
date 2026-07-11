@@ -85,10 +85,28 @@ setup() {
     [[ "$output" == *"Non-interactive by default"* ]]
 }
 
-@test "subcmd: legacy --flags still work" {
+@test "subcmd: leading legacy --flag is retired with a pointer (2026-07-10)" {
     run "$BIN" --status
-    [ "$status" -eq 0 ]
-    [[ "$output" == *"antcrate status"* ]]
+    [ "$status" -eq 2 ]
+    [[ "$output" == *"retired"* ]]
+    [[ "$output" == *"antcrate st"* ]]
+}
+
+@test "subcmd: retired multi-word flag points at the word form" {
+    run "$BIN" --duty-done
+    [ "$status" -eq 2 ]
+    [[ "$output" == *"antcrate duty done"* ]]
+}
+
+@test "subcmd: flag-only surfaces still parse (--emit-activity contract)" {
+    run "$BIN" --emit-activity
+    # reaches the parser (its own arg validation), not the retirement gate
+    [[ "$output" != *"retired"* ]]
+}
+
+@test "subcmd: -y is retired everywhere" {
+    run "$BIN" pp proj -y
+    [ "$status" -eq 2 ]
 }
 
 @test "subcmd: intel st == --intel-status (fold, session 2026-07-10 evening)" {

@@ -1,11 +1,11 @@
 ---
 name: antcrate
-description: Persistent project context for AntCrate — the deterministic pure-Bash orchestration shell for solo-developer project ops. Covers the wrapper CLI (st, pp, new, commit, bak, duty, hook, self, tool, gc, rag, in, map, watch, scan, fetch, and more — compact words; legacy --flags one release), the inotifywait daemon (live-tree regen + filename-schema dispatch), the jq registry under ~/.local/share/antcrate/, XDG config/data/state paths, the Gateway Law (AGENTS.md rule #12), the secret-pattern and local-install guards, and the BUNDLE_SPEC research handshake. Use when the user mentions "AntCrate"/"antcrate", any antcrate flag, filenames of form name.domain.action.#meta#, "the Wrapper", "the Pipe", "the registry", "Gateway Law", "bundle ingest", or wants to commit/push via the gateway, run bats tests, scan for leaks, provision dev tools, log a decision, audit the codebase, or work under ~/Projects.
+description: Persistent project context for AntCrate — the deterministic pure-Bash orchestration shell for solo-developer project ops. Covers the wrapper CLI (st, pp, new, commit, bak, duty, hook, self, tool, gc, rag, in, map, watch, scan, fetch, and more — compact words; leading legacy --flags retired 2026-07-10), the inotifywait daemon (live-tree regen + filename-schema dispatch), the jq registry under ~/.local/share/antcrate/, XDG config/data/state paths, the Gateway Law (AGENTS.md rule #12), the secret-pattern and local-install guards, and the BUNDLE_SPEC research handshake. Use when the user mentions "AntCrate"/"antcrate", any antcrate flag, filenames of form name.domain.action.#meta#, "the Wrapper", "the Pipe", "the registry", "Gateway Law", "bundle ingest", or wants to commit/push via the gateway, run bats tests, scan for leaks, provision dev tools, log a decision, audit the codebase, or work under ~/Projects.
 ---
 
 # AntCrate
 
-AntCrate is the **single controllable surface** for solo-developer project ops — every structural or destructive action is one wrapped command that enforces backup + approval gates. You are the **orchestrator** (T0): you direct the wrapper, delegate builds to agents, and never fall back to bare `mv`/`rm`/`git push`/`cd`. If no flag fits: `antcrate --propose "<name>" "<intent>"`.
+AntCrate is the **single controllable surface** for solo-developer project ops — every structural or destructive action is one wrapped command that enforces backup + approval gates. You are the **orchestrator** (T0): you direct the wrapper, delegate builds to agents, and never fall back to bare `mv`/`rm`/`git push`/`cd`. If no flag fits: `antcrate propose "<name>" "<intent>"`.
 
 ## Gateway Law digest
 
@@ -34,11 +34,11 @@ Read AT THE MOMENT OF NEED, never as a session-start tax:
 | Resolver (AnyCrate, next build) | `anycrate` |
 | Session wrap-up | session-close protocol in `~/CLAUDE.md` (sweep / audit / learn) |
 
-Model tiers + per-model session budgets live in `~/.antcrate/anycrate/policy.json` (`antcrate --policy`); the orchestrator's model is NEVER policy-assigned (`inherit` = the user's session choice). Only `budgets.fable` is agent-adjustable — evidence-backed, ledger-recorded. Automatics (hooks, timers) get no skill: zero-token by construction.
+Model tiers + per-model session budgets live in `~/.antcrate/anycrate/policy.json` (`antcrate policy`); the orchestrator's model is NEVER policy-assigned (`inherit` = the user's session choice). Only `budgets.fable` is agent-adjustable — evidence-backed, ledger-recorded. Automatics (hooks, timers) get no skill: zero-token by construction.
 
 ## Maintenance protocol
 
-- **Code change**: edit → `antcrate --ci` → append `ledger.md` entry (newest first, ISO date) → update `state.md` "Top of mind" → `antcrate --commit antcrate -m "..."` → `antcrate --pp antcrate`.
+- **Code change**: edit → `antcrate self ci` → append `ledger.md` entry (newest first, ISO date) → update `state.md` "Top of mind" → `antcrate commit antcrate -m "..."` → `antcrate pp antcrate`.
 - **Decision / policy change**: append to `ledger.md`. If it's a rule, also add to `assets/code/AGENTS.md`. If it's cross-session feedback, save to `~/.claude/projects/-home-twntydotsix/memory/` and link in `MEMORY.md`.
 - **Phase / state change**: rewrite `dev/state.md` freely (overwrite mode) — but it is ROLLING since 2026-06-10: keep only the current + prior session blocks; move older blocks verbatim into `dev/state-archive.md` (append-only, newest first). Never rewrite `dev/ledger.md` or `dev/state-archive.md` (both append-only). These records live under the git-ignored `dev/` tree (maintainer-local).
 - **Skill metadata change**: edit `SKILL.md` when major new surfaces land.
@@ -57,7 +57,7 @@ close out with `antcrate intel ack all` (or `ack <source>`). Retrieval stays in 
 
 ## Self-host
 
-The skill source is itself a registered AntCrate project (`antcrate`, domain `claude-skills`). Push via `antcrate --pp antcrate`. Repo is public at `https://github.com/zeppybabe/antcrate`. CI fires on every push.
+The skill source is itself a registered AntCrate project (`antcrate`, domain `claude-skills`). Push via `antcrate pp antcrate`. Repo is public at `https://github.com/zeppybabe/antcrate`. CI fires on every push.
 
 ## Trigger phrases
 

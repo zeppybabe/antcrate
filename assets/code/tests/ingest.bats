@@ -28,7 +28,6 @@ src() {
         export ANTCRATE_LOG_LEVEL="'"$ANTCRATE_LOG_LEVEL"'"
         export ANTCRATE_INGEST_OFFLINE="'"$ANTCRATE_INGEST_OFFLINE"'"
         export ANTCRATE_INGEST_SKIP_FETCH="'"${ANTCRATE_INGEST_SKIP_FETCH:-0}"'"
-        export ANTCRATE_REMOVAL_PREAPPROVED="'"${ANTCRATE_REMOVAL_PREAPPROVED:-0}"'"
         . "'"$LIB"'/log.sh"
         . "'"$LIB"'/registry.sh"
         . "'"$LIB"'/backup.sh"
@@ -252,7 +251,7 @@ write_manifest() {
     src 'ac_registry_init; ac_registry_upsert mybun '"$EXIST"' projects ""'
     write_manifest mybun projects "obj" none \
         '.relationships = [{"kind":"supersedes","bundle":"mybun"}]'
-    ANTCRATE_REMOVAL_PREAPPROVED=1 run src "ac_ingest '$BUNDLE'"
+    run src "ac_ingest '$BUNDLE'"
     [ "$status" -eq 0 ]
     [ ! -f "$EXIST/old.txt" ]
     # backup tarball was written

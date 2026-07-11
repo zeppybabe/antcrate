@@ -41,7 +41,7 @@ setup() {
 
 @test "pp: non-TTY dirty tree auto-commits and pushes (no -y)" {
     echo "change" >> "$R/README.md"
-    run "$BIN" --pp proj </dev/null
+    run "$BIN" pp proj </dev/null
     [ "$status" -eq 0 ]
     [ -z "$(git -C "$R" status --porcelain)" ]
     run git --git-dir="$REMOTE" log -1 --pretty=%s

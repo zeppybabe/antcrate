@@ -21,7 +21,6 @@ src() {
         export ANTCRATE_ROOT="'"$ANTCRATE_ROOT"'"
         export ANTCRATE_TEMPLATES="'"$ANTCRATE_TEMPLATES"'"
         export ANTCRATE_LOG_LEVEL="'"$ANTCRATE_LOG_LEVEL"'"
-        export ANTCRATE_REMOVAL_PREAPPROVED="${ANTCRATE_REMOVAL_PREAPPROVED:-0}"
         . "'"$LIB"'/log.sh"
         . "'"$LIB"'/lock.sh"
         . "'"$LIB"'/registry.sh"
@@ -57,8 +56,8 @@ src() {
     [[ "$output" == *"rc=0"* ]]
 }
 
-@test "destructive guard: PREAPPROVED=1 allows op with backup" {
-    ANTCRATE_REMOVAL_PREAPPROVED=1 run src '
+@test "destructive guard: non-TTY proceeds with backup (PREAPPROVED retired 2026-07-10)" {
+    run src '
         ac_action_start alpha webapps html
         path=$(ac_registry_get alpha path)
         ac_safety_guard_destructive alpha "test-rm" "$path"
@@ -69,14 +68,14 @@ src() {
 }
 
 @test "destructive guard: refuses path outside zones" {
-    ANTCRATE_REMOVAL_PREAPPROVED=1 run src '
+    run src '
         ac_safety_guard_destructive alpha "test-rm" "/etc/passwd"
         echo "rc=$?"'
     [[ "$output" == *"rc=1"* ]]
 }
 
 @test "subbranch: backup is created before move" {
-    ANTCRATE_REMOVAL_PREAPPROVED=1 run src '
+    run src '
         ac_action_start photoapp webapps html
         ac_subbranch_expand coolwebapps photoapp
         ls "$ANTCRATE_BACKUP_DIR/photoapp"/*.tar.gz | wc -l'
@@ -84,7 +83,7 @@ src() {
 }
 
 @test "restore: latest backup restores tree" {
-    ANTCRATE_REMOVAL_PREAPPROVED=1 ANTCRATE_RESTORE_OVERWRITE=1 run src '
+    ANTCRATE_RESTORE_OVERWRITE=1 run src '
         ac_action_start alpha webapps html
         path=$(ac_registry_get alpha path)
         echo "modified" > "$path/index.html"

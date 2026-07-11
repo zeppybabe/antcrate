@@ -7,7 +7,6 @@ setup() {
     export ANTCRATE_HOME="$BATS_TEST_TMPDIR/.antcrate"
     export ANTCRATE_REGISTRY="$ANTCRATE_HOME/registry.json"
     export ANTCRATE_LOG_LEVEL="error"
-    export ANTCRATE_COMMIT_PREAPPROVED=1   # bypass interactive prompt for tests
     mkdir -p "$ANTCRATE_HOME"
 
     # set up a real git repo for the project
@@ -30,7 +29,6 @@ src() {
         export ANTCRATE_HOME="'"$ANTCRATE_HOME"'"
         export ANTCRATE_REGISTRY="'"$ANTCRATE_REGISTRY"'"
         export ANTCRATE_LOG_LEVEL="'"$ANTCRATE_LOG_LEVEL"'"
-        export ANTCRATE_COMMIT_PREAPPROVED="'"$ANTCRATE_COMMIT_PREAPPROVED"'"
         . "'"$LIB"'/log.sh"
         . "'"$LIB"'/registry.sh"
         . "'"$LIB"'/safety.sh"

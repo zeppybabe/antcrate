@@ -6,11 +6,9 @@
 # ANTCRATE_GIT_REMOTE_PREFIX="https://github.com/youruser/"
 # ANTCRATE_LOG_LEVEL="info"
 
-# Destructive-op controls (default: maximally safe). Even when set to 1, every
-# destructive op still requires a successful backup tarball first; this only
-# bypasses the y/N prompt — for fully unattended pipelines.
-# ANTCRATE_REMOVAL_PREAPPROVED=0
-# ANTCRATE_COMMIT_PREAPPROVED=0
+# (The ANTCRATE_*_PREAPPROVED prompt bypasses were retired 2026-07-10: every
+# command is non-interactive by default — destructive ops back up first and
+# file a review duty when no human is at the terminal.)
 
 # Path-zone widening (default 0). Even when 1, backup + approval still apply.
 # ANTCRATE_ALLOW_OUTSIDE_ROOT=0

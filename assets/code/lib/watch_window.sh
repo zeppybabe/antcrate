@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # antcrate :: lib/watch_window.sh — detached terminal window for --watch
 #
-# Spawns one Alacritty window per project running `antcrate --watch <project>`.
+# Spawns one Alacritty window per project running `antcrate watch <project>`.
 # PID file at $ANTCRATE_HOME/watch/<project>.pid tracks the terminal PID (the
 # user-meaningful entity), not the inner antcrate process. Dedup: if the PID
 # file exists and the process is alive, a second invocation exits 0 without
@@ -85,7 +85,7 @@ ac_watch_window() {
             setsid alacritty \
                 --class "ac-watch-$project" \
                 --title "antcrate watch: $project" \
-                -e "$bin" --watch "$project" \
+                -e "$bin" watch "$project" \
                 </dev/null >/dev/null 2>&1 &
             local pid=$!
             disown "$pid" 2>/dev/null || true

@@ -78,10 +78,10 @@ fi
 block() {
     duties_note=""
     if command -v antcrate >/dev/null 2>&1; then
-        n="$(antcrate --duties 2>/dev/null | grep -c '^ *[0-9]')" || n=""
+        n="$(antcrate duty ls 2>/dev/null | grep -c '^ *[0-9]')" || n=""
         [ -n "$n" ] && duties_note=" ($n open)"
     fi
-    printf 'SESSION HARD LIMIT: context %sk >= %sk. %s\nWrap up now — only wrap-up tools are allowed:\n  1. commit:  antcrate --commit <project> -m "..."\n  2. push:    antcrate --pp <project>\n  3. state:   write the resume objective into state.md (rolling protocol)\n  4. duties:  antcrate --duties%s — review with the user\n  5. then the USER runs /clear to start a fresh session.\n' \
+    printf 'SESSION HARD LIMIT: context %sk >= %sk. %s\nWrap up now — only wrap-up tools are allowed:\n  1. commit:  antcrate commit <project> -m "..."\n  2. push:    antcrate pp <project>\n  3. state:   write the resume objective into state.md (rolling protocol)\n  4. duties:  antcrate duty ls%s — review with the user\n  5. then the USER runs /clear to start a fresh session.\n' \
         "$(( context / 1000 ))" "$(( HARD / 1000 ))" "$1" "$duties_note" >&2
     exit 2
 }
@@ -93,8 +93,8 @@ _seg_allowed() {
     s="${s#"${s%%[![:space:]]*}"}"    # ltrim
     [ -z "$s" ] && return 0
     case "$s" in
-        antcrate\ --commit*|antcrate\ --pp*|antcrate\ --status*|antcrate\ --duties*|antcrate\ --duty*|antcrate\ --emit-activity*) return 0 ;;
-        ANTCRATE_COMMIT_PREAPPROVED=1\ antcrate\ --commit*) return 0 ;;
+        antcrate\ commit*|antcrate\ pp*|antcrate\ st|antcrate\ st\ *|antcrate\ status*|antcrate\ duty*|antcrate\ duties*) return 0 ;;
+        antcrate\ --emit-activity*) return 0 ;;
         git\ status*|git\ diff*|git\ log*|git\ add*) return 0 ;;
     esac
     return 1

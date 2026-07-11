@@ -150,10 +150,9 @@ ac_bootstrap() {
         ac_info "bootstrap: working tree clean, nothing to commit"
     else
         local commit_msg="${msg:-feat(init): bootstrap $project via antcrate}"
-        # Use the env-var bypass for the y/N prompt — sanctioned for non-TTY
-        # automation per lib/commit.sh ANTCRATE_COMMIT_PREAPPROVED contract.
-        # (Once #83 lands, this becomes a -y flag passthrough.)
-        if ! ANTCRATE_COMMIT_PREAPPROVED=1 ac_commit_run "$project" "$commit_msg" "all"; then
+        # Internal approval: the user approved this commit by running the
+        # parent command (`antcrate new`) — _AC_APPROVED skips the inner gate.
+        if ! _AC_APPROVED=1 ac_commit_run "$project" "$commit_msg" "all"; then
             ac_error "bootstrap: commit failed"
             return 1
         fi

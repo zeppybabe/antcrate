@@ -7,26 +7,26 @@ description: Run AntCrate commands inside a registered project — for builder/r
 
 ## The law, in five lines
 
-1. Backup before any structural change: `antcrate --backup <project>`.
+1. Backup before any structural change: `antcrate bak <project>`.
 2. No bare `git push`, `mv`, `rm`, or `cd` inside a registered project — use the wrapper flags below.
 3. `~/.antcrate/config` is human-only: read it if you must, never write it.
 4. Removals/destructive ops need the USER's explicit approval — surface them, don't run them.
-5. No flag fits your intent? `antcrate --propose "<name>" "<why>"` and use a non-destructive workaround.
+5. No flag fits your intent? `antcrate propose "<name>" "<why>"` and use a non-destructive workaround.
 
 ## Flag table
 
 <!-- ac:builder:flags:start -->
 | Intent | Command |
 |---|---|
-| where am I / what exists | `antcrate --status`, `antcrate --map <project>` |
-| enter a project | `antcrate --in <project>` (never bare cd) |
-| commit | `antcrate --commit <project> -m "type(scope): msg" -- <files>` |
-| push | `antcrate --pp <project>` (never bare git push) |
-| run tests | `antcrate --ci [--source <tree>]` |
-| backup before structural change | `antcrate --backup <project>` |
+| where am I / what exists | `antcrate st`, `antcrate map <project>` |
+| enter a project | `antcrate in <project>` (never bare cd) |
+| commit | `antcrate commit <project> -m "type(scope): msg" -- <files>` |
+| push | `antcrate pp <project>` (never bare git push) |
+| run tests | `antcrate self ci [--source <tree>]` |
+| backup before structural change | `antcrate bak <project>` |
 | log activity | `antcrate --emit-activity <project> <text>` |
-| need a missing wrapper | `antcrate --propose "<name>" "<why>"` |
-| file human-only work | `antcrate --duty --type <policy\|command\|research\|debug> "<text>"` |
+| need a missing wrapper | `antcrate propose "<name>" "<why>"` |
+| file human-only work | `antcrate duty add --type <policy\|command\|research\|debug> "<text>"` |
 <!-- ac:builder:flags:end -->
 
 ## Escalation

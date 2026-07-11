@@ -50,7 +50,7 @@ antcrate --map coolapp
 
 ## Capability tour
 
-AntCrate ships **~60 commands** (compact words + legacy flags) backed by 46 lib modules; the 2026-07-10 audit atticked five modules (loop, delegate, canary+core, cost, obsidian) obsoleted by native harness features — preserved on branch `attic`. The groups below are the shape of the tool; [docs/MANUAL.md](docs/MANUAL.md) documents every flag.
+AntCrate ships **~60 commands** (compact words — leading legacy `--flags` retired 2026-07-10) backed by 46 lib modules; the 2026-07-10 audit atticked five modules (loop, delegate, canary+core, cost, obsidian) obsoleted by native harness features — preserved on branch `attic`. The groups below are the shape of the tool; [docs/MANUAL.md](docs/MANUAL.md) documents every flag.
 
 ### Project lifecycle and navigation
 
@@ -124,9 +124,9 @@ git config core.hooksPath .githooks
 
 ## Status
 
-**666 bats tests** across 64 files, shellcheck clean. (The Wave-1 C++ canary core is preserved on the `attic` branch, audit 2026-07-10.) Baseline sha `70ac95a`.
+**679 bats tests** across 64 files, shellcheck clean. (The Wave-1 C++ canary core is preserved on the `attic` branch, audit 2026-07-10.) Baseline sha `70ac95a`.
 
-Solo-maintained, pre-1.0; the CLI surface may still shift before a v1 tag. The live work queue and append-only decision log are kept in the maintainers' local `dev/` records (not published). AntCrate develops AntCrate: this repo is itself a registered project, pushed via `antcrate --pp antcrate`, gated by its own hooks and CI.
+Solo-maintained, pre-1.0; the CLI surface may still shift before a v1 tag. The live work queue and append-only decision log are kept in the maintainers' local `dev/` records (not published). AntCrate develops AntCrate: this repo is itself a registered project, pushed via `antcrate pp antcrate`, gated by its own hooks and CI.
 
 ## Contributing
 

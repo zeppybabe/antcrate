@@ -40,6 +40,6 @@ setup() {
 }
 
 @test "dispatch: successful non-destructive action still exits 0" {
-    run "$WRAPPER" --list
+    run "$WRAPPER" list
     [ "$status" -eq 0 ]
 }

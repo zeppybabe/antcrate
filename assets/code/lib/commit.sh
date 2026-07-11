@@ -19,8 +19,8 @@
 #  - Shows diff stat + commit message preview (Gateway Law step 4).
 #  - Approval (Gateway Law step 5): TTY prompts y/N; non-TTY proceeds — the
 #    diff preview + Claude Code's permission layer are the approval surface
-#    (audit 2026-07-10). ANTCRATE_COMMIT_PREAPPROVED=1 still short-circuits
-#    (compat; retires with the flag aliases next release).
+#    (audit 2026-07-10; the PREAPPROVED env retired the same day — internal
+#    wrapper sub-steps use _AC_APPROVED, see ac_gate_confirm).
 #  - Then commits (Gateway Law step 6). Echoes new commit SHA to stdout.
 
 # ac_commit_secret_match <basename> — exit 0 if it matches a secret pattern
@@ -108,12 +108,10 @@ ac_commit_run() {
 
     # approval (Gateway Law step 5) — the preview above + Claude Code's own
     # permission gate are the approval surface; non-TTY proceeds (audit
-    # 2026-07-10). PREAPPROVED kept one release for compat.
-    if [[ "${ANTCRATE_COMMIT_PREAPPROVED:-0}" != "1" ]]; then
-        if ! ac_gate_confirm "Proceed with commit?"; then
-            ac_warn "commit: aborted by user; staged set preserved for inspection"
-            return 0
-        fi
+    # 2026-07-10; PREAPPROVED env retired same day).
+    if ! ac_gate_confirm "Proceed with commit?"; then
+        ac_warn "commit: aborted by user; staged set preserved for inspection"
+        return 0
     fi
 
     # execute (Gateway Law step 6)

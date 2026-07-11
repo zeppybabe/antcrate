@@ -11,7 +11,7 @@ antcrate --<command> [arguments] [options]
 antcrated                  # the daemon (inotifywait event pipe)
 ```
 
-All invocations go through a single dispatcher; the first `--flag` selects the command. Running `antcrate` with no arguments prints the built-in usage summary.
+All invocations go through a single dispatcher; a compact WORD selects the command (`antcrate st`, `antcrate pp <p>`, `antcrate duty ls`, …). The `--flag` forms below are the internal canonical map — leading use was retired 2026-07-10 and exits 2 with a pointer to the word; only flag-only surfaces (`--emit-activity`, `--gh-init`, diagram/quarantine/addr commands, …) still lead with a flag. Modifier flags after a word are unchanged. Running `antcrate` with no arguments prints the compact usage.
 
 ## DESCRIPTION
 
@@ -151,10 +151,10 @@ Restore a quarantined entry to its original path; **refuses (exit 1)** if the or
 
 ### Git and GitHub
 
-**`antcrate --commit <project> -m "<msg>" [--all-tracked | -- <files...>] [-y]`**
+**`antcrate commit <project> -m "<msg>" [--all-tracked | -- <files...>]`**
 Stage + commit through the wrapper: secret-pattern guard on the diff, Gateway-Law preview, y/N prompt. `-y` skips the prompt (sanctioned for non-TTY automation). Replaces bare `git add` + `git commit`.
 
-**`antcrate --pp <project> [-y]`**
+**`antcrate pp <project>`**
 Push-pipe: commit (if dirty) and push, with conflict triage. On rejection: stderr captured, `git diff @{u}..HEAD` truncated to 300 lines and emailed (`ANTCRATE_EMAIL`), full log at `/tmp/antcrate_conflict.log`. Successful pushes print a `verify: <upstream> in sync at <SHA>` line. Replaces bare `git push`.
 
 **`antcrate --diff <project>`**

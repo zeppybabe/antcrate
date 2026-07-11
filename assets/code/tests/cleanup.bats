@@ -11,7 +11,6 @@ setup() {
     export ANTCRATE_CLEANUP_DIR="$ANTCRATE_HOME/cleanup"
     export ANTCRATE_EVENTS_DIR="$ANTCRATE_HOME/events"
     export ANTCRATE_LOG_LEVEL="error"
-    export ANTCRATE_REMOVAL_PREAPPROVED=1   # bypass interactive y/N
     mkdir -p "$ANTCRATE_HOME" "$ANTCRATE_ROOT"
     P="$ANTCRATE_ROOT/projects/mybun"
     mkdir -p "$P/src" "$P/__pycache__" "$P/.pytest_cache" "$P/empty_dir"
@@ -32,7 +31,6 @@ src() {
         export ANTCRATE_CLEANUP_DIR="'"$ANTCRATE_CLEANUP_DIR"'"
         export ANTCRATE_EVENTS_DIR="'"$ANTCRATE_EVENTS_DIR"'"
         export ANTCRATE_LOG_LEVEL="'"$ANTCRATE_LOG_LEVEL"'"
-        export ANTCRATE_REMOVAL_PREAPPROVED="'"$ANTCRATE_REMOVAL_PREAPPROVED"'"
         . "'"$LIB"'/log.sh"
         . "'"$LIB"'/registry.sh"
         . "'"$LIB"'/backup.sh"

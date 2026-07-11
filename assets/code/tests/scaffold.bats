@@ -10,7 +10,6 @@ setup() {
     export ANTCRATE_ROOT="$BATS_TEST_TMPDIR/projects"
     export ANTCRATE_TEMPLATES="$BATS_TEST_DIRNAME/../templates"
     export ANTCRATE_LOG_LEVEL="error"
-    export ANTCRATE_REMOVAL_PREAPPROVED=1
     mkdir -p "$ANTCRATE_HOME" "$ANTCRATE_ROOT"
 }
 
@@ -22,7 +21,6 @@ src() {
         export ANTCRATE_ROOT="'"$ANTCRATE_ROOT"'"
         export ANTCRATE_TEMPLATES="'"$ANTCRATE_TEMPLATES"'"
         export ANTCRATE_LOG_LEVEL="'"$ANTCRATE_LOG_LEVEL"'"
-        export ANTCRATE_REMOVAL_PREAPPROVED="'"$ANTCRATE_REMOVAL_PREAPPROVED"'"
         . "'"$LIB"'/log.sh"
         . "'"$LIB"'/lock.sh"
         . "'"$LIB"'/registry.sh"

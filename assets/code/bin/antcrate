@@ -6,7 +6,7 @@
 #   antcrate --start <n> --domain <d> [--meta "csv,values"]
 #   antcrate --branch <n> --domain <d> [--meta "from=<base>"]
 #   antcrate --link <a> --rel <b>
-#   antcrate --pp <project> [-y]
+#   antcrate --pp <project>
 #   antcrate --resume <new_parent> --expand <child>
 #   antcrate --pipe-file <basename>      (internal: invoked by daemon)
 #   antcrate --status
@@ -148,7 +148,8 @@ usage() {
     cat <<'USAGE'
 antcrate — pure-Bash deterministic project scaffolder
 
-Compact form (audit 2026-07-10; --flags below remain valid one release):
+Compact form (audit 2026-07-10; leading legacy --flags RETIRED same day — the
+--flag names below are the internal canonical map, invoke via the words):
   st · pp <p> · new <n> -d <dom> · reg <n> <path> · commit <p> -m "…"
   bak <p> [ls|restore] · duty [add|done N|clear|ls] · duties
   hook <sub> <p> · self <check|test|ci|src|edit|install> · tool <install|ls|path>
@@ -166,12 +167,12 @@ Commands:
                                       add a registry entry for an existing tree (no scaffold)
   --branch <n> --domain <d>        new project, optionally --meta "from=<base>"
   --link <a> --rel <b>                bidirectional link between two projects
-  --commit <project> -m "<msg>" [--all-tracked | -- <files...>] [-y]
+  --commit <project> -m "<msg>" [--all-tracked | -- <files...>]
                                       stage + commit via the wrapper (secret-pattern guard,
                                       Gateway Law preview, y/N prompt). -y bypasses prompt
                                       (sanctioned for non-TTY automation). Replaces bare
                                       git add+commit.
-  --pp <project> [-y]                 commit (if dirty) and push, with conflict triage
+  --pp <project>                      commit (if dirty) and push, with conflict triage
   --ingest <bundle-path>              consume a research bundle (BUNDLE_SPEC v1.0)
   --emit-activity <project> <kind> <relpath> [--ttl-ms N] [--label X] [--agent A]
                                       append an event to the activity stream
@@ -371,7 +372,7 @@ cmd_pipe_file() {
 }
 
 cmd_pp() {
-    local project="$1" auto_yes="${2:-}"
+    local project="$1"
     if ! ac_registry_has "$project"; then
         ac_error "pp: unknown project '$project'"; exit 1
     fi
@@ -382,8 +383,7 @@ cmd_pp() {
     ac_pp_panel "$project" "$p"
 
     if [[ -n "$(git -C "$p" status --porcelain 2>/dev/null)" ]]; then
-        if [[ "$auto_yes" != "-y" ]] \
-           && ! ac_gate_confirm "Uncommitted changes in $project. Commit & push?"; then
+        if ! ac_gate_confirm "Uncommitted changes in $project. Commit & push?"; then
             ac_warn "pp: aborted by user"; exit 0
         fi
         git -C "$p" add -A
@@ -462,8 +462,47 @@ cmd_list() {
 
 # ── subcommand dispatcher (audit 2026-07-10) ────────────────────────────────
 # Compact words rewrite argv into the canonical --flag form; the parser below
-# is untouched. Legacy --flags remain valid one release, then retire.
-if [[ "${1:0:1}" != "-" ]]; then
+# is untouched — flags stay the internal representation. LEADING legacy
+# --flags with a word equivalent are RETIRED (2026-07-10 evening session);
+# only flag-only surfaces (no word) still parse from position 1. Modifier
+# flags after a word (-m, --json, --domain, …) are unaffected.
+if [[ "${1:0:1}" == "-" ]]; then
+    case "$1" in
+        --help|-h|--init|--addr|--agent-init|--diagrams|--duty-involvement|\
+        --emit-activity|--env-scan|--gh-help|--gh-init|--git-init|\
+        --md-scaffold|--policy-init|--quarantine-list|--quarantine-restore|\
+        --registry-diagram|--tree-diagram|--watch-smoke|--watch-window|\
+        --install-from-source|--resume|--pipe-file)
+            : ;;   # flag-only surfaces — no compact word, parser handles them
+        --*)
+            _w=""
+            case "$1" in
+                --status)       _w="st" ;;
+                --start)        _w="new" ;;
+                --register)     _w="reg" ;;
+                --rename)       _w="mv" ;;
+                --remove)       _w="rm" ;;
+                --archive)      _w="arc" ;;
+                --unarchive)    _w="arc -u" ;;
+                --cleanup)      _w="gc" ;;
+                --backup)       _w="bak" ;;
+                --backups)      _w="bak ls" ;;
+                --restore)      _w="bak restore" ;;
+                --duties)       _w="duty ls" ;;
+                --duties-clear) _w="duty clear" ;;
+                --duty)         _w="duty add" ;;
+                --hooks)        _w="hook ls" ;;
+                --tool-list)    _w="tool ls" ;;
+                --intel-new)    _w="intel ls" ;;
+                --selfedit)     _w="self edit" ;;
+                --selfinstall)  _w="self install" ;;
+                --hook-autoinstall) _w="hook auto" ;;
+                *)              _w="${1#--}"; _w="${_w//-/ }" ;;
+            esac
+            ac_error "retired flag '$1' — use: antcrate $_w  (see: antcrate help)"
+            exit 2 ;;
+    esac
+elif [[ "${1:0:1}" != "-" ]]; then
     _sub="$1"; shift
     case "$_sub" in
         help)   if [[ "${1:-}" == "--all" || "${1:-}" == "all" ]]; then usage; else usage_compact; fi
@@ -538,7 +577,7 @@ if [[ "${1:0:1}" != "-" ]]; then
     unset _sub
 fi
 
-NAME="" DOMAIN="" META="" REL="" EXPAND="" RESUME="" AUTO_YES="" GH_VIS="private" RESTORE_TS="" PROPOSE_DESC=""
+NAME="" DOMAIN="" META="" REL="" EXPAND="" RESUME="" GH_VIS="private" RESTORE_TS="" PROPOSE_DESC=""
 ADDR_CODE="" RENAME_NEW="" LOGS_LINES="50" CMD_ARGS=() RELPATH="" REG_PATH="" DIAG_OUT=""
 COMMIT_MSG="" COMMIT_MODE=""
 TOOL_NAME="" TOOL_FORCE="" SCAN_PATH=""
@@ -641,7 +680,6 @@ while (( $# > 0 )); do
                 case "${1:-}" in
                     -m)            COMMIT_MSG="${2:-}"; shift 2 ;;
                     --all-tracked) COMMIT_MODE="all"; shift ;;
-                    -y)            AUTO_YES="-y"; shift ;;
                     --)            shift; COMMIT_MODE="${COMMIT_MODE:-explicit}"; CMD_ARGS=( "$@" ); set -- ;;
                     *)             break ;;
                 esac
@@ -922,7 +960,6 @@ while (( $# > 0 )); do
         --domain)            DOMAIN="$2"; shift 2 ;;
         --meta)              META="$2"; shift 2 ;;
         --rel)               REL="$2"; shift 2 ;;
-        -y)                  AUTO_YES="-y"; shift ;;
         *) ac_error "unknown arg: $1"; usage; exit 2 ;;
     esac
 done
@@ -985,7 +1022,7 @@ case "$ACTION" in
         [[ -z "$REL" ]] && { ac_error "--link requires --rel <other>"; exit 2; }
         ac_with_lock ac_action_link "$NAME" "_" "rel=$REL"
         ac_diagrams_auto_regen "$NAME" ;;
-    pp)        cmd_pp "$NAME" "$AUTO_YES" ;;
+    pp)        cmd_pp "$NAME" ;;
     ingest)
         [[ -z "$NAME" ]] && { ac_error "--ingest requires <bundle-path>"; exit 2; }
         ac_with_lock ac_ingest "$NAME" ;;
@@ -1039,11 +1076,7 @@ case "$ACTION" in
             ac_diagrams_auto_regen "$NAME" >/dev/null 2>&1 || true
         fi ;;
     commit)
-        if [[ -n "$AUTO_YES" ]]; then
-            ANTCRATE_COMMIT_PREAPPROVED=1 ac_commit_run "$NAME" "$COMMIT_MSG" "$COMMIT_MODE" "${CMD_ARGS[@]}"
-        else
-            ac_commit_run "$NAME" "$COMMIT_MSG" "$COMMIT_MODE" "${CMD_ARGS[@]}"
-        fi
+        ac_commit_run "$NAME" "$COMMIT_MSG" "$COMMIT_MODE" "${CMD_ARGS[@]}"
         # auto-regen diagrams after commit (registry-only; project tree
         # may have changed too, so pass project)
         ac_diagrams_auto_regen "$NAME" >/dev/null 2>&1 || true ;;

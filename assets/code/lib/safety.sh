@@ -58,8 +58,13 @@ ac_safety_check_path() {
 # Non-interactive callers proceed: Claude Code's permission layer is the
 # outer gate; the inner y/N only fires when a human is actually present.
 # Test hook: ANTCRATE_ASSUME_TTY=1 forces the prompt path under bats.
+# _AC_APPROVED=1 is the INTERNAL bypass for wrapper-initiated sub-steps the
+# user already approved by invoking the parent command (e.g. bootstrap's
+# scaffold commit inside `antcrate new`) — never a user-facing contract;
+# the PREAPPROVED envs it replaces were retired 2026-07-10.
 ac_gate_confirm() {
     local prompt="$1"
+    [[ "${_AC_APPROVED:-0}" == "1" ]] && return 0
     if [[ ! -t 0 && "${ANTCRATE_ASSUME_TTY:-0}" != "1" ]]; then
         ac_info "gate: non-interactive — proceeding ($prompt)"
         return 0
@@ -87,7 +92,7 @@ ac_safety_guard() {
 }
 
 # ac_safety_guard_destructive <project> <op-description> <path>
-# Enforces: backup-before-removal + human approval (unless ANTCRATE_REMOVAL_PREAPPROVED=1).
+# Enforces: backup-before-removal + approval (TTY prompt, or duty-ledger review non-TTY).
 # Returns 0 only if a successful backup exists AND approval is granted.
 # Sets AC_LAST_BACKUP_PATH on success so callers can reference the tarball in logs.
 ac_safety_guard_destructive() {
@@ -111,11 +116,7 @@ ac_safety_guard_destructive() {
 
     # 3. approval gate — non-interactive proceeds (backup verified above,
     # quarantine catches the artifact); approval moves out-of-band to the
-    # duty ledger (audit 2026-07-10). PREAPPROVED kept one release for compat.
-    if [[ "${ANTCRATE_REMOVAL_PREAPPROVED:-0}" == "1" ]]; then
-        ac_warn "safety: removal pre-approved by config — proceeding ($op on $target)"
-        return 0
-    fi
+    # duty ledger (audit 2026-07-10; PREAPPROVED env retired same day).
     if [[ ! -t 0 && "${ANTCRATE_ASSUME_TTY:-0}" != "1" ]]; then
         if declare -F ac_duty_add >/dev/null 2>&1; then
             ac_duty_add --type command \

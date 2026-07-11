@@ -4,7 +4,7 @@
 # Opt-in, versioned with the repo. Enable with:
 #   git config core.hooksPath .githooks
 #
-# Publication-boundary guard: runs `antcrate --scan` over the repo before any
+# Publication-boundary guard: runs `antcrate scan` over the repo before any
 # push — blocks if gitleaks finds secrets, the dev/ records are tracked, or a
 # configured dev marker reaches the public surface. Reason-required bypass:
 #   ANTCRATE_SCAN_BYPASS=1 git push ...   (audited to .git/antcrate-hook.log)
@@ -29,8 +29,8 @@ if ! command -v antcrate >/dev/null 2>&1; then
 fi
 
 {
-    printf '%s [pre-push] running: antcrate --scan %s\n' "$TS" "$ROOT"
-    if antcrate --scan "$ROOT"; then
+    printf '%s [pre-push] running: antcrate scan %s\n' "$TS" "$ROOT"
+    if antcrate scan "$ROOT"; then
         printf '%s [pre-push] PASS\n' "$TS"
         exit 0
     else

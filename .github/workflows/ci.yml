@@ -26,8 +26,8 @@ jobs:
 
       - name: Leak scan (publication boundary)
         run: |
-          $HOME/.local/bin/antcrate --tool-install gitleaks
-          $HOME/.local/bin/antcrate --scan "$GITHUB_WORKSPACE"
+          $HOME/.local/bin/antcrate tool install gitleaks
+          $HOME/.local/bin/antcrate scan "$GITHUB_WORKSPACE"
 
       - name: Build & test antcrate-core
         run: |
@@ -35,5 +35,5 @@ jobs:
           cmake --build assets/code/core/build
           ctest --test-dir assets/code/core/build --output-on-failure
 
-      - name: Run antcrate --ci (shellcheck + bats)
-        run: $HOME/.local/bin/antcrate --ci
+      - name: Run antcrate self ci (shellcheck + bats)
+        run: $HOME/.local/bin/antcrate self ci

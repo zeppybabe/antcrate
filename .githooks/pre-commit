@@ -4,8 +4,8 @@
 # Opt-in, versioned with the repo. Enable with:
 #   git config core.hooksPath .githooks
 #
-# Runs `antcrate --ci` (shellcheck + bats) against the working tree and tees
-# output to .git/antcrate-hook.log so `antcrate --hook-log <project>` has
+# Runs `antcrate self ci` (shellcheck + bats) against the working tree and tees
+# output to .git/antcrate-hook.log so `antcrate hook log <project>` has
 # something to surface when a commit gets blocked.
 
 set -euo pipefail
@@ -22,14 +22,14 @@ if ! command -v antcrate >/dev/null 2>&1; then
 fi
 
 {
-    printf '%s [pre-commit] running: antcrate --ci\n' "$TS"
-    if antcrate --ci; then
+    printf '%s [pre-commit] running: antcrate self ci\n' "$TS"
+    if antcrate self ci; then
         printf '%s [pre-commit] PASS\n' "$TS"
         exit 0
     else
         rc=$?
         printf '%s [pre-commit] FAIL (exit %d) — see above for details\n' "$TS" "$rc"
-        printf '%s [pre-commit] debug: antcrate --hook-log <project>\n' "$TS"
+        printf '%s [pre-commit] debug: antcrate hook log <project>\n' "$TS"
         exit "$rc"
     fi
 } 2>&1 | tee -a "$LOG"

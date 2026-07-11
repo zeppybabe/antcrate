@@ -120,19 +120,19 @@ src() {
 # ---------- wrapper dispatch: --watch --follow ----------
 
 @test "wrapper: --watch with no project and no --follow exits 2" {
-    run "$BATS_TEST_DIRNAME/../bin/antcrate" --watch --once
+    run "$BATS_TEST_DIRNAME/../bin/antcrate" watch --once
     [ "$status" -eq 2 ]
 }
 
 @test "wrapper: --watch --once --follow renders the hot project" {
     src "ac_events_emit beta modify src/b.ts --ttl-ms 60000"
-    run "$BATS_TEST_DIRNAME/../bin/antcrate" --watch --once --follow --no-color
+    run "$BATS_TEST_DIRNAME/../bin/antcrate" watch --once --follow --no-color
     [ "$status" -eq 0 ]
     echo "$output" | grep -q '^beta/'
 }
 
 @test "wrapper: --watch --once --follow with no active events exits 1" {
-    run "$BATS_TEST_DIRNAME/../bin/antcrate" --watch --once --follow
+    run "$BATS_TEST_DIRNAME/../bin/antcrate" watch --once --follow
     [ "$status" -eq 1 ]
 }
 

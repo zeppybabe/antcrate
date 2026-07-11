@@ -75,12 +75,12 @@ run_hook() {
         run run_hook Bash "{\"command\":\"$c\"}" "$t"
         [ "$status" -eq 0 ]
     done <<'EOF'
-antcrate --commit antcrate -m wrap
-antcrate --pp antcrate
-antcrate --status
-antcrate --duties
-antcrate --duty add-me
-antcrate --duty-done 1
+antcrate commit antcrate -m wrap
+antcrate pp antcrate
+antcrate st
+antcrate duty ls
+antcrate duty add add-me
+antcrate duty done 1
 antcrate --emit-activity antcrate --kind note
 git status
 git diff HEAD
@@ -89,15 +89,15 @@ git add ledger.md
 EOF
 }
 
-@test "gate: hard allows preapproved non-TTY commit form" {
+@test "gate: hard allows compact-word commit form (PREAPPROVED retired 2026-07-10)" {
     t=$(mk_transcript 143000)
-    run run_hook Bash '{"command":"ANTCRATE_COMMIT_PREAPPROVED=1 antcrate --commit antcrate -m wrap -- ledger.md"}' "$t"
+    run run_hook Bash '{"command":"antcrate commit antcrate -m wrap -- ledger.md"}' "$t"
     [ "$status" -eq 0 ]
 }
 
 @test "gate: hard — quoted text cannot smuggle a segment" {
     t=$(mk_transcript 143000)
-    run run_hook Bash '{"command":"antcrate --commit antcrate -m \"feat: a && b; c\" -- ledger.md"}' "$t"
+    run run_hook Bash '{"command":"antcrate commit antcrate -m \"feat: a && b; c\" -- ledger.md"}' "$t"
     [ "$status" -eq 0 ]
 }
 

@@ -184,6 +184,6 @@ src() {
 
 @test "deregister: wrapper exits 2 for missing project argument" {
     BIN="$BATS_TEST_DIRNAME/../bin/antcrate"
-    run bash "$BIN" --deregister
+    run bash "$BIN" deregister
     [ "$status" -eq 2 ]
 }

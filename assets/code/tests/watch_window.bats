@@ -88,7 +88,7 @@ kill_mock_alacritty() {
     kill_mock_alacritty
 }
 
-@test "watch-window: spawn args contain --class, --title, -e with --watch" {
+@test "watch-window: spawn args contain --class, --title, -e with the watch word" {
     install_mock_alacritty
     src "ac_watch_window mybun"
     args_file="$BATS_TEST_TMPDIR/alacritty.args"
@@ -101,7 +101,7 @@ kill_mock_alacritty() {
     [[ "$content" == *"ac-watch-mybun"* ]]
     [[ "$content" == *"--title"* ]]
     [[ "$content" == *"antcrate watch: mybun"* ]]
-    [[ "$content" == *"--watch mybun"* ]] || [[ "$content" == *"--watch"*"mybun"* ]]
+    [[ "$content" == *" watch mybun"* ]] || [[ "$content" == *" watch"*"mybun"* ]]
     kill_mock_alacritty
 }
 

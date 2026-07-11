@@ -3,7 +3,7 @@
 # antcrate-template-version: 1.0
 # Project: __PROJECT_NAME__
 #
-# Runs `antcrate --ci` against the working tree and tees output to
+# Runs `antcrate self ci` against the working tree and tees output to
 # .git/antcrate-hook.log. Useful for the antcrate skill itself and for
 # any project with bats tests + shellcheck-able shell code. For projects
 # without those tools, prefer pre-commit-stack-bash or a stack-specific
@@ -25,8 +25,8 @@ if ! command -v __ANTCRATE_BIN__ >/dev/null 2>&1; then
 fi
 
 {
-    printf '%s [pre-commit-ci] running: __ANTCRATE_BIN__ --ci\n' "$TS"
-    if __ANTCRATE_BIN__ --ci; then
+    printf '%s [pre-commit-ci] running: __ANTCRATE_BIN__ self ci\n' "$TS"
+    if __ANTCRATE_BIN__ self ci; then
         printf '%s [pre-commit-ci] PASS\n' "$TS"
         exit 0
     else

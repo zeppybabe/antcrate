@@ -3,7 +3,6 @@
 
 setup() {
     export ANTCRATE_CANARY_DISABLE=1
-    export ANTCRATE_REMOVAL_PREAPPROVED=1
     LIB="$BATS_TEST_DIRNAME/../lib"
     export ANTCRATE_HOME="$BATS_TEST_TMPDIR/.antcrate"
     export ANTCRATE_ROOT="$BATS_TEST_TMPDIR/projects"
@@ -21,7 +20,6 @@ src() {
         export ANTCRATE_REGISTRY='$ANTCRATE_REGISTRY'
         export ANTCRATE_LOG_LEVEL='$ANTCRATE_LOG_LEVEL'
         export ANTCRATE_CANARY_DISABLE='1'
-        export ANTCRATE_REMOVAL_PREAPPROVED='1'
         export ANTCRATE_RELOCATE_SRC_PREFIX='$ANTCRATE_RELOCATE_SRC_PREFIX'
         . '$LIB/log.sh'
         . '$LIB/registry.sh'
