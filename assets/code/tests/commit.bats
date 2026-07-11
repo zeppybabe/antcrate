@@ -196,3 +196,12 @@ src() {
     [ "$status" -eq 0 ]
     [[ "$output" == *"nothing staged"* ]]
 }
+
+@test "commit: explicit mode stages a pre-staged deletion (git rm'd path)" {
+    src "ac_registry_upsert proj '$R' scripts ''"
+    git -C "$R" rm -q README.md
+    run src "ac_commit_run proj 'chore: drop readme' explicit README.md"
+    [ "$status" -eq 0 ]
+    [ ! -f "$R/README.md" ]
+    git -C "$R" show --name-only --pretty=format: HEAD | grep -q "README.md"
+}

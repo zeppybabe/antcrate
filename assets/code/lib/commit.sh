@@ -60,10 +60,14 @@ ac_commit_run() {
             (( ${#files[@]} > 0 )) || { ac_error "commit: no files given (use --all-tracked or pass files after --)"; return 1; }
             local f
             for f in "${files[@]}"; do
-                if ! git -C "$p" add -- "$f"; then
-                    ac_error "commit: failed to stage '$f'"
-                    git -C "$p" reset HEAD >/dev/null 2>&1 || true
-                    return 1
+                if ! git -C "$p" add -A -- "$f" 2>/dev/null; then
+                    # a git-rm'd path matches nothing on disk or in the index,
+                    # but its deletion may already be staged — that counts
+                    if ! git -C "$p" diff --cached --name-only -- "$f" | grep -q .; then
+                        ac_error "commit: failed to stage '$f'"
+                        git -C "$p" reset HEAD >/dev/null 2>&1 || true
+                        return 1
+                    fi
                 fi
             done
             ;;
