@@ -11,6 +11,8 @@
 #   ac_rag_init  <project>                — create <rag-dir>/<project>.db
 #   ac_rag_index <project>                — incremental index (mtime-driven)
 #   ac_rag_query <project> <query> [n]    — BM25 top-n: path:line + snippet
+#                                           self-healing: inits/reindexes first
+#                                           if the db is missing or stale
 #
 # Layout: $ANTCRATE_RAG_DIR (default $ANTCRATE_DATA_HOME/rag, fallback
 # $ANTCRATE_HOME/rag). Chunks: 60 lines, step 50 (10-line overlap). Files:
@@ -38,6 +40,27 @@ _ac_rag_project_path() {
     local p; p=$(ac_registry_get "$project" path)
     [[ -d "$p" ]] || { ac_error "rag: path missing: $p"; return 1; }
     printf '%s\n' "$p"
+}
+
+# shared file walk: prune noise dirs, cap 1MB; extra find predicates via "$@"
+_ac_rag_find() {
+    local root="$1"; shift
+    find "$root" \
+        \( -name .git -o -name node_modules -o -name target -o -name dist \
+           -o -name build -o -name __pycache__ -o -name .next -o -name .cache \
+           -o -name .svelte-kit -o -name dev \) -prune \
+        -o -type f -size -1048576c "$@" 2>/dev/null
+}
+
+# stale = any file OR dir newer than the db (dir mtime catches deletes/renames)
+_ac_rag_stale() {
+    local root="$1" db="$2"
+    [[ -n "$(find "$root" \
+        \( -name .git -o -name node_modules -o -name target -o -name dist \
+           -o -name build -o -name __pycache__ -o -name .next -o -name .cache \
+           -o -name .svelte-kit -o -name dev \) -prune \
+        -o \( -type f -size -1048576c -o -type d \) -newer "$db" -print -quit \
+        2>/dev/null)" ]]
 }
 
 ac_rag_init() {
@@ -93,11 +116,7 @@ ac_rag_index() {
         [[ "$known" == "$mtime" ]] && continue
         _ac_rag_file_sql "$rel" "$f" "$mtime" >> "$sql"
         indexed=$((indexed + 1))
-    done < <(find "$p" \
-        \( -name .git -o -name node_modules -o -name target -o -name dist \
-           -o -name build -o -name __pycache__ -o -name .next -o -name .cache \
-           -o -name .svelte-kit -o -name dev \) -prune \
-        -o -type f -size -1048576c -print0 2>/dev/null)
+    done < <(_ac_rag_find "$p" -print0)
 
     # drop records for files that vanished
     local gone
@@ -121,7 +140,16 @@ ac_rag_query() {
     _ac_rag_require_sqlite || return 1
     [[ -n "$query" ]] || { ac_error "rag: empty query"; return 2; }
     local db; db=$(_ac_rag_db "$project")
-    [[ -f "$db" ]] || { ac_error "rag: no db for '$project' — run: antcrate rag init $project && antcrate rag index $project"; return 1; }
+
+    # self-healing: no db -> init+index; stale db -> reindex. The query is the
+    # only command an agent needs — freshness is never its job.
+    local p; p=$(_ac_rag_project_path "$project") || return 1
+    if [[ ! -f "$db" ]]; then
+        ac_rag_init "$project" >/dev/null || return 1
+        ac_rag_index "$project" >/dev/null || return 1
+    elif _ac_rag_stale "$p" "$db"; then
+        ac_rag_index "$project" >/dev/null || return 1
+    fi
 
     # sanitize into FTS5 phrase terms: strip quotes, quote each word
     local match="" w

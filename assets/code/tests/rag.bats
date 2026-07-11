@@ -61,8 +61,25 @@ setup() {
     [[ "$output" == *"src/other.txt"* ]]
 }
 
-@test "rag: query before init errors cleanly" {
-    run "$BIN" rag q proj "anything"
+@test "rag: query self-heals — no db means init+index+answer" {
+    run "$BIN" rag q proj "flux capacitor"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"src/engine.txt:1"* ]]
+    [ -f "$ANTCRATE_RAG_DIR/proj.db" ]
+}
+
+@test "rag: query self-heals — stale db reindexes before answering" {
+    "$BIN" rag init proj
+    "$BIN" rag index proj
+    sleep 1
+    printf 'a fresh dirigible sighting\n' >> "$R/src/other.txt"
+    run "$BIN" rag q proj "dirigible"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"src/other.txt"* ]]
+}
+
+@test "rag: query on unknown project errors cleanly" {
+    run "$BIN" rag q nosuchproj "anything"
     [ "$status" -ne 0 ]
     [[ "$output" == *"rag"* ]]
 }
