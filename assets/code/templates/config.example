@@ -19,3 +19,8 @@
 
 # Backup retention (per project)
 # ANTCRATE_BACKUP_RETENTION=20
+
+# Backup targets — comma list, priority order (default: local).
+# 'usb' and 'git-mirror' activate as those phases land; unknown names are
+# skipped with a warning, never a silent no-op.
+# backup_targets=local
