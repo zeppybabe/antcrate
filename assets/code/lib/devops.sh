@@ -390,14 +390,14 @@ ac_devops_ci_record() {
 # one-liner for cmd_status: progress toward the every-+100-bats audit
 ac_devops_audit_status_line() {
     if [[ ! -f "$ANTCRATE_CI_BASELINE" ]]; then
-        printf 'audit: no baseline — run --ci --snapshot\n'
+        printf 'audit: no baseline — run: antcrate self ci --snapshot\n'
         return 0
     fi
     local last base due
     last=$(jq -r '.last.bats // 0' "$ANTCRATE_CI_BASELINE")
     base=$(jq -r '.baseline.bats // empty' "$ANTCRATE_CI_BASELINE")
     if [[ -z "$base" ]]; then
-        printf 'audit: last ci %s bats; no baseline — run --ci --snapshot\n' "$last"
+        printf 'audit: last ci %s bats; no baseline — run: antcrate self ci --snapshot\n' "$last"
         return 0
     fi
     due=$((base + 100))

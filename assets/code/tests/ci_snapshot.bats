@@ -94,5 +94,5 @@ mk_tree() {
 @test "audit status line: no baseline file -> hint to snapshot" {
     run src 'ac_devops_audit_status_line'
     [ "$status" -eq 0 ]
-    [[ "$output" == *"--ci --snapshot"* ]]
+    [[ "$output" == *"antcrate self ci --snapshot"* ]]
 }
