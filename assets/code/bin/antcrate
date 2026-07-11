@@ -133,6 +133,8 @@ Commands:
   self <check|test|ci|src|edit|install>             antcrate itself
   tool <install|ls|path>                            pinned local dev tools (no root)
   gc <p> | gc ghosts                                cleanup candidates / ghost registry entries
+  rag q <p> "<query>" [n]                           BM25 retrieval, self-healing index — query before you grep
+  intel <pull|ls|ack [all|<id>]|st>                 Anthropic change feed + bulk review close-out
   mv <old> <new> · arc [-u] <p> · rm <p>            rename / (un)archive / remove — all backed up
   in <p> -- <cmd> · map <p> · watch [<p>] · scan [path] · fetch <url>
   list · diff <p> · logs [p [n]] · propose <name> "<intent>"
@@ -152,6 +154,7 @@ Compact form (audit 2026-07-10; --flags below remain valid one release):
   hook <sub> <p> · self <check|test|ci|src|edit|install> · tool <install|ls|path>
   gc <p>|ghosts · mv <old> <new> · arc [-u] <p> · rm <p>
   rag <init|index|q> <p> ["<query>" [n]]  deterministic FTS5/BM25 retrieval for agents
+  intel <pull|ls|ack|st>  Anthropic-source change feed; ack all|<id> = bulk review close
   in <p> -- <cmd> · map · watch · scan · fetch · info · list · diff · logs · help
   All prompts are non-interactive-safe: no -y / PREAPPROVED needed; destructive
   ops back up first and file a review duty when no human is present.
@@ -317,7 +320,7 @@ Commands:
   --intel-pull [--source <id>]        fetch pinned Anthropic-only sources; snapshot +
                [--quiet]              unread row on change (exit 2 on non-Anthropic host)
   --intel-new [--json]                unread intel items (new minus acked)
-  --intel-ack <id> <sha256>           mark an intel item reviewed
+  --intel-ack all | <id> [<sha256>]   mark reviewed: everything, one source, or one item
   --intel-status                      per-source last-pull / last-change / unread
   --list                              list registered projects
   --info <project>                    formatted record: path, domain, git_remote,
@@ -487,6 +490,13 @@ if [[ "${1:0:1}" != "-" ]]; then
                     *)       set -- --duty "$@" ;;
                 esac ;;
         duties) set -- --duties "$@" ;;
+        intel)  case "${1:-}" in
+                    pull)      shift; set -- --intel-pull "$@" ;;
+                    ls|new)    shift; set -- --intel-new "$@" ;;
+                    ack)       shift; set -- --intel-ack "$@" ;;
+                    st|status) shift; set -- --intel-status "$@" ;;
+                    *)         ac_error "intel: unknown sub '${1:-}' (pull|ls|ack|st)"; exit 2 ;;
+                esac ;;
         rag)    case "${1:-}" in
                     init)  shift; set -- --rag-init "$@" ;;
                     index) shift; set -- --rag-index "$@" ;;
@@ -935,8 +945,15 @@ case "$ACTION" in
         ac_intel_pull "${INTEL_ARGS[@]}" ;;
     intel-new)    ac_intel_new ${INTEL_JSON:+"$INTEL_JSON"} ;;
     intel-ack)
-        [[ -z "$NAME" || -z "$INTEL_SHA" ]] && { ac_error "--intel-ack requires <source_id> <sha256>"; exit 2; }
-        ac_intel_ack "$NAME" "$INTEL_SHA" ;;
+        if [[ "$NAME" == "all" ]]; then
+            ac_intel_ack_all
+        elif [[ -n "$NAME" && -z "$INTEL_SHA" ]]; then
+            ac_intel_ack_all "$NAME"        # whole-source ack, no per-sha ceremony
+        elif [[ -z "$NAME" ]]; then
+            ac_error "intel ack requires: all | <source_id> [sha256]"; exit 2
+        else
+            ac_intel_ack "$NAME" "$INTEL_SHA"
+        fi ;;
     intel-status) ac_intel_status ;;
     list)      cmd_list ;;
     info)

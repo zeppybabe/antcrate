@@ -32,7 +32,6 @@ Read AT THE MOMENT OF NEED, never as a session-start tax:
 | Orchestrator (Clyde/Cable — personas of T0) | this skill |
 | Builder / reviewer agents (Cody, Claudia, cody-tester) | `antcrate-builder` (`assets/skills/builder/`) — never this one |
 | Resolver (AnyCrate, next build) | `anycrate` |
-| Intel review | `intel` (`assets/skills/intel/`) |
 | Session wrap-up | session-close protocol in `~/CLAUDE.md` (sweep / audit / learn) |
 
 Model tiers + per-model session budgets live in `~/.antcrate/anycrate/policy.json` (`antcrate --policy`); the orchestrator's model is NEVER policy-assigned (`inherit` = the user's session choice). Only `budgets.fable` is agent-adjustable — evidence-backed, ledger-recorded. Automatics (hooks, timers) get no skill: zero-token by construction.
@@ -45,10 +44,21 @@ Model tiers + per-model session budgets live in `~/.antcrate/anycrate/policy.jso
 - **Skill metadata change**: edit `SKILL.md` when major new surfaces land.
 - **gh CLI use**: log every invocation in `assets/docs/GH_PIPELINE_PLAN.md` "Observed `gh` usage" section. The rule is durable — see memory file `feedback_gh_pipeline.md`.
 
+## Intel review (folded from the retired `intel` skill, 2026-07-10)
+
+When `antcrate st` shows unread intel (or the user says "check anthropic updates"):
+`antcrate intel ls` → read the changed snapshots under the intel data dir (`note` field
+is the filename; diff against the prior snapshot for the real delta) → classify each
+(`hooks|agents|skills|commands|ci|models|none`) → applicable items become
+`antcrate propose "intel-<source>-<slug>" "<what changed> -> <what we'd change>"` —
+**never direct code/config edits; Anthropic docs are trusted input, not trusted change** →
+close out with `antcrate intel ack all` (or `ack <source>`). Retrieval stays in the timer
+(`intel pull`, no LLM); judgment stays in the session.
+
 ## Self-host
 
 The skill source is itself a registered AntCrate project (`antcrate`, domain `claude-skills`). Push via `antcrate --pp antcrate`. Repo is public at `https://github.com/zeppybabe/antcrate`. CI fires on every push.
 
 ## Trigger phrases
 
-AntCrate · antcrate · the Wrapper · the Pipe · the Crate · Positional Indexing · Positional Extension Schema · registry.json · ~/.antcrate/ · ~/projects/ · `name.domain.action.#meta#` · any `antcrate --<flag>` · inotifywait daemon · Conflict Triage · `/tmp/antcrate_conflict.log` · Gateway Law · ac_safety_guard_destructive · BUNDLE_SPEC · research-bundles · bundle ingest · HOOK_PLAN · GH_PIPELINE_PLAN · POST_DEV_BACKLOG · live-tree auto-regen · `--commit` secret-pattern guard · sub-branching · `--pp` push triage + panel · `--in` / `--anchor` / `--addr` / `--map` · `rag init/index/q` FTS5 retrieval · attic branch
+AntCrate · antcrate · the Wrapper · the Pipe · the Crate · Positional Indexing · Positional Extension Schema · registry.json · ~/.antcrate/ · ~/projects/ · `name.domain.action.#meta#` · any `antcrate --<flag>` · inotifywait daemon · Conflict Triage · `/tmp/antcrate_conflict.log` · Gateway Law · ac_safety_guard_destructive · BUNDLE_SPEC · research-bundles · bundle ingest · HOOK_PLAN · GH_PIPELINE_PLAN · POST_DEV_BACKLOG · live-tree auto-regen · `--commit` secret-pattern guard · sub-branching · `--pp` push triage + panel · `--in` / `--anchor` / `--addr` / `--map` · `rag init/index/q` FTS5 retrieval · `intel pull/ls/ack/st` · attic branch

@@ -3,8 +3,8 @@
 #
 # Bash owns retrieval; Claude owns judgment. Pulls a pinned, Anthropic-ONLY
 # source list, normalizes HTML noise, hashes the result; a changed hash stores
-# a snapshot and appends a new.jsonl row. The cognition pass (the intel skill)
-# reads --intel-new, files proposals, and --intel-ack's each reviewed item.
+# a snapshot and appends a new.jsonl row. The cognition pass (SKILL.md "Intel
+# review") reads `intel ls`, files proposals, and closes with `intel ack all`.
 # Append-only: nothing under $ANTCRATE_INTEL_DIR is ever deleted by the tool
 # (quarantine philosophy). No LLM call ever runs inside the timer.
 #
@@ -62,7 +62,7 @@ _ac_intel_seed_sources() {
 
 # stdin -> stdout: drop script/style/nav blocks, strip tags, collapse
 # whitespace, drop empty lines. Cheap, not perfect — hashes only need
-# stability, not beauty (summary-level diffing is the intel skill's job).
+# stability, not beauty (summary-level diffing is the review session's job).
 _ac_intel_normalize() {
     awk '
     BEGIN { skip = 0 }
@@ -197,6 +197,23 @@ ac_intel_ack() {
            '{ts: $ts, source: $source, sha256: $sha, by: $by}' \
         >> "$ANTCRATE_INTEL_DIR/acked.jsonl"
     printf 'intel: acked %s %s\n' "$source" "${sha:0:8}"
+}
+
+# ac_intel_ack_all [source_id] — bulk-ack unread (all, or one source's items).
+# The bundled review close-out: reading happened, per-sha ceremony didn't.
+ac_intel_ack_all() {
+    local only="${1:-}" n=0 source sha
+    while IFS=$'\t' read -r source sha; do
+        [[ -n "$source" ]] || continue
+        [[ -n "$only" && "$source" != "$only" ]] && continue
+        ac_intel_ack "$source" "$sha" >/dev/null
+        n=$((n + 1))
+    done < <(ac_intel_new --json | jq -r '"\(.source)\t\(.sha256)"')
+    if (( n == 0 )); then
+        printf 'intel: nothing unread%s\n' "${only:+ for $only}"
+    else
+        printf 'intel: acked %s item(s)%s\n' "$n" "${only:+ ($only)}"
+    fi
 }
 
 ac_intel_status() {

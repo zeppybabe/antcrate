@@ -249,3 +249,34 @@ TWO_SOURCES='[{"id":"news","url":"https://www.anthropic.com/news"},
     run systemd-analyze verify --user "$tmp/antcrate-intel.timer" "$tmp/antcrate-intel.service"
     [ "$status" -eq 0 ]
 }
+
+@test "ack all: bulk-acks every unread item (bundled review close-out)" {
+    mk_sources "$TWO_SOURCES"
+    serve "https://www.anthropic.com/news" "news body one"
+    serve "https://www.anthropic.com/engineering" "eng body one"
+    src "ac_intel_pull --quiet"
+    run src "ac_intel_ack_all"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"acked 2"* ]]
+    run src "ac_intel_new"
+    [ -z "$output" ]
+}
+
+@test "ack all <source>: only acks that source's unread items" {
+    mk_sources "$TWO_SOURCES"
+    serve "https://www.anthropic.com/news" "news body one"
+    serve "https://www.anthropic.com/engineering" "eng body one"
+    src "ac_intel_pull --quiet"
+    run src "ac_intel_ack_all news"
+    [ "$status" -eq 0 ]
+    run src "ac_intel_new"
+    [[ "$output" == *"eng"* ]]
+    [[ "$output" != *"news"* ]]
+}
+
+@test "ack all: nothing unread is a clean no-op" {
+    mk_sources "$ONE_SOURCE"
+    run src "ac_intel_ack_all"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"nothing unread"* ]]
+}

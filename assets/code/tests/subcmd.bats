@@ -90,3 +90,28 @@ setup() {
     [ "$status" -eq 0 ]
     [[ "$output" == *"antcrate status"* ]]
 }
+
+@test "subcmd: intel st == --intel-status (fold, session 2026-07-10 evening)" {
+    export ANTCRATE_INTEL_DIR="$ANTCRATE_HOME/intel"
+    run "$BIN" intel st
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"intel"* ]]
+}
+
+@test "subcmd: intel ls before any pull is empty-clean" {
+    export ANTCRATE_INTEL_DIR="$ANTCRATE_HOME/intel"
+    run "$BIN" intel ls
+    [ "$status" -eq 0 ]
+}
+
+@test "subcmd: intel ack all with nothing unread is a clean no-op" {
+    export ANTCRATE_INTEL_DIR="$ANTCRATE_HOME/intel"
+    run "$BIN" intel ack all
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"nothing unread"* ]]
+}
+
+@test "subcmd: intel unknown sub exits 2" {
+    run "$BIN" intel frob
+    [ "$status" -eq 2 ]
+}
