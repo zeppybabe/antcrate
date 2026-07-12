@@ -1,4 +1,4 @@
-%% antcrate tree — generated 2026-07-12T02:09:55Z
+%% antcrate tree — generated 2026-07-12T03:26:19Z
 graph TD
   root(["antcrate"])
   1["AGENTS.md"]
@@ -159,8 +159,10 @@ graph TD
   8a8 --> 8a8aq
   8a8ar[/targets/]
   8a8 --> 8a8ar
-  8a8ar1["local.sh"]
+  8a8ar1["git_mirror.sh"]
   8a8ar --> 8a8ar1
+  8a8ar2["local.sh"]
+  8a8ar --> 8a8ar2
   8a8as["targets.sh"]
   8a8 --> 8a8as
   8a8at["tooling.sh"]
@@ -349,20 +351,22 @@ graph TD
   8a11 --> 8a11bf
   8a11bg["targets.bats"]
   8a11 --> 8a11bg
-  8a11bh["targets_local.bats"]
+  8a11bh["targets_git_mirror.bats"]
   8a11 --> 8a11bh
-  8a11bi["tooling.bats"]
+  8a11bi["targets_local.bats"]
   8a11 --> 8a11bi
-  8a11bj["watch.bats"]
+  8a11bj["tooling.bats"]
   8a11 --> 8a11bj
-  8a11bk["watch_live.bats"]
+  8a11bk["watch.bats"]
   8a11 --> 8a11bk
-  8a11bl["watch_smoke.bats"]
+  8a11bl["watch_live.bats"]
   8a11 --> 8a11bl
-  8a11bm["watch_window.bats"]
+  8a11bm["watch_smoke.bats"]
   8a11 --> 8a11bm
-  8a11bn["wrapper_dispatch.bats"]
+  8a11bn["watch_window.bats"]
   8a11 --> 8a11bn
+  8a11bo["wrapper_dispatch.bats"]
+  8a11 --> 8a11bo
   8b[/docs/]
   8 --> 8b
   8b1["AntCrate_blueprint_v0.pdf"]
@@ -477,6 +481,8 @@ graph TD
   9b1 --> 9b1n
   9b1o["2026-07-11-g3p1-intel-kinds-user-sources.md"]
   9b1 --> 9b1o
+  9b1p["2026-07-12-g2-git-mirror.md"]
+  9b1 --> 9b1p
   9b2[/specs/]
   9b --> 9b2
   9b2a["2026-05-31-harness-enforcement-layer.md"]
