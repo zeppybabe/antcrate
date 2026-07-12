@@ -238,9 +238,27 @@ ac_intel_status() {
     printf 'unread total: %s\n' "$(printf '%s' "$unread_all" | grep -c '^{' || true)"
 }
 
-# one-liner for cmd_status (mirrors the selfsrc line)
+# _ac_intel_age <seconds> — humanize, mirrors pp.sh's _ac_pp_age (kept local so
+# this lib stays sourceable on its own)
+_ac_intel_age() {
+    local s=$1
+    if (( s >= 86400 )); then printf '%sd %sh' $((s / 86400)) $((s % 86400 / 3600))
+    elif (( s >= 3600 )); then printf '%sh %sm' $((s / 3600)) $((s % 3600 / 60))
+    else printf '%ss' "$s"; fi
+}
+
+# one-liner for cmd_status (mirrors the selfsrc line) — unread count alone says
+# nothing about whether the feed is even alive, so carry sources + last pull
 ac_intel_status_line() {
-    local n=0
+    local n=0 srcs=0 last="never" newest=0 m t
     n=$(ac_intel_new --json | grep -c '^{') || true
-    printf 'intel: %s unread\n' "$n"
+    [[ -f "$ANTCRATE_INTEL_DIR/sources.json" ]] && \
+        srcs=$(jq -r '.sources | length' "$ANTCRATE_INTEL_DIR/sources.json" 2>/dev/null || printf 0)
+    for m in "$ANTCRATE_INTEL_DIR"/snapshots/*/latest.sha256; do
+        [[ -f "$m" ]] || continue
+        t=$(stat -c %Y "$m" 2>/dev/null) || continue
+        (( t > newest )) && newest=$t
+    done
+    (( newest > 0 )) && last="$(_ac_intel_age $(( $(date +%s) - newest ))) ago"
+    printf 'intel: %s unread · %s sources · last pull %s\n' "$n" "$srcs" "$last"
 }

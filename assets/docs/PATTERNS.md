@@ -15,7 +15,7 @@ Goal of this file: Claude Code (or any agent) reads this **before** reaching for
 
 | Intent | Command | Notes |
 |---|---|---|
-| See what's registered | `antcrate st` | Always first. Shows daemon state + project count. |
+| See what's registered | `antcrate st` | Always first. Status + doctor: daemon, projects, intel (unread · sources · last pull), audit, duties (count + oldest), backups, and health checks — every miss prints its fix command. |
 | List projects in detail | `antcrate list` | Tab-separated. |
 | Show one project's full record | `antcrate info <project>` | Path, domain, git_remote, linked, backups, branch, last commit, working state. Replaces `jq '.projects.<n>'`. |
 | Create a new project | `antcrate new <name> --domain <domain> [--meta "csv"]` | Domain ∈ {webapps, scripts, notes, projects, _generic}. Auto-scaffolds `docs/diagrams/architecture.mmd`. |
@@ -135,7 +135,7 @@ Disable with `export ANTCRATE_AUTO_DIAGRAMS=0` (e.g. for batch scripted mutation
 | Fetch Anthropic-official sources now | `antcrate intel pull [--quiet] [<id>]` | Pinned list in intel data dir `sources.json` (anthropic.com / docs.claude.com / github.com/anthropics/* ONLY — any other host exits 2). Snapshot + unread row on hash change. Daily timer: `antcrate-intel.timer`. |
 | See unread Anthropic changes | `antcrate intel ls [--json]` | new.jsonl minus acked.jsonl. |
 | Close out a review | `antcrate intel ack all` / `ack <id>` / `ack <id> <sha256>` | Bulk, per-source, or per-item. Append-only; nothing is ever deleted from the intel tree. |
-| Per-source intel summary | `antcrate intel st` | last-pull / last-change / unread per source; `antcrate st` also carries an `intel: N unread` line. |
+| Per-source intel summary | `antcrate intel st` | last-pull / last-change / unread per source; `antcrate st` also carries an `intel: N unread · S sources · last pull <age>` line. |
 
 Findings become proposals (`antcrate propose`) — never direct code/config edits (Bash owns retrieval, Claude owns judgment).
 

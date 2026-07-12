@@ -142,12 +142,19 @@ ac_duty_done_all() {
         "$n" "$([[ "$n" -eq 1 ]] && printf y || printf ies)"
 }
 
-# one-liner for cmd_status (mirrors ac_intel_status_line)
+# one-liner for cmd_status (mirrors ac_intel_status_line) — the oldest open
+# date shows at a glance whether the queue is fresh or rotting
 ac_duties_status_line() {
-    local f n=0
+    local f n=0 oldest=""
     f=$(_ac_duties_file 2>/dev/null) || { printf 'duties: 0 open\n'; return 0; }
     if [[ -f "$f" ]]; then
         n=$(grep -c '^- \[ \]' "$f") || n=0
+        (( n > 0 )) && oldest=$(grep -m1 -oE '^- \[ \] [0-9]{4}-[0-9]{2}-[0-9]{2}' "$f" \
+            | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}')
     fi
-    printf 'duties: %s open\n' "$n"
+    if (( n > 0 )) && [[ -n "$oldest" ]]; then
+        printf 'duties: %s open (oldest %s)\n' "$n" "$oldest"
+    else
+        printf 'duties: %s open\n' "$n"
+    fi
 }

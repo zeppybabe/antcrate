@@ -9,8 +9,8 @@
 #   antcrate --pp <project>
 #   antcrate --resume <new_parent> --expand <child>
 #   antcrate --pipe-file <basename>      (internal: invoked by daemon)
-#   antcrate --status
-#   antcrate --list
+#   antcrate st
+#   antcrate list
 #   antcrate --help
 
 set -euo pipefail
@@ -112,6 +112,8 @@ LIB_DIR="$SCRIPT_DIR/../lib"
 . "$LIB_DIR/pp.sh"
 # shellcheck disable=SC1091
 . "$LIB_DIR/rag.sh"
+# shellcheck disable=SC1091
+. "$LIB_DIR/health.sh"
 
 # ANTCRATE_HOME / ANTCRATE_ROOT and all other path vars are set by paths.sh
 # (sourced first), which honors $XDG_*_HOME and defaults to ~/Projects.
@@ -314,7 +316,9 @@ Commands:
   --deregister <project>              drop a ghost entry from registry (capture-first; refuses if
                                       path exists — use --archive instead)
   --pipe-file <basename>              decode a Positional filename and dispatch
-  --status                            show daemon + registry summary
+  --status                            status + doctor: daemon/registry/intel/audit/
+                                      duties/backup posture, plus health checks
+                                      whose misses print their fix commands
   --selfcheck [--quiet]               self-source persistence health (path, skill link,
                                       git, unpushed, uncommitted, backup age);
                                       exit 0 ok / 1 critical / 2 warnings
@@ -406,7 +410,7 @@ cmd_status() {
        && kill -0 "$(cat "$ANTCRATE_HOME/daemon.pid")" 2>/dev/null; then
         printf '  daemon    : running (pid %s)\n' "$(cat "$ANTCRATE_HOME/daemon.pid")"
     else
-        printf '  daemon    : not running\n'
+        printf '  daemon    : not running — fix: systemctl --user enable --now antcrated\n'
     fi
     if ac_pipe_paused; then printf '  pipe      : PAUSED\n'; else printf '  pipe      : active\n'; fi
     local n; n=$(ac_registry_list | wc -l)
@@ -443,6 +447,13 @@ cmd_status() {
             "$(basename "$newest_b")" "$(_ac_pp_age "$(stat -c %Y "$newest_b")")"
     else
         printf '  backups   : none\n'
+    fi
+    # doctor (G1): st IS the health command — misses print their fix commands
+    local health_out
+    health_out=$(ac_health_status_line 2>/dev/null) || true
+    if [[ -n "$health_out" ]]; then
+        printf '  %s\n' "${health_out%%$'\n'*}" | sed 's/^  health: /  health    : /'
+        [[ "$health_out" == *$'\n'* ]] && printf '%s\n' "${health_out#*$'\n'}" | sed 's/^/  /'
     fi
 }
 

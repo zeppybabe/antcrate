@@ -219,13 +219,19 @@ TWO_SOURCES='[{"id":"news","url":"https://www.anthropic.com/news"},
     [[ "$output" == *"unread"* ]]
 }
 
-@test "status line: ac_intel_status_line prints 'intel: N unread'" {
+@test "status line: unread + source count + last-pull age in one line" {
     mk_sources "$ONE_SOURCE"
     serve "https://www.anthropic.com/news" "<html>n</html>"
     src 'ac_intel_pull'
     run src 'ac_intel_status_line'
     [ "$status" -eq 0 ]
-    [ "$output" = "intel: 1 unread" ]
+    [[ "$output" == "intel: 1 unread · 1 sources · last pull "*" ago" ]]
+}
+
+@test "status line: fresh env says 0 unread, 0 sources, never pulled" {
+    run src 'ac_intel_status_line'
+    [ "$status" -eq 0 ]
+    [ "$output" = "intel: 0 unread · 0 sources · last pull never" ]
 }
 
 @test "pull: --quiet suppresses per-source progress output" {

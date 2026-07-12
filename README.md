@@ -13,7 +13,7 @@ Five rules shape everything in this repo:
 1. **No destructive operation without a backup and explicit human approval.** Enforced in code (`ac_safety_guard_destructive`), not by convention.
 2. **Quarantine over destruction.** User data is never deleted by automation — it is archived and moved to `~/.local/state/antcrate/quarantine/`. There is deliberately no purge flag; only the human deletes.
 3. **Updates and removals come last** in any roadmap or operation chain (the *Gateway Law*): read state → confirm no dependents → backup → show the human the verify output → receive approval → only then execute.
-4. **Agents propose, humans approve.** When no flag fits an intent, the agent files `antcrate --propose` instead of falling back to a bare command. The proposal log is how the agent says "I needed this" without crossing the boundary.
+4. **Agents propose, humans approve.** When no flag fits an intent, the agent files `antcrate propose` instead of falling back to a bare command. The proposal log is how the agent says "I needed this" without crossing the boundary.
 5. **Bash owns retrieval, the human/agent owns judgment.** Timers fetch and snapshot; nothing automated ever decides meaning or edits code on its own.
 
 ## Quick start
@@ -27,14 +27,18 @@ git clone https://github.com/zeppybabe/antcrate.git ~/antcrate-src
 bash ~/antcrate-src/assets/code/install.sh
 
 # 3. Use it
-antcrate --status                                               # selfsrc: OK-WITH-WARNINGS on a fresh install
-antcrate --start coolapp --domain webapps --meta html,css,js    # scaffolds under ~/Projects
-antcrate --map coolapp
+antcrate st                                                  # status + health panel, misses print their fix
+antcrate new coolapp --domain webapps --meta html,css,js     # scaffolds under ~/Projects
+antcrate map coolapp
 ```
+
+The installer finishes by printing that same `st` panel — anything left to set up
+(timers, dev tools, GitHub auth, git identity) is listed there with a
+copy-pasteable fix command. There is no separate `init` or `doctor` step.
 
 **Where things live (XDG).** Binaries in `~/.local/bin`; libs, templates, hooks, and the registry under `~/.local/share/antcrate/`; config at `~/.config/antcrate/config`; logs, backups, and locks under `~/.local/state/antcrate/`. Projects scaffold under `~/Projects` by default (override with `ANTCRATE_ROOT`). All locations honor the `XDG_*_HOME` variables, and upgrading from a pre-XDG install migrates `~/.antcrate/` automatically, once. A fresh install reports `selfsrc: OK-WITH-WARNINGS` (not `FAIL`) — the warnings are just "no backup yet / unpushed".
 
-**Dev tools, no root.** `antcrate --tool-install bats|shellcheck` provisions pinned, SHA256-verified tools under the XDG data dir; the bundled `local-install-guard.sh` hook steers reflexive `sudo apt` / `curl | bash` installs toward that path. The installer prints a per-distro hint if a required tool is missing — see [Dependencies](#dependencies).
+**Dev tools, no root.** `antcrate tool install bats|shellcheck` provisions pinned, SHA256-verified tools under the XDG data dir; the bundled `local-install-guard.sh` hook steers reflexive `sudo apt` / `curl | bash` installs toward that path. The installer prints a per-distro hint if a required tool is missing — see [Dependencies](#dependencies).
 
 **Full reference:** every flag, file, environment variable, and exit code is documented man-page style in [docs/MANUAL.md](docs/MANUAL.md). The flag-by-intent index — what agents read before reaching for a shell command — is [PATTERNS.md](assets/docs/PATTERNS.md).
 
@@ -50,7 +54,7 @@ antcrate --map coolapp
 
 ## Capability tour
 
-AntCrate ships **~60 commands** (compact words — leading legacy `--flags` retired 2026-07-10) backed by 46 lib modules; the 2026-07-10 audit atticked five modules (loop, delegate, canary+core, cost, obsidian) obsoleted by native harness features — preserved on branch `attic`. The groups below are the shape of the tool; [docs/MANUAL.md](docs/MANUAL.md) documents every flag.
+AntCrate ships **~60 commands** backed by 47 lib modules. You invoke everything with compact words (`antcrate st`, `antcrate bak antcrate`, `antcrate duty ls`); the `--flag` names listed below are the internal canonical map those words rewrite to — typing a retired leading `--flag` exits 2 with a pointer to the word (retired 2026-07-10); the 2026-07-10 audit atticked five modules (loop, delegate, canary+core, cost, obsidian) obsoleted by native harness features — preserved on branch `attic`. The groups below are the shape of the tool; [docs/MANUAL.md](docs/MANUAL.md) documents every flag.
 
 ### Project lifecycle and navigation
 
@@ -86,7 +90,7 @@ The layer that makes AntCrate an AI-development boundary rather than just a CLI:
 
 - **Intel tracker:** `--intel-pull` / `--intel-new` / `--intel-ack` / `--intel-status` — snapshot-on-change tracking of pinned Anthropic-official sources (any other host is refused before fetch). A daily timer retrieves; classification stays with the human/agent. Append-only; nothing is ever deleted.
 - **Retrieval:** `antcrate rag init|index|q` — deterministic FTS5/BM25 search over any registered project (zero keys, zero models); agents query before they grep.
-- **Health:** `--selfcheck` verifies the tool's own persistence (registry path, skill link, git state, unpushed work, backup age); `--status` carries one-line summaries of intel, audit cadence, and open duties.
+- **Health:** `antcrate st` *is* the doctor — one panel with daemon/pipe/registry posture, intel (unread · sources · last pull), audit cadence, duties (count + oldest), backup age, and a health section where every miss (PATH, timers, dev tools, gh auth, git identity) prints its own fix command. `self check` verifies the tool's own persistence (registry path, skill link, git state, unpushed work, backup age).
 - **Diagrams:** Mermaid views of the whole registry and every project tree, auto-regenerated on every mutating action and filesystem event. Diagrams are a function of state, not a snapshot.
 
 ### Bundles
@@ -110,13 +114,13 @@ The layer that makes AntCrate an AI-development boundary rather than just a CLI:
 
 **Required:** Bash 5+, jq, inotify-tools, git, mailx or sendmail, flock (util-linux). `--init` reports anything missing.
 
-**Optional:** `gh` for GitHub repo creation; `mmdc` / `plantuml` / `d2` for diagram rendering (Mermaid sources render inline on GitHub regardless); `bats-core` + `shellcheck` to run the test/lint suite — fetch both locally with `antcrate --tool-install bats` / `--tool-install shellcheck` (no root). `--ci` detects absent optional tools and skips their stage with a log line.
+**Optional:** `gh` for GitHub repo creation; `mmdc` / `plantuml` / `d2` for diagram rendering (Mermaid sources render inline on GitHub regardless); `bats-core` + `shellcheck` to run the test/lint suite — fetch both locally with `antcrate tool install bats` / `antcrate tool install shellcheck` (no root). `antcrate self ci` detects absent optional tools and skips their stage with a log line.
 
 ## CI
 
-`antcrate --ci` runs shellcheck on every `.sh` file and the full bats suite — fail-fast, exit 0 only when all pass. Every PASS records a snapshot to `~/.local/state/antcrate/ci-baseline.json`, which drives a periodic codebase-audit cadence surfaced in `--status`.
+`antcrate self ci` runs shellcheck on every `.sh` file and the full bats suite — fail-fast, exit 0 only when all pass. Every PASS records a snapshot to `~/.local/state/antcrate/ci-baseline.json`, which drives a periodic codebase-audit cadence surfaced in `antcrate st`.
 
-The same `--ci` runs in GitHub Actions on every push and PR, and is available locally as an opt-in pre-commit hook:
+The same `self ci` runs in GitHub Actions on every push and PR, and is available locally as an opt-in pre-commit hook:
 
 ```bash
 git config core.hooksPath .githooks
@@ -124,7 +128,7 @@ git config core.hooksPath .githooks
 
 ## Status
 
-**679 bats tests** across 64 files, shellcheck clean. (The Wave-1 C++ canary core is preserved on the `attic` branch, audit 2026-07-10.) Baseline sha `70ac95a`.
+**691 bats tests** across 65 files, shellcheck clean. (The Wave-1 C++ canary core is preserved on the `attic` branch, audit 2026-07-10.)
 
 Solo-maintained, pre-1.0; the CLI surface may still shift before a v1 tag. The live work queue and append-only decision log are kept in the maintainers' local `dev/` records (not published). AntCrate develops AntCrate: this repo is itself a registered project, pushed via `antcrate pp antcrate`, gated by its own hooks and CI.
 

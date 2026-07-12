@@ -148,11 +148,17 @@ line two'"
     [[ "$output" == *"No open duties to clear"* ]]
 }
 
-@test "duties: status line counts open only" {
+@test "duties: status line counts open only and shows oldest date" {
     src "ac_duty_add 'a'" >/dev/null
     src "ac_duty_add 'b'" >/dev/null
     src "ac_duty_done 1" >/dev/null
     run src "ac_duties_status_line"
     [ "$status" -eq 0 ]
-    [ "$output" = "duties: 1 open" ]
+    [[ "$output" == "duties: 1 open (oldest 20"*")" ]]
+}
+
+@test "duties: status line with nothing open stays bare" {
+    run src "ac_duties_status_line"
+    [ "$status" -eq 0 ]
+    [ "$output" = "duties: 0 open" ]
 }

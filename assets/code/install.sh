@@ -74,7 +74,12 @@ if [[ -d "$SRC/hooks" ]]; then
     cp -rf "$SRC/hooks"/. "$HOOKS_DIR/"
 fi
 
-# initialize state (idempotent; XDG dirs already created + migrated above)
+# initialize state (idempotent; XDG dirs already created + migrated above).
+# --init creates $ANTCRATE_ROOT (default ~/Projects) — note whether this run
+# is the one that created it, so first-time users get oriented below.
+ROOT_DIR="${ANTCRATE_ROOT:-$HOME/Projects}"
+ROOT_WAS_MISSING=0
+[[ -d "$ROOT_DIR" ]] || ROOT_WAS_MISSING=1
 "$BIN_DIR/antcrate" --init >/dev/null
 
 # remember the source root so --selfsrc / --selftest / --selfedit work
@@ -123,9 +128,26 @@ if command -v systemctl >/dev/null 2>&1 && [[ -d "$SVC_DIR" || $(mkdir -p "$SVC_
     cp -f "$SRC/systemd/antcrate-intel.timer" "$SVC_DIR/antcrate-intel.timer"
     systemctl --user daemon-reload || true
     echo "[antcrate] systemd units installed at $SVC_DIR (antcrated, antcrate-backup, antcrate-intel)"
-    echo "[antcrate] enable with: systemctl --user enable --now antcrated"
-    echo "[antcrate] enable daily backup: systemctl --user enable --now antcrate-backup.timer"
-    echo "[antcrate] enable daily intel pull: systemctl --user enable --now antcrate-intel.timer"
+fi
+
+# first-run orientation (owner directive: init is bundled here, not a command)
+if [[ "$ROOT_WAS_MISSING" -eq 1 ]]; then
+    cat <<EOF
+[antcrate] created your workspace root: $ROOT_DIR
+[antcrate]   Work from there — projects registered under it get the safety
+[antcrate]   rails (gated commits, backups, duties), and coding agents like
+[antcrate]   Claude Code inherit the right scope. Working elsewhere is fine
+[antcrate]   but unmanaged. Quickstart:
+[antcrate]     cd $ROOT_DIR
+[antcrate]     antcrate reg <name> <path>   # register a project
+[antcrate]     antcrate st                  # status + health, with fixes
+[antcrate]     antcrate duty ls             # what needs a human
+EOF
 fi
 
 echo "[antcrate] done. PATH should include $BIN_DIR"
+
+# the status panel doubles as the doctor: anything left to do (enable timers,
+# missing tools, auth) shows up here with its fix command — no extra step
+echo ""
+"$BIN_DIR/antcrate" st || true
