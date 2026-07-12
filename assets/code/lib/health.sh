@@ -52,16 +52,9 @@ ac_health_checks() {
 
     # ── optional: quality-of-life; misses degrade features, not safety ─────
     local t
-    if command -v systemctl >/dev/null 2>&1; then
-        for t in backup intel; do
-            if systemctl --user is-enabled "antcrate-$t.timer" >/dev/null 2>&1; then
-                _ac_health_row opt "timer-$t" ok "enabled" -
-            else
-                _ac_health_row opt "timer-$t" miss "disabled" \
-                    "systemctl --user enable --now antcrate-$t.timer"
-            fi
-        done
-    elif [[ "${AC_OS:-linux}" == darwin ]] && command -v launchctl >/dev/null 2>&1; then
+    # darwin first: macOS hosts can have a systemctl shim on PATH, but launchd
+    # is always the real timer framework there
+    if [[ "${AC_OS:-linux}" == darwin ]] && command -v launchctl >/dev/null 2>&1; then
         local la_dir="${ANTCRATE_LAUNCHD_DIR:-$HOME/Library/LaunchAgents}"
         for t in backup intel; do
             if launchctl print "gui/$(id -u)/com.antcrate.$t" >/dev/null 2>&1; then
@@ -69,6 +62,15 @@ ac_health_checks() {
             else
                 _ac_health_row opt "timer-$t" miss "not loaded" \
                     "launchctl bootstrap gui/\$(id -u) $la_dir/com.antcrate.$t.plist"
+            fi
+        done
+    elif command -v systemctl >/dev/null 2>&1; then
+        for t in backup intel; do
+            if systemctl --user is-enabled "antcrate-$t.timer" >/dev/null 2>&1; then
+                _ac_health_row opt "timer-$t" ok "enabled" -
+            else
+                _ac_health_row opt "timer-$t" miss "disabled" \
+                    "systemctl --user enable --now antcrate-$t.timer"
             fi
         done
     else

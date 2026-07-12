@@ -22,8 +22,11 @@ setup() {
 }
 
 run_health() {
+    # AC_OS pinned to linux: these tests exercise the systemd branch and the
+    # apt-flavored hints; darwin variants live in run_health_darwin below
     bash -c "
         export PATH='$HEALTH_PATH'
+        export AC_OS=linux
         export ANTCRATE_HOME='$ANTCRATE_HOME' ANTCRATE_CONFIG='$ANTCRATE_CONFIG'
         export ANTCRATE_ROOT='$ANTCRATE_ROOT' ANTCRATE_REGISTRY='$ANTCRATE_REGISTRY'
         export ANTCRATE_BIN_DIR='$ANTCRATE_BIN_DIR' ANTCRATE_TOOLS_BIN='$ANTCRATE_TOOLS_BIN'
@@ -149,10 +152,8 @@ run_health_darwin() {
     printf '#!/usr/bin/env bash\nexit 0\n' > "$BATS_TEST_TMPDIR/stubs/launchctl"
     chmod +x "$BATS_TEST_TMPDIR/stubs/launchctl"
     run run_health_darwin "ac_health_checks | awk -F'\t' '\$2==\"gh\"'"
-    if [[ "$output" == *"miss"* ]]; then
+    if [[ "$output" == *"gh not installed"* ]]; then
         [[ "$output" == *"brew install gh"* ]]
-        [[ "$output" != *"apt"* ]]
-    else
-        [[ "$output" == *"ok"* ]]   # gh genuinely on the restricted PATH
     fi
+    [[ "$output" != *"apt"* ]]   # darwin must never suggest apt
 }

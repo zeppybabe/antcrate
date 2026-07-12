@@ -32,7 +32,19 @@ _ac_rag_dir() {
 _ac_rag_db() { printf '%s/%s.db\n' "$(_ac_rag_dir)" "$1"; }
 
 _ac_rag_require_sqlite() {
-    command -v sqlite3 >/dev/null 2>&1 && return 0
+    if command -v sqlite3 >/dev/null 2>&1; then
+        # presence isn't enough: some builds (e.g. GitHub macOS runners) ship
+        # sqlite3 without the FTS5 module rag depends on
+        if sqlite3 :memory: "CREATE VIRTUAL TABLE t USING fts5(x);" >/dev/null 2>&1; then
+            return 0
+        fi
+        if [[ "${AC_OS:-linux}" == darwin ]]; then
+            ac_error "rag: sqlite3 on PATH lacks FTS5 — use /usr/bin/sqlite3 (stock macOS has FTS5) or: brew install sqlite && export PATH=\"\$(brew --prefix)/opt/sqlite/bin:\$PATH\""
+        else
+            ac_error "rag: sqlite3 on PATH lacks FTS5 — install a full sqlite3 build via your distro or nix"
+        fi
+        return 1
+    fi
     ac_error "rag: sqlite3 not found (macOS ships it; Linux: install via your distro or nix)"
     return 1
 }
