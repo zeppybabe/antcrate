@@ -322,9 +322,12 @@ Commands:
   --selfcheck [--quiet]               self-source persistence health (path, skill link,
                                       git, unpushed, uncommitted, backup age);
                                       exit 0 ok / 1 critical / 2 warnings
-  --intel-pull [--source <id>]        fetch pinned Anthropic-only sources; snapshot +
-               [--quiet]              unread row on change (exit 2 on non-Anthropic host)
-  --intel-new [--json]                unread intel items (new minus acked)
+  --intel-pull [--source <id>]        fetch pinned Anthropic seed sources + human-curated
+               [--quiet]              extras (~/.config/antcrate/intel-sources.json,
+                                      https-only, agents never write it); snapshot +
+                                      unread row on change (exit 2 on a bad source)
+  --intel-new [--json] [--kind <k>]   unread intel items (new minus acked); --kind
+                                      filters by source kind (dev|security|...)
   --intel-ack all | <id> [<sha256>]   mark reviewed: everything, one source, or one item
   --intel-status                      per-source last-pull / last-change / unread
   --list                              list registered projects
@@ -603,7 +606,7 @@ HOOK_WITH_STASH="" HOOK_NO_TRACE=""
 HOOK_BYPASS_REASON=""
 MD_FORCE=""
 SELFCHECK_QUIET=""
-INTEL_SOURCE="" INTEL_QUIET="" INTEL_JSON="" INTEL_SHA=""
+INTEL_SOURCE="" INTEL_QUIET="" INTEL_JSON="" INTEL_SHA="" INTEL_KIND=""
 DUTY_TEXT="" DUTY_N="" DUTY_TYPE=""
 FETCH_URL="" FETCH_NAME=""
 CI_SNAPSHOT="" CI_SOURCE=""
@@ -632,8 +635,13 @@ while (( $# > 0 )); do
                 esac
             done ;;
         --intel-new)
-            ACTION="intel-new"
-            if [[ "${2:-}" == "--json" ]]; then INTEL_JSON="--json"; shift 2; else shift; fi ;;
+            ACTION="intel-new"; shift
+            while [[ "${1:-}" == "--json" || "${1:-}" == "--kind" ]]; do
+                case "$1" in
+                    --json) INTEL_JSON="--json"; shift ;;
+                    --kind) INTEL_KIND="${2:-}"; shift; shift ;;
+                esac
+            done ;;
         --intel-ack)
             ACTION="intel-ack"; NAME="${2:-}"; INTEL_SHA="${3:-}"
             if [[ $# -ge 3 ]]; then shift 3; elif [[ $# -ge 2 ]]; then shift 2; else shift; fi ;;
@@ -991,7 +999,7 @@ case "$ACTION" in
         [[ -n "$INTEL_QUIET" ]]  && INTEL_ARGS+=(--quiet)
         [[ -n "$INTEL_SOURCE" ]] && INTEL_ARGS+=("$INTEL_SOURCE")
         ac_intel_pull "${INTEL_ARGS[@]}" ;;
-    intel-new)    ac_intel_new ${INTEL_JSON:+"$INTEL_JSON"} ;;
+    intel-new)    ac_intel_new ${INTEL_JSON:+"$INTEL_JSON"} ${INTEL_KIND:+--kind "$INTEL_KIND"} ;;
     intel-ack)
         if [[ "$NAME" == "all" ]]; then
             ac_intel_ack_all

@@ -24,3 +24,8 @@
 # 'usb' and 'git-mirror' activate as those phases land; unknown names are
 # skipped with a warning, never a silent no-op.
 # backup_targets=local
+
+# Extra intel feeds live in a SEPARATE file (not here):
+#   ~/.config/antcrate/intel-sources.json  — {"sources":[{"id","url","kind"?}]}
+# https-only, kind defaults to "dev"; hand-edit it yourself — agents read it,
+# never write it. The pinned Anthropic seed list is unaffected.

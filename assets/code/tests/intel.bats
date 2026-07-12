@@ -11,6 +11,7 @@ setup() {
     LIB="$BATS_TEST_DIRNAME/../lib"
     export ANTCRATE_HOME="$BATS_TEST_TMPDIR/.antcrate"
     export ANTCRATE_INTEL_DIR="$ANTCRATE_HOME/intel"
+    export ANTCRATE_INTEL_USER_SOURCES="$BATS_TEST_TMPDIR/intel-sources.json"
     export ANTCRATE_LOG_LEVEL="error"
     export PATH="$BATS_TEST_TMPDIR/bin:$PATH"
     mkdir -p "$ANTCRATE_HOME" "$BATS_TEST_TMPDIR/bin" "$BATS_TEST_TMPDIR/serve"
@@ -21,6 +22,7 @@ src() {
     bash -c "
         export ANTCRATE_HOME='$ANTCRATE_HOME'
         export ANTCRATE_INTEL_DIR='$ANTCRATE_INTEL_DIR'
+        export ANTCRATE_INTEL_USER_SOURCES='$ANTCRATE_INTEL_USER_SOURCES'
         export ANTCRATE_LOG_LEVEL='$ANTCRATE_LOG_LEVEL'
         export PATH='$PATH'
         . '$LIB/log.sh'
@@ -285,4 +287,81 @@ TWO_SOURCES='[{"id":"news","url":"https://www.anthropic.com/news"},
     run src "ac_intel_ack_all"
     [ "$status" -eq 0 ]
     [[ "$output" == *"nothing unread"* ]]
+}
+
+# ── G3 phase 1 (2026-07-11): kinds + human-curated user sources ─────────────
+
+mk_user_sources() {   # <jq-array of {id,url[,kind]}> — the HUMAN-ONLY extras file
+    jq -n --argjson s "$1" '{sources: $s}' > "$ANTCRATE_INTEL_USER_SOURCES"
+}
+
+@test "kinds: seeded default sources all carry kind dev" {
+    run src 'ANTCRATE_INTEL_OFFLINE=1 ac_intel_pull'
+    [ "$status" -eq 0 ]
+    [ "$(jq -r '[.sources[].kind] | unique | join(",")' "$ANTCRATE_INTEL_DIR/sources.json")" = "dev" ]
+}
+
+@test "user sources: https feed on a foreign host is pulled and snapshotted" {
+    mk_sources "$ONE_SOURCE"
+    mk_user_sources '[{"id":"extfeed","url":"https://feeds.example.com/dev.atom"}]'
+    serve "https://www.anthropic.com/news" "<html>n</html>"
+    serve "https://feeds.example.com/dev.atom" "<feed>release 1.0</feed>"
+    run src 'ac_intel_pull'
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"extfeed CHANGED"* ]]
+    [ -f "$ANTCRATE_INTEL_DIR/snapshots/extfeed/latest.sha256" ]
+}
+
+@test "user sources: non-https url refuses the whole pull (fail-closed exit 2)" {
+    mk_sources "$ONE_SOURCE"
+    mk_user_sources '[{"id":"bad","url":"http://feeds.example.com/dev.atom"}]'
+    serve "https://www.anthropic.com/news" "<html>n</html>"
+    run src 'ac_intel_pull'
+    [ "$status" -eq 2 ]
+    [ ! -d "$ANTCRATE_INTEL_DIR/snapshots" ]
+}
+
+@test "user sources: id colliding with a seed source refuses (no shadowing)" {
+    mk_sources "$ONE_SOURCE"
+    mk_user_sources '[{"id":"news","url":"https://feeds.example.com/other"}]'
+    run src 'ac_intel_pull'
+    [ "$status" -eq 2 ]
+    [[ "$output" == *"duplicate"* ]]
+}
+
+@test "user sources: malformed extras file refuses pull with a clear error" {
+    mk_sources "$ONE_SOURCE"
+    printf 'not json\n' > "$ANTCRATE_INTEL_USER_SOURCES"
+    run src 'ac_intel_pull'
+    [ "$status" -eq 2 ]
+    [[ "$output" == *"intel-sources"* ]]
+}
+
+@test "ls --kind: filters unread by source kind" {
+    mk_sources "$ONE_SOURCE"
+    mk_user_sources '[{"id":"sec","url":"https://feeds.example.com/sec.atom","kind":"security"}]'
+    serve "https://www.anthropic.com/news" "<html>n</html>"
+    serve "https://feeds.example.com/sec.atom" "<feed>CVE</feed>"
+    src 'ac_intel_pull' >/dev/null
+    run src 'ac_intel_new --kind security'
+    [[ "$output" == *"sec"* ]]
+    [[ "$output" != *"news"* ]]
+    run src 'ac_intel_new --kind dev'
+    [[ "$output" == *"news"* ]]
+    [[ "$output" != *"sec"* ]]
+}
+
+@test "status: user sources appear with kind and (user) origin marker" {
+    mk_sources "$ONE_SOURCE"
+    mk_user_sources '[{"id":"sec","url":"https://feeds.example.com/sec.atom","kind":"security"}]'
+    run src 'ac_intel_status'
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"sec"*"security"*"(user)"* ]]
+}
+
+@test "status line: source count includes user sources" {
+    mk_sources "$ONE_SOURCE"
+    mk_user_sources '[{"id":"sec","url":"https://feeds.example.com/sec.atom","kind":"security"}]'
+    run src 'ac_intel_status_line'
+    [[ "$output" == *"2 sources"* ]]
 }

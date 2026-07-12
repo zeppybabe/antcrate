@@ -122,6 +122,13 @@ setup() {
     [ "$status" -eq 0 ]
 }
 
+@test "subcmd: intel ls --kind rides through the word dispatcher" {
+    export ANTCRATE_INTEL_DIR="$ANTCRATE_HOME/intel"
+    run "$BIN" intel ls --kind security
+    [ "$status" -eq 0 ]
+    [ -z "$output" ]
+}
+
 @test "subcmd: intel ack all with nothing unread is a clean no-op" {
     export ANTCRATE_INTEL_DIR="$ANTCRATE_HOME/intel"
     run "$BIN" intel ack all

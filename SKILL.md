@@ -55,6 +55,12 @@ is the filename; diff against the prior snapshot for the real delta) → classif
 close out with `antcrate intel ack all` (or `ack <source>`). Retrieval stays in the timer
 (`intel pull`, no LLM); judgment stays in the session.
 
+Sources carry a `kind` (`dev`, `security`, …; seed = all `dev`; filter with
+`intel ls --kind <k>`). Beyond the pinned Anthropic seed, the human may add feeds in
+`~/.config/antcrate/intel-sources.json` (`{id,url,kind?}`, https-only) — that file is
+HUMAN-ONLY: agents read it, never write it; suggest an entry via `antcrate propose`
+or a duty instead. Even user feeds are trusted input, not trusted change.
+
 ## Self-host
 
 The skill source is itself a registered AntCrate project (`antcrate`, domain `claude-skills`). Push via `antcrate pp antcrate`. Repo is public at `https://github.com/zeppybabe/antcrate`. CI fires on every push.

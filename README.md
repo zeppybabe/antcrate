@@ -128,7 +128,7 @@ git config core.hooksPath .githooks
 
 ## Status
 
-**691 bats tests** across 65 files, shellcheck clean. (The Wave-1 C++ canary core is preserved on the `attic` branch, audit 2026-07-10.)
+**700 bats tests** across 65 files, shellcheck clean. (The Wave-1 C++ canary core is preserved on the `attic` branch, audit 2026-07-10.)
 
 Solo-maintained, pre-1.0; the CLI surface may still shift before a v1 tag. The live work queue and append-only decision log are kept in the maintainers' local `dev/` records (not published). AntCrate develops AntCrate: this repo is itself a registered project, pushed via `antcrate pp antcrate`, gated by its own hooks and CI.
 

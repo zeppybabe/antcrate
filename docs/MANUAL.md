@@ -301,16 +301,16 @@ Mermaid graph of the entire registry (archived projects dimmed, links drawn `<--
 **`antcrate --ingest <bundle-path>`**
 Consume a research bundle per `BUNDLE_SPEC.md` v1.0: `manifest.json` is validated *before any disk write*; on failure the bundle status is set and nothing partial lands. All four `source.type` variants are materialized (`none`/`git`/`archive`/`composite`); `supersedes` invokes the rule-#1 backup gate; `extends` merges into an existing project; `duplicate_of`/`depends_on` warn. `ANTCRATE_INGEST_OFFLINE=1` skips reachability checks.
 
-### Anthropic intel
+### Intel
 
-**`antcrate --intel-pull [--source <id>] [--quiet]`**
-Fetch the pinned Anthropic-official sources (`~/.antcrate/intel/sources.json`; anthropic.com / docs.claude.com / github.com/anthropics/* only — **any other host fails the whole pull with exit 2, before any fetch**). Hash change → snapshot + unread row. A daily systemd timer runs this; no LLM in the timer.
+**`antcrate intel pull [--quiet] [<id>]`**
+Fetch the pinned Anthropic seed sources (intel data dir `sources.json`; anthropic.com / docs.claude.com / github.com/anthropics/* only — **any other seed host fails the whole pull with exit 2, before any fetch**) plus any human-curated extras from `~/.config/antcrate/intel-sources.json` (`{sources:[{id,url,kind?}]}`; https-only, duplicate ids refused, and **human-only: agents read the file, never write it**). Hash change → snapshot + unread row. A daily systemd timer runs this; no LLM in the timer.
 
-**`antcrate --intel-new [--json]`**
-Unread items (new minus acked, both append-only).
+**`antcrate intel ls [--json] [--kind <k>]`**
+Unread items (new minus acked, both append-only). `--kind` filters by source kind (`dev`, `security`, …); every seed source is `dev`.
 
-**`antcrate --intel-ack <id> <sha256>`** / **`antcrate --intel-status`**
-Mark an item reviewed; per-source last-pull / last-change / unread summary. Nothing in the intel tree is ever deleted.
+**`antcrate intel ack all | <id> [<sha256>]`** / **`antcrate intel st`**
+Mark reviewed (everything, one source, or one item); per-source kind / last-pull / last-change / unread summary (user extras marked `(user)`). Nothing in the intel tree is ever deleted.
 
 ### Obsidian
 
