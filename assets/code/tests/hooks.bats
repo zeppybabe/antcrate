@@ -1,6 +1,8 @@
 #!/usr/bin/env bats
 # tests for lib/hooks.sh
 
+load test_helper
+
 setup() {
     export ANTCRATE_CANARY_DISABLE=1
     LIB="$BATS_TEST_DIRNAME/../lib"
@@ -159,10 +161,10 @@ EOF
 @test "hook_install: idempotent (no-op when content matches)" {
     src "ac_registry_upsert proj '$R' scripts ''"
     src "ac_hook_install proj pre-commit-secrets"
-    cs1=$(sha256sum "$R/.git/hooks/pre-commit" | cut -d' ' -f1)
+    cs1=$(t_sha256 "$R/.git/hooks/pre-commit" | cut -d' ' -f1)
     run src "ac_hook_install proj pre-commit-secrets"
     [ "$status" -eq 0 ]
-    cs2=$(sha256sum "$R/.git/hooks/pre-commit" | cut -d' ' -f1)
+    cs2=$(t_sha256 "$R/.git/hooks/pre-commit" | cut -d' ' -f1)
     [ "$cs1" = "$cs2" ]
 }
 
@@ -266,7 +268,7 @@ EOF
 @test "hook_remove: captures sha256 of pre-removal file" {
     src "ac_registry_upsert proj '$R' scripts ''"
     src "ac_hook_install proj pre-commit-secrets"
-    pre_sha=$(sha256sum "$R/.git/hooks/pre-commit" | cut -d' ' -f1)
+    pre_sha=$(t_sha256 "$R/.git/hooks/pre-commit" | cut -d' ' -f1)
     run src "ac_hook_remove proj pre-commit"
     [ "$status" -eq 0 ]
     logged_sha=$(jq -r 'select(.action=="hook-remove") | .sha256' "$ANTCRATE_HOME/hooks.log" | tail -1)

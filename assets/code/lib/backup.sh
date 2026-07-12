@@ -4,6 +4,11 @@
 # Contract: NO removal, no overwrite-mv, no force-recreate happens
 # until a successful backup tarball is written and verified.
 
+# compat.sh self-source: shims used below; guard makes re-sourcing free
+# (bats tests source libs directly, without the wrapper preamble).
+# shellcheck disable=SC1091
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/compat.sh"
+
 : "${ANTCRATE_HOME:=$HOME/.antcrate}"
 : "${ANTCRATE_BACKUP_DIR:=$ANTCRATE_HOME/backups}"
 : "${ANTCRATE_BACKUP_RETENTION:=20}"   # keep last N backups per project
@@ -48,8 +53,8 @@ ac_backup_create() {
         printf 'project   : %s\n' "$project"
         printf 'source    : %s\n' "$path"
         printf 'timestamp : %s\n' "$ts"
-        printf 'size      : %s bytes\n' "$(stat -c %s "$tarball" 2>/dev/null || stat -f %z "$tarball")"
-        printf 'sha256    : %s\n' "$(sha256sum "$tarball" 2>/dev/null | awk '{print $1}')"
+        printf 'size      : %s bytes\n' "$(ac_stat_size "$tarball" 2>/dev/null)"
+        printf 'sha256    : %s\n' "$(ac_sha256 "$tarball" 2>/dev/null | awk '{print $1}')"
     } > "${tarball}.manifest"
 
     ac_info "backup: $tarball"
@@ -62,10 +67,10 @@ ac_backup_prune() {
     local project="$1"
     local proj_dir="$ANTCRATE_BACKUP_DIR/$project"
     [[ -d "$proj_dir" ]] || return 0
-    local count; count=$(find "$proj_dir" -maxdepth 1 -name '*.tar.gz' -printf '.' | wc -c)
+    local count; count=$(find "$proj_dir" -maxdepth 1 -name '*.tar.gz' | wc -l | tr -d ' ')
     (( count <= ANTCRATE_BACKUP_RETENTION )) && return 0
     local excess=$(( count - ANTCRATE_BACKUP_RETENTION ))
-    find "$proj_dir" -maxdepth 1 -name '*.tar.gz' -printf '%T@ %p\n' \
+    ac_files_by_mtime "$proj_dir" -maxdepth 1 -name '*.tar.gz' \
         | sort -n | head -n "$excess" \
         | while read -r _ f; do
             rm -f "$f" "${f}.manifest"
@@ -176,7 +181,7 @@ ac_backup_restore_best() {
         while read -r id; do
             [[ -z "$id" ]] && continue
             ac_target_call "$name" verify "$project" "$id" 2>/dev/null || continue
-            t=$(stat -c %Y "$id" 2>/dev/null || stat -f %m "$id" 2>/dev/null || echo 0)
+            t=$(ac_stat_mtime "$id" 2>/dev/null || echo 0)
             if (( t >= best_t )); then best_t=$t; best_id=$id; best_name=$name; fi
         done < <(ac_target_call "$name" list "$project" 2>/dev/null)
     done < <(ac_targets_enabled)

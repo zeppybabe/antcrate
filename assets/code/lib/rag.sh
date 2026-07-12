@@ -20,6 +20,11 @@
 # layer). Sourced by wrapper. Depends on registry.sh, log.sh; requires the
 # sqlite3 CLI with FTS5 (checked at runtime, not source time).
 
+# compat.sh self-source: shims used below; guard makes re-sourcing free
+# (bats tests source libs directly, without the wrapper preamble).
+# shellcheck disable=SC1091
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/compat.sh"
+
 _ac_rag_dir() {
     printf '%s\n' "${ANTCRATE_RAG_DIR:-${ANTCRATE_DATA_HOME:-${ANTCRATE_HOME:-$HOME/.antcrate}}/rag}"
 }
@@ -28,7 +33,7 @@ _ac_rag_db() { printf '%s/%s.db\n' "$(_ac_rag_dir)" "$1"; }
 
 _ac_rag_require_sqlite() {
     command -v sqlite3 >/dev/null 2>&1 && return 0
-    ac_error "rag: sqlite3 not found (install via your distro or nix)"
+    ac_error "rag: sqlite3 not found (macOS ships it; Linux: install via your distro or nix)"
     return 1
 }
 
@@ -111,7 +116,7 @@ ac_rag_index() {
     while IFS= read -r -d '' f; do
         grep -Iq . "$f" 2>/dev/null || continue          # text files only
         rel="${f#"$p"/}"
-        mtime=$(stat -c %Y "$f")
+        mtime=$(ac_stat_mtime "$f")
         known=$(sqlite3 "$db" "SELECT mtime FROM files WHERE path='${rel//\'/\'\'}';") || known=""
         [[ "$known" == "$mtime" ]] && continue
         _ac_rag_file_sql "$rel" "$f" "$mtime" >> "$sql"

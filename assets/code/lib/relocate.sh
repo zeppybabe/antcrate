@@ -11,6 +11,11 @@
 #
 # Sourced by bin/antcrate. Depends on log.sh, registry.sh, safety.sh, backup.sh.
 
+# compat.sh self-source: shims used below; guard makes re-sourcing free
+# (bats tests source libs directly, without the wrapper preamble).
+# shellcheck disable=SC1091
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/compat.sh"
+
 : "${ANTCRATE_ROOT:=$HOME/projects}"
 : "${ANTCRATE_HOME:=$HOME/.antcrate}"
 # Only projects living under this prefix may be relocated (the Claude config
@@ -40,8 +45,8 @@ ac_relocate() {
     [[ -d "$src" ]] || { ac_error "relocate: project path missing: $src"; return 1; }
 
     local root_abs src_abs
-    root_abs=$(realpath -m "$ANTCRATE_ROOT")
-    src_abs=$(realpath -m "$src")
+    root_abs=$(ac_realpath_m "$ANTCRATE_ROOT")
+    src_abs=$(ac_realpath_m "$src")
     case "$src_abs" in
         "$root_abs"|"$root_abs"/*)
             ac_error "relocate: '$project' is already in the projects tree ($src) — nothing to relocate"
@@ -51,7 +56,7 @@ ac_relocate() {
     # Bounded source check: only relocate projects out of the Claude config tree.
     # (Replaces the safety guard's path-zone check, which we override below
     # because the antcrate root sits above the guard's narrow whitelisted zone.)
-    local prefix_abs; prefix_abs=$(realpath -m "$ANTCRATE_RELOCATE_SRC_PREFIX")
+    local prefix_abs; prefix_abs=$(ac_realpath_m "$ANTCRATE_RELOCATE_SRC_PREFIX")
     case "$src_abs" in
         "$prefix_abs"|"$prefix_abs"/*) ;;
         *)

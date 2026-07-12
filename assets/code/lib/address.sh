@@ -18,6 +18,11 @@
 #
 # Sourced by anchor.sh, devops.sh. No side effects on source.
 
+# compat.sh self-source: shims used below; guard makes re-sourcing free
+# (bats tests source libs directly, without the wrapper preamble).
+# shellcheck disable=SC1091
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/compat.sh"
+
 : "${ANTCRATE_ADDR_INCLUDE_HIDDEN:=0}"
 AC_ADDR_SKIP_PATTERN='^([.]git|node_modules|[.]svelte-kit|target|dist|build|__pycache__|[.]next|[.]cache)$'
 
@@ -114,7 +119,7 @@ ac_addr_list_dir() {
 # ac_addr_resolve <root> <address> — print absolute path of resolved entry
 ac_addr_resolve() {
     local root="$1" addr="$2"
-    root=$(realpath -m "$root")
+    root=$(ac_realpath_m "$root")
     [[ -d "$root" ]] || { ac_error "address: project root missing: $root"; return 1; }
 
     # depth-aware decode (we need both expected-type and value per segment)
@@ -152,7 +157,7 @@ ac_addr_resolve() {
 # Stdout columns: <address>  <relpath>
 ac_addr_render_tree() {
     local root="$1"
-    root=$(realpath -m "$root")
+    root=$(ac_realpath_m "$root")
     _ac_addr_walk "$root" "$root" "" 1
 }
 

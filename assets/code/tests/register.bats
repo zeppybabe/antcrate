@@ -33,7 +33,7 @@ src() {
     has=$(src 'ac_registry_has myproj && echo YES')
     [ "$has" = "YES" ]
     p=$(src 'ac_registry_get myproj path')
-    [ "$p" = "$EXISTING" ]
+    [ "$p" = "$(cd "$EXISTING" && pwd -P)" ]
 }
 
 @test "register: domain defaults to parent dir name" {

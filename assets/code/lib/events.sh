@@ -25,6 +25,11 @@
 # Reason: format/policy helpers; callers should use ac_events_emit so
 # kind validation + default TTL + JSON escaping all run uniformly.
 
+# compat.sh self-source: shims used below; guard makes re-sourcing free
+# (bats tests source libs directly, without the wrapper preamble).
+# shellcheck disable=SC1091
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/compat.sh"
+
 : "${ANTCRATE_HOME:=$HOME/.antcrate}"
 : "${ANTCRATE_EVENTS_DIR:=$ANTCRATE_HOME/events}"
 : "${ANTCRATE_EVENTS_TAIL:=200}"        # how many trailing lines to scan
@@ -62,12 +67,12 @@ ac_events_init() {
 
 ac_events_now_ms() {
     # Epoch milliseconds in one call (avoids the s/ms race a two-call
-    # version had). %s%3N is GNU coreutils; antcrate already requires it.
-    date -u +%s%3N
+    # version had). Portable via compat: EPOCHREALTIME / GNU %3N / seconds.
+    ac_now_ms
 }
 
 ac_events_iso_ts() {
-    date -u +"%Y-%m-%dT%H:%M:%S.%3NZ"
+    ac_now_iso_ms
 }
 
 ac_events_emit() {

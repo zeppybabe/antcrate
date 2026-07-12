@@ -30,6 +30,11 @@
 # ac_cleanup_record_removal mutates registry.recent_removals and must be
 # called only after a successful guarded removal.
 
+# compat.sh self-source: shims used below; guard makes re-sourcing free
+# (bats tests source libs directly, without the wrapper preamble).
+# shellcheck disable=SC1091
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/compat.sh"
+
 : "${ANTCRATE_HOME:=$HOME/.antcrate}"
 : "${ANTCRATE_CLEANUP_DIR:=$ANTCRATE_HOME/cleanup}"
 : "${ANTCRATE_CLEANUP_MAX_DEPTH:=6}"
@@ -86,8 +91,8 @@ ac_cleanup_scan_test_tmp() {
             | while IFS= read -r p; do
                 [[ -d "$p" ]] || continue
                 local size mtime
-                size=$(du -sb "$p" 2>/dev/null | awk '{print $1}')
-                mtime=$(stat -c %Y "$p" 2>/dev/null)
+                size=$(ac_du_bytes "$p")
+                mtime=$(ac_stat_mtime "$p" 2>/dev/null)
                 printf 'test-tmp\t%s\t%s\t%s\n' "${size:-0}" "${mtime:-0}" "$p"
             done
     fi
@@ -103,8 +108,8 @@ ac_cleanup_scan_test_tmp() {
             | while IFS= read -r p; do
                 [[ -f "$p" ]] || continue
                 local size mtime
-                size=$(stat -c %s "$p" 2>/dev/null)
-                mtime=$(stat -c %Y "$p" 2>/dev/null)
+                size=$(ac_stat_size "$p" 2>/dev/null)
+                mtime=$(ac_stat_mtime "$p" 2>/dev/null)
                 printf 'test-tmp\t%s\t%s\t%s\n' "${size:-0}" "${mtime:-0}" "$p"
             done
     fi
@@ -121,7 +126,7 @@ ac_cleanup_scan_empty_dirs() {
         "${skip_args[@]}" \( -type d -empty \) -print 2>/dev/null \
         | while IFS= read -r p; do
             [[ -d "$p" ]] || continue
-            local mtime; mtime=$(stat -c %Y "$p" 2>/dev/null)
+            local mtime; mtime=$(ac_stat_mtime "$p" 2>/dev/null)
             printf 'empty-dir\t0\t%s\t%s\n' "${mtime:-0}" "$p"
         done
 }
@@ -161,7 +166,7 @@ ac_cleanup_classify() {
     while IFS=$'\t' read -r id category size mtime path; do
         local hsize iso
         hsize=$(ac_cleanup_human_size "${size:-0}")
-        iso=$(date -u -d "@${mtime:-0}" +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || echo "?")
+        iso=$(ac_date_from_epoch "${mtime:-0}" 2>/dev/null || echo "?")
         local rel="${path#"$root"/}"
         printf '%-4s  %-12s  %-8s  %-20s  %s\n' "$id" "$category" "$hsize" "$iso" "$rel"
     done < "$out"

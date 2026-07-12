@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  antcrate :: launchd/com.antcrate.backup.plist — daily self-source backup,
+  macOS sibling of systemd/antcrate-backup.{service,timer}.
+
+  Rendered by install.sh: __BIN__/__PATH__/__LOG__ as in the daemon plist;
+  __MIN__ -> a random minute baked at render time (the RandomizedDelaySec=15m
+  fleet-smearing intent — launchd has no runtime randomization). Missed runs
+  fire once on wake from sleep (≈ Persistent=true), but not across powered-off
+  periods.
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.antcrate.backup</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>__BIN__</string>
+        <string>bak</string>
+        <string>antcrate</string>
+    </array>
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>3</integer>
+        <key>Minute</key>
+        <integer>__MIN__</integer>
+    </dict>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>__PATH__</string>
+        <key>ANTCRATE_LOG_LEVEL</key>
+        <string>info</string>
+    </dict>
+    <key>StandardOutPath</key>
+    <string>__LOG__/antcrate-backup.launchd.log</string>
+    <key>StandardErrorPath</key>
+    <string>__LOG__/antcrate-backup.launchd.log</string>
+</dict>
+</plist>

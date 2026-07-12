@@ -4,6 +4,11 @@
 # to ~/.antcrate/quarantine/<project>/<UTC-ts>__<op>__<sanitized-label>/.
 # Only the user deletes the quarantine root. See AGENTS.md rule #16.
 
+# compat.sh self-source: shims used below; guard makes re-sourcing free
+# (bats tests source libs directly, without the wrapper preamble).
+# shellcheck disable=SC1091
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/compat.sh"
+
 : "${ANTCRATE_HOME:=$HOME/.antcrate}"
 _AC_UNLINK_ABS_HOME=""
 
@@ -46,7 +51,7 @@ _ac_quarantine_capture() {
 
     _ac_unlink_internal "$qdir/payload"
 
-    local sha; sha=$(sha256sum "$qdir/payload.tar.gz" | awk '{print $1}')
+    local sha; sha=$(ac_sha256 "$qdir/payload.tar.gz" | awk '{print $1}')
 
     jq -n \
         --arg ts "$ts" \
@@ -72,10 +77,10 @@ _ac_unlink_internal() {
     local path="$1"
     [[ -z "$path" ]] && { ac_error "unlink_internal: empty path refused"; return 1; }
     if [[ -z "$_AC_UNLINK_ABS_HOME" ]]; then
-        _AC_UNLINK_ABS_HOME=$(realpath -m "$ANTCRATE_HOME") \
+        _AC_UNLINK_ABS_HOME=$(ac_realpath_m "$ANTCRATE_HOME") \
             || { ac_error "unlink_internal: cannot resolve ANTCRATE_HOME"; return 1; }
     fi
-    local abs_path; abs_path=$(realpath -m "$path") \
+    local abs_path; abs_path=$(ac_realpath_m "$path") \
         || { ac_error "unlink_internal: cannot resolve path: $path"; return 1; }
 
     case "$abs_path" in
@@ -88,7 +93,7 @@ _ac_unlink_internal() {
     esac
 
     # antcrate-named scratch under the system temp dir (mktemp -t antcrate-*)
-    local abs_tmp; abs_tmp=$(realpath -m "${TMPDIR:-/tmp}")
+    local abs_tmp; abs_tmp=$(ac_realpath_m "${TMPDIR:-/tmp}")
     case "$abs_path" in
         "$abs_tmp"/antcrate-*) rm -rf -- "$path"; return 0 ;;
     esac

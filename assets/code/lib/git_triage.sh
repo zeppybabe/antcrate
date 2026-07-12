@@ -6,6 +6,9 @@
 #   2. git diff vs remote → /tmp/antcrate_conflict.log (full)
 #   3. Truncate first 300 lines, prepend header.
 #   4. Dispatch via mailx (preferred) or sendmail (fallback).
+#      macOS: /usr/sbin/sendmail exists (postfix stub) so the fallback path is
+#      taken, but actual delivery needs postfix relay config; undeliverable
+#      mail lands in the local queue and the body file is always retained.
 
 : "${ANTCRATE_HOME:=$HOME/.antcrate}"
 : "${ANTCRATE_CONFLICT_LOG:=/tmp/antcrate_conflict.log}"

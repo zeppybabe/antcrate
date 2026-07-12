@@ -3,6 +3,8 @@
 # resolution (--follow), and loop arg validation. The loop itself is an
 # infinite full-screen renderer; everything it composes is tested here.
 
+load test_helper
+
 setup() {
     export ANTCRATE_CANARY_DISABLE=1
     LIB="$BATS_TEST_DIRNAME/../lib"
@@ -103,7 +105,7 @@ src() {
     src "ac_events_emit alpha modify src/a.ts --ttl-ms 60000"
     # forge an events file for a project not in the registry, newer than alpha's
     sleep 0.05
-    now=$(date +%s%3N)
+    now=$(t_now_ms)
     printf '{"ts":"x","ts_ms":%s,"kind":"modify","path":"y","agent":"t","ttl_ms":60000}\n' "$now" \
         > "$ANTCRATE_EVENTS_DIR/ghost.jsonl"
     out=$(src "ac_watch_hot_project")

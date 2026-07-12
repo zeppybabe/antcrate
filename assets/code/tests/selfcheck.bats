@@ -5,6 +5,8 @@
 # skill link resolving, git repo present, unpushed/uncommitted work, backup age.
 # Exit: 0 = all ok, 1 = critical FAIL, 2 = warnings only.
 
+load test_helper
+
 setup() {
     export ANTCRATE_CANARY_DISABLE=1
     LIB="$BATS_TEST_DIRNAME/../lib"
@@ -137,7 +139,7 @@ mk_healthy() {
 
 @test "selfcheck: stale backup warns, exit 2" {
     mk_healthy
-    touch -d "3 days ago" "$ANTCRATE_BACKUP_DIR/selfproj/selfproj-20990101T000000Z.tar.gz"
+    t_touch_age_days 3 "$ANTCRATE_BACKUP_DIR/selfproj/selfproj-20990101T000000Z.tar.gz"
     run src 'ac_selfcheck'
     [ "$status" -eq 2 ]
     [[ "$output" == *"stale"* ]]
@@ -145,7 +147,7 @@ mk_healthy() {
 
 @test "selfcheck: stale-backup threshold honors env override" {
     mk_healthy
-    touch -d "3 days ago" "$ANTCRATE_BACKUP_DIR/selfproj/selfproj-20990101T000000Z.tar.gz"
+    t_touch_age_days 3 "$ANTCRATE_BACKUP_DIR/selfproj/selfproj-20990101T000000Z.tar.gz"
     run src 'ANTCRATE_SELFCHECK_BACKUP_MAX_AGE_HOURS=100 ac_selfcheck'
     [ "$status" -eq 0 ]
 }

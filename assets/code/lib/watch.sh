@@ -30,6 +30,11 @@
 # ac_watch_latest_event reads the same active-event stream that the
 # overlay does, so it is consistent with what the tree colors show.
 
+# compat.sh self-source: shims used below; guard makes re-sourcing free
+# (bats tests source libs directly, without the wrapper preamble).
+# shellcheck disable=SC1091
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/compat.sh"
+
 : "${ANTCRATE_HOME:=$HOME/.antcrate}"
 : "${ANTCRATE_WATCH_INTERVAL_MS:=200}"
 
@@ -120,7 +125,7 @@ ac_watch_walk_tree() {
     local entries=()
     local e
     while IFS= read -r e; do entries+=("$e"); done < <(
-        find "$root" -mindepth 1 -maxdepth 1 -printf '%f\n' 2>/dev/null | sort
+        ac_basenames "$root" -mindepth 1 -maxdepth 1 | sort
     )
     local n=${#entries[@]}
     local i=0
@@ -280,7 +285,7 @@ ac_watch_clamp_frame() {
 # --follow: the view tracks whatever project the agent is touching right now.
 ac_watch_hot_project() {
     local now best_ts=0 best="" f proj ts
-    now=$(date +%s%3N)
+    now=$(ac_now_ms)
     for f in "$ANTCRATE_EVENTS_DIR"/*.jsonl; do
         [[ -f "$f" ]] || continue
         proj="${f##*/}"; proj="${proj%.jsonl}"

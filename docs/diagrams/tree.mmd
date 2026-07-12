@@ -1,4 +1,4 @@
-%% antcrate tree — generated 2026-07-12T03:26:19Z
+%% antcrate tree — generated 2026-07-12T20:57:00Z
 graph TD
   root(["antcrate"])
   1["AGENTS.md"]
@@ -31,44 +31,50 @@ graph TD
   8a4 --> 8a4a
   8a4b["antcrated"]
   8a4 --> 8a4b
-  8a5[/core/]
+  8a5[/hooks/]
   8a --> 8a5
-  8a6[/hooks/]
+  8a5a[/claude/]
+  8a5 --> 8a5a
+  8a5a1["_zones.sh"]
+  8a5a --> 8a5a1
+  8a5a2["activity-emitter.sh"]
+  8a5a --> 8a5a2
+  8a5a3["cost-anticipator.sh"]
+  8a5a --> 8a5a3
+  8a5a4["env-guard.sh"]
+  8a5a --> 8a5a4
+  8a5a5["gateway-guard.sh"]
+  8a5a --> 8a5a5
+  8a5a6["local-install-guard.sh"]
+  8a5a --> 8a5a6
+  8a5a7["session-budget-guard.sh"]
+  8a5a --> 8a5a7
+  8a5a8["shellcheck-on-save.sh"]
+  8a5a --> 8a5a8
+  8a5b[/templates/]
+  8a5 --> 8a5b
+  8a5b1["pre-commit-ci"]
+  8a5b --> 8a5b1
+  8a5b2["pre-commit-docsguard"]
+  8a5b --> 8a5b2
+  8a5b3["pre-commit-secrets"]
+  8a5b --> 8a5b3
+  8a5b4["pre-commit-stack-bash"]
+  8a5b --> 8a5b4
+  8a5b5["pre-push-docsguard"]
+  8a5b --> 8a5b5
+  8a5b6["pre-push-tests"]
+  8a5b --> 8a5b6
+  8a6["install.sh"]
   8a --> 8a6
-  8a6a[/claude/]
-  8a6 --> 8a6a
-  8a6a1["_zones.sh"]
-  8a6a --> 8a6a1
-  8a6a2["activity-emitter.sh"]
-  8a6a --> 8a6a2
-  8a6a3["cost-anticipator.sh"]
-  8a6a --> 8a6a3
-  8a6a4["env-guard.sh"]
-  8a6a --> 8a6a4
-  8a6a5["gateway-guard.sh"]
-  8a6a --> 8a6a5
-  8a6a6["local-install-guard.sh"]
-  8a6a --> 8a6a6
-  8a6a7["session-budget-guard.sh"]
-  8a6a --> 8a6a7
-  8a6a8["shellcheck-on-save.sh"]
-  8a6a --> 8a6a8
-  8a6b[/templates/]
-  8a6 --> 8a6b
-  8a6b1["pre-commit-ci"]
-  8a6b --> 8a6b1
-  8a6b2["pre-commit-docsguard"]
-  8a6b --> 8a6b2
-  8a6b3["pre-commit-secrets"]
-  8a6b --> 8a6b3
-  8a6b4["pre-commit-stack-bash"]
-  8a6b --> 8a6b4
-  8a6b5["pre-push-docsguard"]
-  8a6b --> 8a6b5
-  8a6b6["pre-push-tests"]
-  8a6b --> 8a6b6
-  8a7["install.sh"]
+  8a7[/launchd/]
   8a --> 8a7
+  8a7a["com.antcrate.backup.plist"]
+  8a7 --> 8a7a
+  8a7b["com.antcrate.daemon.plist"]
+  8a7 --> 8a7b
+  8a7c["com.antcrate.intel.plist"]
+  8a7 --> 8a7c
   8a8[/lib/]
   8a --> 8a8
   8a8a["address.sh"]
@@ -85,92 +91,94 @@ graph TD
   8a8 --> 8a8f
   8a8g["commit.sh"]
   8a8 --> 8a8g
-  8a8h["devops.sh"]
+  8a8h["compat.sh"]
   8a8 --> 8a8h
-  8a8i["diagrams.sh"]
+  8a8i["devops.sh"]
   8a8 --> 8a8i
-  8a8j["duties.sh"]
+  8a8j["diagrams.sh"]
   8a8 --> 8a8j
-  8a8k["env_scan.sh"]
+  8a8k["duties.sh"]
   8a8 --> 8a8k
-  8a8l["events.sh"]
+  8a8l["env_scan.sh"]
   8a8 --> 8a8l
-  8a8m["fetch.sh"]
+  8a8m["events.sh"]
   8a8 --> 8a8m
-  8a8n["gh.sh"]
+  8a8n["fetch.sh"]
   8a8 --> 8a8n
-  8a8o["git_init.sh"]
+  8a8o["gh.sh"]
   8a8 --> 8a8o
-  8a8p["git_triage.sh"]
+  8a8p["git_init.sh"]
   8a8 --> 8a8p
-  8a8q["health.sh"]
+  8a8q["git_triage.sh"]
   8a8 --> 8a8q
-  8a8r["hook_autoinstall.sh"]
+  8a8r["health.sh"]
   8a8 --> 8a8r
-  8a8s["hooks.sh"]
+  8a8s["hook_autoinstall.sh"]
   8a8 --> 8a8s
-  8a8t["hygiene.sh"]
+  8a8t["hooks.sh"]
   8a8 --> 8a8t
-  8a8u["ingest.sh"]
+  8a8u["hygiene.sh"]
   8a8 --> 8a8u
-  8a8v["intel.sh"]
+  8a8v["ingest.sh"]
   8a8 --> 8a8v
-  8a8w["lifecycle.sh"]
+  8a8w["intel.sh"]
   8a8 --> 8a8w
-  8a8x["lock.sh"]
+  8a8x["lifecycle.sh"]
   8a8 --> 8a8x
-  8a8y["log.sh"]
+  8a8y["lock.sh"]
   8a8 --> 8a8y
-  8a8z["md_scaffold.sh"]
+  8a8z["log.sh"]
   8a8 --> 8a8z
-  8a8aa["migrate.sh"]
+  8a8aa["md_scaffold.sh"]
   8a8 --> 8a8aa
-  8a8ab["paths.sh"]
+  8a8ab["migrate.sh"]
   8a8 --> 8a8ab
-  8a8ac["policy.sh"]
+  8a8ac["paths.sh"]
   8a8 --> 8a8ac
-  8a8ad["pp.sh"]
+  8a8ad["policy.sh"]
   8a8 --> 8a8ad
-  8a8ae["preflight.sh"]
+  8a8ae["pp.sh"]
   8a8 --> 8a8ae
-  8a8af["profile.sh"]
+  8a8af["preflight.sh"]
   8a8 --> 8a8af
-  8a8ag["propose.sh"]
+  8a8ag["profile.sh"]
   8a8 --> 8a8ag
-  8a8ah["quarantine.sh"]
+  8a8ah["propose.sh"]
   8a8 --> 8a8ah
-  8a8ai["rag.sh"]
+  8a8ai["quarantine.sh"]
   8a8 --> 8a8ai
-  8a8aj["registry.sh"]
+  8a8aj["rag.sh"]
   8a8 --> 8a8aj
-  8a8ak["relocate.sh"]
+  8a8ak["registry.sh"]
   8a8 --> 8a8ak
-  8a8al["safety.sh"]
+  8a8al["relocate.sh"]
   8a8 --> 8a8al
-  8a8am["scaffold.sh"]
+  8a8am["safety.sh"]
   8a8 --> 8a8am
-  8a8an["scan.sh"]
+  8a8an["scaffold.sh"]
   8a8 --> 8a8an
-  8a8ao["schema.sh"]
+  8a8ao["scan.sh"]
   8a8 --> 8a8ao
-  8a8ap["selfcheck.sh"]
+  8a8ap["schema.sh"]
   8a8 --> 8a8ap
-  8a8aq["subbranch.sh"]
+  8a8aq["selfcheck.sh"]
   8a8 --> 8a8aq
-  8a8ar[/targets/]
+  8a8ar["subbranch.sh"]
   8a8 --> 8a8ar
-  8a8ar1["git_mirror.sh"]
-  8a8ar --> 8a8ar1
-  8a8ar2["local.sh"]
-  8a8ar --> 8a8ar2
-  8a8as["targets.sh"]
+  8a8as[/targets/]
   8a8 --> 8a8as
-  8a8at["tooling.sh"]
+  8a8as1["git_mirror.sh"]
+  8a8as --> 8a8as1
+  8a8as2["local.sh"]
+  8a8as --> 8a8as2
+  8a8at["targets.sh"]
   8a8 --> 8a8at
-  8a8au["watch.sh"]
+  8a8au["tooling.sh"]
   8a8 --> 8a8au
-  8a8av["watch_window.sh"]
+  8a8av["watch.sh"]
   8a8 --> 8a8av
+  8a8aw["watch_window.sh"]
+  8a8 --> 8a8aw
   8a9[/systemd/]
   8a --> 8a9
   8a9a["antcrate-backup.service"]
@@ -253,120 +261,130 @@ graph TD
   8a11 --> 8a11i
   8a11j["commit.bats"]
   8a11 --> 8a11j
-  8a11k["cost_anticipator.bats"]
+  8a11k["compat.bats"]
   8a11 --> 8a11k
-  8a11l["diagrams.bats"]
+  8a11l["cost_anticipator.bats"]
   8a11 --> 8a11l
-  8a11m["docsguard_templates.bats"]
+  8a11m["daemon_adapter.bats"]
   8a11 --> 8a11m
-  8a11n["duties.bats"]
+  8a11n["diagrams.bats"]
   8a11 --> 8a11n
-  8a11o["duties_typed.bats"]
+  8a11o["docsguard_templates.bats"]
   8a11 --> 8a11o
-  8a11p["env_guard.bats"]
+  8a11p["duties.bats"]
   8a11 --> 8a11p
-  8a11q["env_scan.bats"]
+  8a11q["duties_typed.bats"]
   8a11 --> 8a11q
-  8a11r["events.bats"]
+  8a11r["env_guard.bats"]
   8a11 --> 8a11r
-  8a11s["fetch.bats"]
+  8a11s["env_scan.bats"]
   8a11 --> 8a11s
-  8a11t["gate.bats"]
+  8a11t["events.bats"]
   8a11 --> 8a11t
-  8a11u["gateway_guard.bats"]
+  8a11u["fetch.bats"]
   8a11 --> 8a11u
-  8a11v["git_init.bats"]
+  8a11v["gate.bats"]
   8a11 --> 8a11v
-  8a11w["git_triage.bats"]
+  8a11w["gateway_guard.bats"]
   8a11 --> 8a11w
-  8a11x["health.bats"]
+  8a11x["git_init.bats"]
   8a11 --> 8a11x
-  8a11y["hook_autoinstall.bats"]
+  8a11y["git_triage.bats"]
   8a11 --> 8a11y
-  8a11z["hook_smoke.bats"]
+  8a11z["health.bats"]
   8a11 --> 8a11z
-  8a11aa["hooks.bats"]
+  8a11aa["hook_autoinstall.bats"]
   8a11 --> 8a11aa
-  8a11ab["hygiene.bats"]
+  8a11ab["hook_smoke.bats"]
   8a11 --> 8a11ab
-  8a11ac["ingest.bats"]
+  8a11ac["hooks.bats"]
   8a11 --> 8a11ac
-  8a11ad["install_from_source.bats"]
+  8a11ad["hygiene.bats"]
   8a11 --> 8a11ad
-  8a11ae["intel.bats"]
+  8a11ae["ingest.bats"]
   8a11 --> 8a11ae
-  8a11af["lifecycle.bats"]
+  8a11af["install_from_source.bats"]
   8a11 --> 8a11af
-  8a11ag["md_scaffold.bats"]
+  8a11ag["intel.bats"]
   8a11 --> 8a11ag
-  8a11ah["migrate.bats"]
+  8a11ah["launchd_install.bats"]
   8a11 --> 8a11ah
-  8a11ai["new_bundle.bats"]
+  8a11ai["lifecycle.bats"]
   8a11 --> 8a11ai
-  8a11aj["paths.bats"]
+  8a11aj["lock.bats"]
   8a11 --> 8a11aj
-  8a11ak["policy.bats"]
+  8a11ak["md_scaffold.bats"]
   8a11 --> 8a11ak
-  8a11al["pp_gate.bats"]
+  8a11al["migrate.bats"]
   8a11 --> 8a11al
-  8a11am["pp_panel.bats"]
+  8a11am["new_bundle.bats"]
   8a11 --> 8a11am
-  8a11an["preflight.bats"]
+  8a11an["paths.bats"]
   8a11 --> 8a11an
-  8a11ao["profile.bats"]
+  8a11ao["policy.bats"]
   8a11 --> 8a11ao
-  8a11ap["propose.bats"]
+  8a11ap["pp_gate.bats"]
   8a11 --> 8a11ap
-  8a11aq["quarantine.bats"]
+  8a11aq["pp_panel.bats"]
   8a11 --> 8a11aq
-  8a11ar["rag.bats"]
+  8a11ar["preflight.bats"]
   8a11 --> 8a11ar
-  8a11as["register.bats"]
+  8a11as["profile.bats"]
   8a11 --> 8a11as
-  8a11at["registry.bats"]
+  8a11at["propose.bats"]
   8a11 --> 8a11at
-  8a11au["relocate.bats"]
+  8a11au["quarantine.bats"]
   8a11 --> 8a11au
-  8a11av["safety_gate.bats"]
+  8a11av["rag.bats"]
   8a11 --> 8a11av
-  8a11aw["safety_zones.bats"]
+  8a11aw["register.bats"]
   8a11 --> 8a11aw
-  8a11ax["scaffold.bats"]
+  8a11ax["registry.bats"]
   8a11 --> 8a11ax
-  8a11ay["scan.bats"]
+  8a11ay["relocate.bats"]
   8a11 --> 8a11ay
-  8a11az["schema.bats"]
+  8a11az["safety_gate.bats"]
   8a11 --> 8a11az
-  8a11ba["selfcheck.bats"]
+  8a11ba["safety_zones.bats"]
   8a11 --> 8a11ba
-  8a11bb["session_budget_guard_models.bats"]
+  8a11bb["scaffold.bats"]
   8a11 --> 8a11bb
-  8a11bc["session_gate.bats"]
+  8a11bc["scan.bats"]
   8a11 --> 8a11bc
-  8a11bd["shellcheck_on_save.bats"]
+  8a11bd["schema.bats"]
   8a11 --> 8a11bd
-  8a11be["skills_builder.bats"]
+  8a11be["selfcheck.bats"]
   8a11 --> 8a11be
-  8a11bf["subcmd.bats"]
+  8a11bf["session_budget_guard_models.bats"]
   8a11 --> 8a11bf
-  8a11bg["targets.bats"]
+  8a11bg["session_gate.bats"]
   8a11 --> 8a11bg
-  8a11bh["targets_git_mirror.bats"]
+  8a11bh["shellcheck_on_save.bats"]
   8a11 --> 8a11bh
-  8a11bi["targets_local.bats"]
+  8a11bi["skills_builder.bats"]
   8a11 --> 8a11bi
-  8a11bj["tooling.bats"]
+  8a11bj["subcmd.bats"]
   8a11 --> 8a11bj
-  8a11bk["watch.bats"]
+  8a11bk["targets.bats"]
   8a11 --> 8a11bk
-  8a11bl["watch_live.bats"]
+  8a11bl["targets_git_mirror.bats"]
   8a11 --> 8a11bl
-  8a11bm["watch_smoke.bats"]
+  8a11bm["targets_local.bats"]
   8a11 --> 8a11bm
-  8a11bn["watch_window.bats"]
+  8a11bn["test_helper.bash"]
   8a11 --> 8a11bn
-  8a11bo["wrapper_dispatch.bats"]
+  8a11bo["tooling.bats"]
   8a11 --> 8a11bo
+  8a11bp["watch.bats"]
+  8a11 --> 8a11bp
+  8a11bq["watch_live.bats"]
+  8a11 --> 8a11bq
+  8a11br["watch_smoke.bats"]
+  8a11 --> 8a11br
+  8a11bs["watch_window.bats"]
+  8a11 --> 8a11bs
+  8a11bt["wrapper_dispatch.bats"]
+  8a11 --> 8a11bt
   8b[/docs/]
   8 --> 8b
   8b1["AntCrate_blueprint_v0.pdf"]
@@ -443,85 +461,17 @@ graph TD
   8c --> 8c1
   8c1a["SKILL.md"]
   8c1 --> 8c1a
-  9[/dev/]
+  9[/docs/]
   root --> 9
-  9a["composes.md"]
+  9a["MANUAL.md"]
   9 --> 9a
-  9b[/docs/]
+  9b[/diagrams/]
   9 --> 9b
-  9b1[/plans/]
+  9b1["tree.mmd"]
   9b --> 9b1
-  9b1a["2026-06-01-gateway-rule-violations-fix.md"]
-  9b1 --> 9b1a
-  9b1b["2026-06-06-relocate-command.md"]
-  9b1 --> 9b1b
-  9b1c["2026-06-10-session-budget-gate-and-duties.md"]
-  9b1 --> 9b1c
-  9b1d["2026-06-11-least-cost-allocation-and-skill-scoping.md"]
-  9b1 --> 9b1d
-  9b1e["2026-06-13-xdg-path-layout.md"]
-  9b1 --> 9b1e
-  9b1f["2026-06-14-multi-target-backup-foundation.md"]
-  9b1 --> 9b1f
-  9b1g["2026-07-10-bundling-p1-detty-dispatcher.md"]
-  9b1 --> 9b1g
-  9b1h["2026-07-10-bundling-p2-pp-panel-new-bundle.md"]
-  9b1 --> 9b1h
-  9b1i["2026-07-10-bundling-p3-attic-cuts.md"]
-  9b1 --> 9b1i
-  9b1j["2026-07-10-bundling-p4-rag.md"]
-  9b1 --> 9b1j
-  9b1k["2026-07-10-bundling-p5-rag-selfheal.md"]
-  9b1 --> 9b1k
-  9b1l["2026-07-10-bundling-p7-intel-fold.md"]
-  9b1 --> 9b1l
-  9b1m["2026-07-10-bundling-p8-retirement.md"]
-  9b1 --> 9b1m
-  9b1n["2026-07-11-g1-shipanywhere.md"]
-  9b1 --> 9b1n
-  9b1o["2026-07-11-g3p1-intel-kinds-user-sources.md"]
-  9b1 --> 9b1o
-  9b1p["2026-07-12-g2-git-mirror.md"]
-  9b1 --> 9b1p
-  9b2[/specs/]
-  9b --> 9b2
-  9b2a["2026-05-31-harness-enforcement-layer.md"]
-  9b2 --> 9b2a
-  9b2b["2026-06-01-gateway-rule-violations-fix-design.md"]
-  9b2 --> 9b2b
-  9b2c["2026-06-06-relocate-command-design.md"]
-  9b2 --> 9b2c
-  9b2d["2026-06-09-loop-engine-harness-design.md"]
-  9b2 --> 9b2d
-  9b2e["2026-06-10-anthropic-intel-tracker-design.md"]
-  9b2 --> 9b2e
-  9b2f["2026-06-10-anycrate-capability-layer-design.md"]
-  9b2 --> 9b2f
-  9b2g["2026-06-10-session-budget-gate-and-duties-design.md"]
-  9b2 --> 9b2g
-  9b2h["2026-06-11-least-cost-allocation-and-skill-scoping-design.md"]
-  9b2 --> 9b2h
-  9b2i["2026-06-13-local-tooling-and-install-guard-design.md"]
-  9b2 --> 9b2i
-  9b2j["2026-06-13-universal-install-and-publication-boundary-design.md"]
-  9b2 --> 9b2j
-  9b2k["2026-06-14-multi-target-backup-and-dev-mirror-design.md"]
-  9b2 --> 9b2k
-  9c["duties.md"]
-  9 --> 9c
-  9d["ledger.md"]
-  9 --> 9d
-  9e["state-archive.md"]
-  9 --> 9e
-  9f["state.md"]
-  9 --> 9f
-  10[/docs/]
+  10["ledger.md"]
   root --> 10
-  10a["MANUAL.md"]
-  10 --> 10a
-  10b[/diagrams/]
-  10 --> 10b
-  10b1["tree.mmd"]
-  10b --> 10b1
   11["stack.md"]
   root --> 11
+  12["state.md"]
+  root --> 12

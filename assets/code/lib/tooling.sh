@@ -10,22 +10,46 @@
 #
 # Requires paths.sh sourced first (ANTCRATE_DATA_HOME, ANTCRATE_STATE_HOME).
 
+# compat.sh self-source: shims used below; guard makes re-sourcing free
+# (bats tests source libs directly, without the wrapper preamble).
+# shellcheck disable=SC1091
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/compat.sh"
+
 : "${ANTCRATE_TOOLS_DIR:=$ANTCRATE_DATA_HOME/tools}"
 : "${ANTCRATE_TOOLS_BIN:=$ANTCRATE_TOOLS_DIR/bin}"
 : "${ANTCRATE_TOOLS_OPT:=$ANTCRATE_TOOLS_DIR/opt}"
 : "${ANTCRATE_TOOLS_MANIFEST:=$ANTCRATE_STATE_HOME/tools/manifest.jsonl}"
 
-# Pinned registry — name → "version|url|sha256|kind".
+# Pinned registry — name → "version|url|sha256|kind", keyed per platform for
+# native binaries (bats is a source tree and runs anywhere bash does).
 #   kind binxz : .tar.xz whose top dir holds a single <name> binary (shellcheck)
 #   kind srcgz : .tar.gz source tree run in place via bin/<name>          (bats)
+#   kind bingz : .tar.gz holding a single <name> binary               (gitleaks)
+_ac_tool_platform() { printf '%s.%s\n' "$(uname -s)" "$(uname -m)"; }
+
 _ac_tool_pin() {
+    local plat; plat=$(_ac_tool_platform)
     case "$1" in
-        shellcheck) printf '%s\n' \
+        shellcheck)
+            case "$plat" in
+                Darwin.arm64) printf '%s\n' \
+"v0.11.0|https://github.com/koalaman/shellcheck/releases/download/v0.11.0/shellcheck-v0.11.0.darwin.aarch64.tar.xz|56affdd8de5527894dca6dc3d7e0a99a873b0f004d7aabc30ae407d3f48b0a79|binxz" ;;
+                Darwin.x86_64) printf '%s\n' \
+"v0.11.0|https://github.com/koalaman/shellcheck/releases/download/v0.11.0/shellcheck-v0.11.0.darwin.x86_64.tar.xz|3c89db4edcab7cf1c27bff178882e0f6f27f7afdf54e859fa041fca10febe4c6|binxz" ;;
+                *) printf '%s\n' \
 "v0.11.0|https://github.com/koalaman/shellcheck/releases/download/v0.11.0/shellcheck-v0.11.0.linux.x86_64.tar.xz|8c3be12b05d5c177a04c29e3c78ce89ac86f1595681cab149b65b97c4e227198|binxz" ;;
+            esac ;;
         bats) printf '%s\n' \
 "v1.13.0|https://github.com/bats-core/bats-core/archive/refs/tags/v1.13.0.tar.gz|a85e12b8828271a152b338ca8109aa23493b57950987c8e6dff97ba492772ff3|srcgz" ;;
-        gitleaks) printf '%s\n' \
+        gitleaks)
+            case "$plat" in
+                Darwin.arm64) printf '%s\n' \
+"v8.30.1|https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_darwin_arm64.tar.gz|b40ab0ae55c505963e365f271a8d3846efbc170aa17f2607f13df610a9aeb6a5|bingz" ;;
+                Darwin.x86_64) printf '%s\n' \
+"v8.30.1|https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_darwin_x64.tar.gz|dfe101a4db2255fc85120ac7f3d25e4342c3c20cf749f2c20a18081af1952709|bingz" ;;
+                *) printf '%s\n' \
 "v8.30.1|https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz|551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb|bingz" ;;
+            esac ;;
         *) return 1 ;;
     esac
 }
@@ -60,8 +84,11 @@ ac_tool_install() {
 
     mkdir -p "$ANTCRATE_TOOLS_BIN" "$ANTCRATE_TOOLS_OPT" "$(dirname "$ANTCRATE_TOOLS_MANIFEST")"
     local work; work=$(mktemp -d)
+    # FUNCNAME guard: under `set -o functrace` (bats), RETURN traps fire on
+    # every inner function's return too — without the guard, the first shell
+    # function called below (e.g. ac_sha256) would delete $work mid-install.
     # shellcheck disable=SC2064
-    trap "rm -rf '$work'" RETURN
+    trap "if [[ \${FUNCNAME[0]:-} == ac_tool_install ]]; then rm -rf '$work'; fi" RETURN
 
     local art="$work/artifact"
     # Safe, transparent fetch: fail on HTTP error (-f), HTTPS-only, modern TLS.
@@ -70,7 +97,7 @@ ac_tool_install() {
     fi
 
     # Integrity gate — abort hard on mismatch.
-    local got; got=$(sha256sum "$art" | cut -d' ' -f1)
+    local got; got=$(ac_sha256 "$art" | cut -d' ' -f1)
     if [[ "$got" != "$sha" ]]; then
         printf 'tool-install: SHA256 MISMATCH for %s\n  expected %s\n  got      %s\n' "$name" "$sha" "$got" >&2
         return 1

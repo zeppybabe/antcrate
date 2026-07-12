@@ -222,3 +222,21 @@ rm -rf /etc/pwn'
     run guard 'grep -q x <<< "harmless" && rm -rf /etc/pwn'
     [ "$status" -eq 2 ]
 }
+
+# ---- launchd mutations (macOS sibling of the systemctl case) ----
+
+@test "dangerous: launchctl bootstrap is risk-flagged" {
+    run guard "launchctl bootstrap gui/501 $HOME/Library/LaunchAgents/x.plist"
+    [ "$status" -eq 2 ]
+    [[ "$output" == *"launchctl"* ]]
+}
+
+@test "dangerous: launchctl bootout is risk-flagged" {
+    run guard "launchctl bootout gui/501/com.antcrate.daemon"
+    [ "$status" -eq 2 ]
+}
+
+@test "safe: launchctl print is not flagged" {
+    run guard "launchctl print gui/501/com.antcrate.daemon"
+    [ "$status" -eq 0 ]
+}

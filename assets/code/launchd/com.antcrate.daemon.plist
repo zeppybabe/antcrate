@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  antcrate :: launchd/com.antcrate.daemon.plist — the Pipe daemon (antcrated),
+  macOS sibling of systemd/antcrated.service.
+
+  Rendered by install.sh: __BIN__ -> $BIN_DIR/antcrated, __PATH__ -> a PATH
+  containing the brew bin dir (launchd agents do NOT inherit shell PATH; env
+  bash / jq / fswatch would be invisible without it), __LOG__ -> the state log
+  dir. KeepAlive/SuccessfulExit=false mirrors Restart=on-failure: a clean
+  SIGTERM exit-0 (daemon trap) does not respawn. launchd enforces a minimum
+  ~10s respawn throttle (vs RestartSec=2) — accepted delta.
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.antcrate.daemon</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>__BIN__</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <dict>
+        <key>SuccessfulExit</key>
+        <false/>
+    </dict>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>__PATH__</string>
+        <key>ANTCRATE_LOG_LEVEL</key>
+        <string>info</string>
+    </dict>
+    <key>StandardOutPath</key>
+    <string>__LOG__/antcrated.launchd.log</string>
+    <key>StandardErrorPath</key>
+    <string>__LOG__/antcrated.launchd.log</string>
+</dict>
+</plist>

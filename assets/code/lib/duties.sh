@@ -17,6 +17,11 @@
 #
 # Sourced by wrapper. No side effects on source.
 
+# compat.sh self-source: shims used below; guard makes re-sourcing free
+# (bats tests source libs directly, without the wrapper preamble).
+# shellcheck disable=SC1091
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/compat.sh"
+
 _ac_duties_file() {
     if [[ -n "${ANTCRATE_DUTIES_FILE:-}" ]]; then
         printf '%s\n' "$ANTCRATE_DUTIES_FILE"
@@ -115,8 +120,8 @@ ac_duty_done() {
         return 1
     fi
     local today; today=$(date -u +%F)
-    sed -i "${line}s/^- \[ \]/- [x]/" "$f"
-    sed -i "${line}s/\$/ (done ${today})/" "$f"
+    ac_sed_i "${line}s/^- \[ \]/- [x]/" "$f"
+    ac_sed_i "${line}s/\$/ (done ${today})/" "$f"
     ac_info "duty: #$n marked done in $f"
     printf 'Duty #%s marked done.\n' "$n"
 }
@@ -136,7 +141,7 @@ ac_duty_done_all() {
     fi
     local today; today=$(date -u +%F)
     # one pass: every open line gains an [x] and a (done DATE) stamp at EOL
-    sed -i -E "s/^- \[ \](.*)\$/- [x]\1 (done ${today})/" "$f"
+    ac_sed_i -E "s/^- \[ \](.*)\$/- [x]\1 (done ${today})/" "$f"
     ac_info "duty: cleared $n open in $f"
     printf 'Cleared %s open dut%s — all marked done (not deleted).\n' \
         "$n" "$([[ "$n" -eq 1 ]] && printf y || printf ies)"

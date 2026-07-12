@@ -44,7 +44,7 @@ setup() {
     run "$BIN" pp proj </dev/null
     [ "$status" -eq 0 ]
     [ -z "$(git -C "$R" status --porcelain)" ]
-    run git --git-dir="$REMOTE" log -1 --pretty=%s
+    run git --git-dir="$REMOTE" log -1 --pretty=%s master
     [[ "$output" == antcrate:\ auto-commit* ]]
 }
 

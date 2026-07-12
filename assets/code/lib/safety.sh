@@ -4,6 +4,11 @@
 #
 # Refuses destructive ops outside $ANTCRATE_ROOT unless explicitly overridden.
 
+# compat.sh self-source: shims used below; guard makes re-sourcing free
+# (bats tests source libs directly, without the wrapper preamble).
+# shellcheck disable=SC1091
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/compat.sh"
+
 : "${ANTCRATE_ROOT:=$HOME/projects}"
 : "${ANTCRATE_HOME:=$HOME/.antcrate}"
 : "${ANTCRATE_ALLOW_OUTSIDE_ROOT:=0}"
@@ -11,8 +16,8 @@
 # allowed write zones (canonical absolute paths)
 ac_safety_allowed_zones() {
     printf '%s\n' \
-        "$(realpath -m "$ANTCRATE_ROOT")" \
-        "$(realpath -m "$ANTCRATE_HOME")"
+        "$(ac_realpath_m "$ANTCRATE_ROOT")" \
+        "$(ac_realpath_m "$ANTCRATE_HOME")"
     # The skill source PROJECT ROOT is also AntCrate's domain — needed so the
     # antcrate codebase itself can be registered, relocated, and pushed.
     # Derivation order (proposal safety-skill-zone-fix, 2026-06-10):
@@ -36,7 +41,7 @@ ac_safety_allowed_zones() {
                 *)             skill_root="$ANTCRATE_SELFSRC" ;;
             esac
         fi
-        printf '%s\n' "$(realpath -m "$skill_root")"
+        printf '%s\n' "$(ac_realpath_m "$skill_root")"
     fi
 }
 
@@ -44,7 +49,7 @@ ac_safety_allowed_zones() {
 ac_safety_check_path() {
     local target="$1"
     [[ -z "$target" ]] && return 1
-    local abs; abs=$(realpath -m "$target")
+    local abs; abs=$(ac_realpath_m "$target")
     local zone
     while IFS= read -r zone; do
         case "$abs" in

@@ -1,6 +1,8 @@
 #!/usr/bin/env bats
 # tests for lib/lifecycle.sh
 
+load test_helper
+
 setup() {
     export ANTCRATE_CANARY_DISABLE=1
     LIB="$BATS_TEST_DIRNAME/../lib"
@@ -61,10 +63,10 @@ src() {
 @test "lifecycle: idempotent (re-run is safe)" {
     src "ac_registry_upsert proj '$R' scripts ''
          ac_lifecycle_treatment proj"
-    cs1=$(find "$R" -type f ! -path '*/.git/*' | sort | xargs sha256sum | sha256sum)
+    cs1=$(find "$R" -type f ! -path '*/.git/*' | sort | while IFS= read -r f; do t_sha256 "$f"; done | t_sha256)
     run src "ac_lifecycle_treatment proj"
     [ "$status" -eq 0 ]
-    cs2=$(find "$R" -type f ! -path '*/.git/*' | sort | xargs sha256sum | sha256sum)
+    cs2=$(find "$R" -type f ! -path '*/.git/*' | sort | while IFS= read -r f; do t_sha256 "$f"; done | t_sha256)
     [ "$cs1" = "$cs2" ]
 }
 

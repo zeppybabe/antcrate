@@ -31,3 +31,25 @@ jobs:
 
       - name: Run antcrate self ci (shellcheck + bats)
         run: $HOME/.local/bin/antcrate self ci
+
+  ci-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      # brew bash 5 must precede /bin (bash 3.2) on PATH — scripts use env bash
+      - name: Install system dependencies
+        run: |
+          brew install bash jq fswatch shellcheck bats-core
+          echo "$(brew --prefix)/bin" >> "$GITHUB_PATH"
+
+      - name: Install antcrate
+        run: bash assets/code/install.sh
+
+      - name: Leak scan (publication boundary)
+        run: |
+          $HOME/.local/bin/antcrate tool install gitleaks || brew install gitleaks
+          $HOME/.local/bin/antcrate scan "$GITHUB_WORKSPACE"
+
+      - name: Run antcrate self ci (shellcheck + bats)
+        run: $HOME/.local/bin/antcrate self ci

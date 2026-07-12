@@ -15,12 +15,15 @@ SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck disable=SC1091
 . "$SRC/lib/paths.sh"
 # shellcheck disable=SC1091
+. "$SRC/lib/compat.sh"
+# shellcheck disable=SC1091
 . "$SRC/lib/migrate.sh"
 # shellcheck disable=SC1091
 . "$SRC/lib/preflight.sh"
 
-# fail fast (with per-distro hints) if a required runtime tool is missing
-ac_preflight_deps jq git inotifywait
+# fail fast (with per-platform hints) if the shell or a required tool is too old/missing
+ac_preflight_bash_version
+ac_preflight_deps jq git fswatcher
 
 LIB_DIR="$ANTCRATE_DATA_HOME/lib"
 TPL_DIR="$ANTCRATE_TEMPLATES"
@@ -87,7 +90,7 @@ CONFIG="$ANTCRATE_CONFIG"
 if [[ -f "$CONFIG" ]] && ! grep -q '^ANTCRATE_SELFSRC=' "$CONFIG"; then
     printf '\nANTCRATE_SELFSRC="%s"\n' "$SRC" >> "$CONFIG"
 elif [[ -f "$CONFIG" ]]; then
-    sed -i "s|^ANTCRATE_SELFSRC=.*|ANTCRATE_SELFSRC=\"$SRC\"|" "$CONFIG"
+    ac_sed_i "s|^ANTCRATE_SELFSRC=.*|ANTCRATE_SELFSRC=\"$SRC\"|" "$CONFIG"
 fi
 
 # self-register + skill link — both are required for `antcrate --selfcheck` to
@@ -100,8 +103,9 @@ while [[ "$REPO_ROOT" != "/" && ! -d "$REPO_ROOT/.git" ]]; do
 done
 
 if [[ -d "$REPO_ROOT/.git" ]]; then
-    # idempotent: --register refuses (exit 1) if 'antcrate' already exists
-    "$BIN_DIR/antcrate" --register antcrate "$REPO_ROOT" --domain antcrate >/dev/null 2>&1 || true
+    # idempotent: reg refuses (exit 1) if 'antcrate' already exists
+    # (word form — the leading --register flag was retired 2026-07-10)
+    "$BIN_DIR/antcrate" reg antcrate "$REPO_ROOT" --domain antcrate >/dev/null 2>&1 || true
 
     SKILL_LINK="${ANTCRATE_SKILL_LINK:-$HOME/.claude/skills/antcrate}"
     mkdir -p "$(dirname "$SKILL_LINK")"
@@ -128,6 +132,30 @@ if command -v systemctl >/dev/null 2>&1 && [[ -d "$SVC_DIR" || $(mkdir -p "$SVC_
     cp -f "$SRC/systemd/antcrate-intel.timer" "$SVC_DIR/antcrate-intel.timer"
     systemctl --user daemon-reload || true
     echo "[antcrate] systemd units installed at $SVC_DIR (antcrated, antcrate-backup, antcrate-intel)"
+fi
+
+# launchd user agents (macOS sibling of the systemd block: rendered but never
+# bootstrapped — enabling stays a human duty, printed by the st health panel)
+if [[ "${AC_OS:-linux}" == darwin ]]; then
+    LA_DIR="${ANTCRATE_LAUNCHD_DIR:-$HOME/Library/LaunchAgents}"
+    mkdir -p "$LA_DIR" "$ANTCRATE_LOG_DIR"
+    # launchd agents don't inherit shell PATH: bake in the dir of the bash that
+    # runs this install (the brew bin dir when installed per the README) plus
+    # BIN_DIR and the system dirs, so env-bash/jq/fswatch resolve for agents.
+    LAUNCHD_PATH="$(dirname "$(command -v bash)"):$BIN_DIR:/usr/bin:/bin:/usr/sbin:/sbin"
+    for unit in daemon backup intel; do
+        case "$unit" in
+            daemon) UNIT_BIN="$BIN_DIR/antcrated" ;;
+            *)      UNIT_BIN="$BIN_DIR/antcrate" ;;
+        esac
+        sed -e "s|__BIN__|$UNIT_BIN|g" \
+            -e "s|__PATH__|$LAUNCHD_PATH|g" \
+            -e "s|__LOG__|$ANTCRATE_LOG_DIR|g" \
+            -e "s|__MIN__|$((RANDOM % 60))|g" \
+            "$SRC/launchd/com.antcrate.$unit.plist" > "$LA_DIR/com.antcrate.$unit.plist"
+    done
+    echo "[antcrate] launchd agents installed at $LA_DIR (not loaded — enable with:"
+    echo "[antcrate]   launchctl bootstrap gui/$(id -u) $LA_DIR/com.antcrate.<daemon|backup|intel>.plist )"
 fi
 
 # first-run orientation (owner directive: init is bundled here, not a command)

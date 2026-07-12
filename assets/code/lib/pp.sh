@@ -11,6 +11,11 @@
 # Sourced by wrapper. Depends on log.sh; duties count is fail-soft (declare -F).
 
 # _ac_pp_age <epoch> — humanize seconds-since as "3d 4h" / "2h 5m" / "42s"
+# compat.sh self-source: shims used below; guard makes re-sourcing free
+# (bats tests source libs directly, without the wrapper preamble).
+# shellcheck disable=SC1091
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/compat.sh"
+
 _ac_pp_age() {
     local then="$1" now age
     now=$(date +%s); age=$(( now - then ))
@@ -51,7 +56,7 @@ ac_pp_panel() {
         fi
 
         local dirty
-        dirty=$(git -C "$p" status --porcelain 2>/dev/null | wc -l)
+        dirty=$(git -C "$p" status --porcelain 2>/dev/null | wc -l | tr -d ' ')
         printf 'working   : %s change(s)\n' "$dirty"
         if (( dirty > 0 )); then
             git -C "$p" diff --stat 2>/dev/null | tail -1 | sed 's/^ */            /' || true
@@ -74,7 +79,7 @@ ac_pp_panel() {
     local d plan=""
     for d in "$p/dev/docs/plans" "$p/docs/plans"; do
         if [[ -d "$d" ]]; then
-            plan=$(find "$d" -maxdepth 1 -type f -printf '%f\n' 2>/dev/null | sort | tail -1) || plan=""
+            plan=$(ac_basenames "$d" -maxdepth 1 -type f | sort | tail -1) || plan=""
             [[ -n "$plan" ]] && break
         fi
     done
@@ -83,11 +88,11 @@ ac_pp_panel() {
     # backup age + open duties (both fail-soft)
     local bdir="${ANTCRATE_BACKUP_DIR:-${ANTCRATE_HOME:-$HOME/.antcrate}/backups}/$project"
     local newest
-    newest=$(find "$bdir" -maxdepth 1 -name '*.tar.gz' -printf '%T@\t%p\n' 2>/dev/null \
-        | sort -rn | head -1 | cut -f2-) || newest=""
+    newest=$(ac_files_by_mtime "$bdir" -maxdepth 1 -name '*.tar.gz' \
+        | head -1 | cut -f2-) || newest=""
     if [[ -n "$newest" ]]; then
         printf 'backup    : %s ago (%s)\n' \
-            "$(_ac_pp_age "$(stat -c %Y "$newest")")" "$(basename "$newest")"
+            "$(_ac_pp_age "$(ac_stat_mtime "$newest")")" "$(basename "$newest")"
     else
         printf 'backup    : (none)\n'
     fi
