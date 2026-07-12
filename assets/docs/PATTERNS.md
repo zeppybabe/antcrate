@@ -67,7 +67,7 @@ Every entry forces a backup tarball before touching disk; approval is the TTY pr
 
 | Intent | Command | Notes |
 |---|---|---|
-| On-demand backup | `antcrate bak <project>` | tar.gz + sha256 manifest under `~/.antcrate/backups/<project>/`. |
+| On-demand backup | `antcrate bak <project>` | Fans to every enabled target (config `backup_targets=`, default `local`): `local` = tar.gz + sha256 manifest in the backups dir; `git-mirror` = dev/ pushed to the private `<project>-dev` companion. Per-target OK/FAIL report. |
 | List backups | `antcrate bak ls <project>` | Reverse-chronological. |
 | Restore from latest | `antcrate bak restore <project>` | Pre-restore backup auto-created if target tree non-empty. |
 | Restore a specific snapshot | `antcrate bak restore <project> --at <ts>` | `<ts>` matches the `-YYYYMMDDTHHMMSSZ` filename suffix. |
@@ -80,7 +80,7 @@ Every entry forces a backup tarball before touching disk; approval is the TTY pr
 
 | Intent | Command | Notes |
 |---|---|---|
-| Commit + push with conflict triage | `antcrate pp <project>` | Prints the bundled pre-push panel FIRST (branch, last/stable/current version, last commit, unpushed, working state, milestone from ledger heads, newest plan, backup age, open duties), then commits (if dirty) + pushes. On rejection: emails truncated diff, full log at `/tmp/antcrate_conflict.log`. Never bare `git push`. Successful pushes print `verify: <upstream> in sync at <SHA>` (proposal #87 Shape B). Non-TTY proceeds — `-y` is legacy no-op ceremony. |
+| Commit + push with conflict triage | `antcrate pp <project> [--no-mirror]` | Prints the bundled pre-push panel FIRST (branch, last/stable/current version, last commit, unpushed, working state, milestone from ledger heads, newest plan, backup age, open duties), then commits (if dirty) + pushes. On rejection: emails truncated diff, full log at `/tmp/antcrate_conflict.log`. Never bare `git push`. Successful pushes print `verify: <upstream> in sync at <SHA>`, then mirror dev/ to the private `<project>-dev` companion when config `mirror_dev=` lists the project (`--no-mirror` skips once; mirror failure never fails the push). |
 | Read the same panel without pushing | `antcrate info <project>` | Registry record + the pp panel, fully read-only. |
 | Commit only (no push), unattended | `antcrate commit <project> -m "<msg>" --all-tracked -y` | `-y` skips the y/N prompt for non-TTY use (proposal #83). |
 | `git status` + `git diff` (no cd) | `antcrate diff <project>` | Uses `git -C`. |

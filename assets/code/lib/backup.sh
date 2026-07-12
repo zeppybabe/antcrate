@@ -120,27 +120,46 @@ ac_backup_restore() {
     ac_info "restore: $project ← $tarball"
 }
 
-# ac_backup_run <project> <source-path> — fan 'project'-scope push to every
-# enabled+available target; report per-target result. Non-zero only if EVERY
-# scope-eligible target failed. Requires lib/targets.sh sourced.
+# _ac_backup_push_one <target> <label> <project> <source>
+# 0 = OK, 1 = FAIL, 2 = skipped (unavailable) — prints the result line either way
+_ac_backup_push_one() {
+    local name="$1" label="$2" project="$3" srcp="$4"
+    if ! ac_target_call "$name" available 2>/dev/null; then
+        printf '  %s : skip (unavailable)\n' "$label"; return 2
+    fi
+    if ac_target_call "$name" push "$project" "$srcp" >/dev/null 2>&1; then
+        printf '  %s : OK\n' "$label"; return 0
+    else
+        printf '  %s : FAIL\n' "$label"; return 1
+    fi
+}
+
+# ac_backup_run <project> <source-path> — fan push to every enabled+available
+# target per the scope(s) it advertises: 'project' targets get the whole tree,
+# 'dev' targets get <source>/dev (skipped with a note when absent). Non-zero
+# only if EVERY scope-eligible attempt failed. Requires lib/targets.sh sourced.
 ac_backup_run() {
     local project="$1" src="$2"
-    local any=0 ok=0 name scopes
+    local any=0 ok=0 rc name scopes
     while read -r name; do
         [[ -z "$name" ]] && continue
         scopes=$(ac_target_call "$name" scopes 2>/dev/null) || { ac_warn "backup: skip $name (no contract)"; continue; }
-        [[ "$scopes" == *project* ]] || continue
-        any=1
-        if ! ac_target_call "$name" available 2>/dev/null; then
-            printf '  %s : skip (unavailable)\n' "$name"; continue
+        if [[ "$scopes" == *project* ]]; then
+            any=1
+            rc=0; _ac_backup_push_one "$name" "$name" "$project" "$src" || rc=$?
+            (( rc == 0 )) && ok=1
         fi
-        if ac_target_call "$name" push "$project" "$src" >/dev/null 2>&1; then
-            printf '  %s : OK\n' "$name"; ok=1
-        else
-            printf '  %s : FAIL\n' "$name"
+        if [[ "$scopes" == *dev* ]]; then
+            if [[ -d "$src/dev" ]]; then
+                any=1
+                rc=0; _ac_backup_push_one "$name" "$name (dev)" "$project" "$src/dev" || rc=$?
+                (( rc == 0 )) && ok=1
+            else
+                printf '  %s : skip (no dev/)\n' "$name"
+            fi
         fi
     done < <(ac_targets_enabled)
-    (( any == 0 )) && { ac_error "backup: no project-scope target enabled"; return 1; }
+    (( any == 0 )) && { ac_error "backup: no scope-eligible target enabled"; return 1; }
     (( ok == 1 )) || { ac_error "backup: all targets failed"; return 1; }
     return 0
 }

@@ -96,3 +96,41 @@ ac_pp_panel() {
     fi
     return 0
 }
+
+# ── dev/ mirror on pp (G2, 2026-07-12) ──────────────────────────────────────
+
+# _ac_pp_mirror_on <project> — 0 when the project is in config `mirror_dev=a,b`
+# (rule-#13 human-only key: enabling the mirror creates a private companion
+# repo, so it never happens without the human writing it into config)
+_ac_pp_mirror_on() {
+    local list=""
+    if [[ -f "${ANTCRATE_CONFIG:-}" ]]; then
+        list=$(grep -E '^mirror_dev=' "$ANTCRATE_CONFIG" 2>/dev/null | tail -1 | cut -d= -f2) || true
+    fi
+    [[ ",$list," == *",$1,"* ]]
+}
+
+# ac_pp_mirror_maybe <project> <path> [--no-mirror] — runs AFTER a successful
+# public push. Mirror failure warns and returns 0: the public push already
+# landed and is never rolled back or failed retroactively.
+ac_pp_mirror_maybe() {
+    local project="$1" p="$2" flag="${3:-}"
+    [[ "$flag" == "--no-mirror" ]] && return 0
+    _ac_pp_mirror_on "$project" || return 0
+    declare -F target_git_mirror_push >/dev/null 2>&1 || return 0
+    if ! target_git_mirror_available 2>/dev/null; then
+        ac_warn "mirror: git-mirror unavailable — dev/ not mirrored"
+        return 0
+    fi
+    if [[ ! -d "$p/dev" ]]; then
+        ac_warn "mirror: $project has mirror_dev on but no dev/ directory"
+        return 0
+    fi
+    local sha
+    if sha=$(target_git_mirror_push "$project" "$p/dev" 2>/dev/null); then
+        printf 'mirror    : dev/ -> %s-dev @ %s\n' "$project" "${sha:0:7}"
+    else
+        ac_warn "mirror: dev/ mirror FAILED (public push already landed, not rolled back)"
+    fi
+    return 0
+}

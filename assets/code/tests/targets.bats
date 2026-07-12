@@ -52,3 +52,9 @@ src() {
     run src "ac_target_call nope push proj /tmp"
     [ "$status" -eq 2 ]
 }
+
+@test "call: hyphenated target name (git-mirror) maps to underscore functions" {
+    run src "target_git_mirror_ping() { echo pong; }; ac_target_call git-mirror ping"
+    [ "$status" -eq 0 ]
+    [ "$output" = "pong" ]
+}

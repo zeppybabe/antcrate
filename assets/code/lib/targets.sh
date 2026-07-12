@@ -18,10 +18,11 @@ ac_targets_enabled() {
     printf '%s\n' "${list//,/$'\n'}" | sed '/^[[:space:]]*$/d'
 }
 
-# ac_target_call <name> <verb> [args...] -> invoke target_<name>_<verb>
+# ac_target_call <name> <verb> [args...] -> invoke target_<name>_<verb>.
+# Config names may carry hyphens (git-mirror); function names cannot.
 ac_target_call() {
     local name="$1" verb="$2"; shift 2
-    local fn="target_${name}_${verb}"
+    local fn="target_${name//-/_}_${verb}"
     if ! declare -F "$fn" >/dev/null 2>&1; then
         ac_error "target: unknown target/verb: ${name}/${verb}"
         return 2

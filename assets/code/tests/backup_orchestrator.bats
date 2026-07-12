@@ -7,7 +7,12 @@ setup() {
     export ANTCRATE_BACKUP_DIR="$ANTCRATE_HOME/backups"
     export ANTCRATE_CONFIG="$ANTCRATE_HOME/config"
     export ANTCRATE_LOG_LEVEL="error"
-    mkdir -p "$ANTCRATE_HOME"
+    export ANTCRATE_MIRROR_PREFIX="$BATS_TEST_TMPDIR/hub/"
+    export GIT_CONFIG_GLOBAL="$BATS_TEST_TMPDIR/gitconfig"
+    git config --file "$GIT_CONFIG_GLOBAL" user.name tester
+    git config --file "$GIT_CONFIG_GLOBAL" user.email t@example.com
+    git config --file "$GIT_CONFIG_GLOBAL" init.defaultBranch master
+    mkdir -p "$ANTCRATE_HOME" "$BATS_TEST_TMPDIR/hub"
     PROJ="$BATS_TEST_TMPDIR/proj"; mkdir -p "$PROJ"; echo "v1" > "$PROJ/f.txt"
 }
 
@@ -15,7 +20,10 @@ src() {
     bash -c "
         export ANTCRATE_HOME='$ANTCRATE_HOME' ANTCRATE_BACKUP_DIR='$ANTCRATE_BACKUP_DIR'
         export ANTCRATE_CONFIG='$ANTCRATE_CONFIG' ANTCRATE_LOG_LEVEL='$ANTCRATE_LOG_LEVEL'
-        . '$LIB/log.sh'; . '$LIB/backup.sh'; . '$LIB/targets/local.sh'; . '$LIB/targets.sh'
+        export ANTCRATE_MIRROR_PREFIX='$ANTCRATE_MIRROR_PREFIX'
+        export GIT_CONFIG_GLOBAL='$GIT_CONFIG_GLOBAL'
+        . '$LIB/log.sh'; . '$LIB/backup.sh'; . '$LIB/targets/local.sh'
+        . '$LIB/targets/git_mirror.sh'; . '$LIB/targets.sh'
         $1
     "
 }
@@ -25,6 +33,24 @@ src() {
     [ "$status" -eq 0 ]
     [[ "$output" == *"local"*"OK"* ]]
     [ "$(src "target_local_list proj" | wc -l)" -eq 1 ]
+}
+
+@test "run: dev-scope target receives the project's dev/ tree" {
+    printf 'backup_targets=local,git-mirror\n' > "$ANTCRATE_CONFIG"
+    mkdir -p "$PROJ/dev"; echo "note" > "$PROJ/dev/state.md"
+    run src "ac_backup_run proj '$PROJ'"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"local"*"OK"* ]]
+    [[ "$output" == *"git-mirror (dev)"*"OK"* ]]
+    [ -d "$BATS_TEST_TMPDIR/hub/proj-dev.git" ]
+}
+
+@test "run: dev-scope target skips with a note when the project has no dev/" {
+    printf 'backup_targets=local,git-mirror\n' > "$ANTCRATE_CONFIG"
+    run src "ac_backup_run proj '$PROJ'"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"git-mirror"*"skip (no dev/)"* ]]
+    [ ! -d "$BATS_TEST_TMPDIR/hub/proj-dev.git" ]
 }
 
 @test "restore-best: picks newest verified snapshot" {

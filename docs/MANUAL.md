@@ -134,8 +134,8 @@ Addressed tree view with `[d]`/`[s]` dynamic/static tags.
 
 ### Backups and quarantine
 
-**`antcrate --backup <project>`**
-On-demand verified backup: tar.gz + sha256 manifest under `~/.antcrate/backups/<project>/`, with retention pruning (`ANTCRATE_BACKUP_RETENTION`).
+**`antcrate bak <project>`**
+On-demand backup, fanned to every enabled target (config `backup_targets=`, comma list, default `local`) with a per-target OK/FAIL report: `local` = verified tar.gz + sha256 manifest under the backups dir with retention pruning (`ANTCRATE_BACKUP_RETENTION`); `git-mirror` = the project's `dev/` pushed to its private companion repo. Non-zero only when every eligible target failed.
 
 **`antcrate --backups <project>`**
 Reverse-chronological backup list.
@@ -152,10 +152,10 @@ Restore a quarantined entry to its original path; **refuses (exit 1)** if the or
 ### Git and GitHub
 
 **`antcrate commit <project> -m "<msg>" [--all-tracked | -- <files...>]`**
-Stage + commit through the wrapper: secret-pattern guard on the diff, Gateway-Law preview, y/N prompt. `-y` skips the prompt (sanctioned for non-TTY automation). Replaces bare `git add` + `git commit`.
+Stage + commit through the wrapper: secret-pattern guard on the diff, Gateway-Law preview, y/N prompt on a TTY; non-TTY proceeds (the `-y` flag and PREAPPROVED envs were retired 2026-07-10). Replaces bare `git add` + `git commit`.
 
-**`antcrate pp <project>`**
-Push-pipe: commit (if dirty) and push, with conflict triage. On rejection: stderr captured, `git diff @{u}..HEAD` truncated to 300 lines and emailed (`ANTCRATE_EMAIL`), full log at `/tmp/antcrate_conflict.log`. Successful pushes print a `verify: <upstream> in sync at <SHA>` line. Replaces bare `git push`.
+**`antcrate pp <project> [--no-mirror]`**
+Push-pipe: commit (if dirty) and push, with conflict triage. On rejection: stderr captured, `git diff @{u}..HEAD` truncated to 300 lines and emailed (`ANTCRATE_EMAIL`), full log at `/tmp/antcrate_conflict.log`. Successful pushes print a `verify: <upstream> in sync at <SHA>` line, then — when config `mirror_dev=` lists the project — push the git-ignored `dev/` tree to the private `<owner>/<project>-dev` companion repo (created on first push; `--no-mirror` skips once; mirror failure warns but never fails the public push). Replaces bare `git push`.
 
 **`antcrate --diff <project>`**
 `git status` + `git diff` via `git -C` — no cd.

@@ -64,7 +64,7 @@ No `cd` is ever needed: `--in <project> -- <cmd>` runs anchored at the project r
 
 ### Safety architecture
 
-- **Backups:** `--backup` / `--backups` / `--restore [--at <ts>]` — verified tar.gz + sha256 manifests, retention pruning, pre-restore auto-backup.
+- **Backups:** `--backup` / `--backups` / `--restore [--at <ts>]` — verified tar.gz + sha256 manifests, retention pruning, pre-restore auto-backup. Multi-target: `backup_targets=local,git-mirror` fans each backup out; the `git-mirror` target pushes a project's git-ignored `dev/` tree as real git history to a **private** `<owner>/<project>-dev` companion repo (also auto-pushed after every successful `pp` for projects listed in `mirror_dev=`).
 - **Quarantine:** `--quarantine-list` / `--quarantine-restore` — capture-first removal staging. No purge flag exists, by design.
 - **Registry hygiene:** `--ghosts` lists entries whose path vanished; `--deregister` drops a ghost capture-first, and *refuses* if the path still exists.
 
@@ -128,7 +128,7 @@ git config core.hooksPath .githooks
 
 ## Status
 
-**700 bats tests** across 65 files, shellcheck clean. (The Wave-1 C++ canary core is preserved on the `attic` branch, audit 2026-07-10.)
+**717 bats tests** across 66 files, shellcheck clean. (The Wave-1 C++ canary core is preserved on the `attic` branch, audit 2026-07-10.)
 
 Solo-maintained, pre-1.0; the CLI surface may still shift before a v1 tag. The live work queue and append-only decision log are kept in the maintainers' local `dev/` records (not published). AntCrate develops AntCrate: this repo is itself a registered project, pushed via `antcrate pp antcrate`, gated by its own hooks and CI.
 

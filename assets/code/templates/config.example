@@ -21,9 +21,18 @@
 # ANTCRATE_BACKUP_RETENTION=20
 
 # Backup targets — comma list, priority order (default: local).
-# 'usb' and 'git-mirror' activate as those phases land; unknown names are
-# skipped with a warning, never a silent no-op.
-# backup_targets=local
+# 'git-mirror' pushes each project's git-ignored dev/ tree as real git history
+# to a PRIVATE companion repo <owner>/<project>-dev (created on first push).
+# 'usb' is a future phase; unknown names are skipped with a warning, never a
+# silent no-op.
+# backup_targets=local,git-mirror
+
+# Projects whose dev/ auto-mirrors after every successful `antcrate pp` push
+# (comma list of project names; `pp <p> --no-mirror` skips once).
+# mirror_dev=antcrate
+
+# GitHub owner for the companion repos (default: the gh-authenticated login).
+# mirror_owner=zeppybabe
 
 # Extra intel feeds live in a SEPARATE file (not here):
 #   ~/.config/antcrate/intel-sources.json  — {"sources":[{"id","url","kind"?}]}

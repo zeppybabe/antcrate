@@ -41,6 +41,8 @@ LIB_DIR="$SCRIPT_DIR/../lib"
 # shellcheck disable=SC1091
 . "$LIB_DIR/targets/local.sh"
 # shellcheck disable=SC1091
+. "$LIB_DIR/targets/git_mirror.sh"
+# shellcheck disable=SC1091
 . "$LIB_DIR/targets.sh"
 # shellcheck disable=SC1091
 . "$LIB_DIR/safety.sh"
@@ -174,7 +176,10 @@ Commands:
                                       Gateway Law preview, y/N prompt). -y bypasses prompt
                                       (sanctioned for non-TTY automation). Replaces bare
                                       git add+commit.
-  --pp <project>                      commit (if dirty) and push, with conflict triage
+  --pp <project> [--no-mirror]        commit (if dirty) and push, with conflict triage;
+                                      afterwards mirrors dev/ to the private
+                                      <project>-dev companion when config mirror_dev
+                                      lists the project (--no-mirror skips once)
   --ingest <bundle-path>              consume a research bundle (BUNDLE_SPEC v1.0)
   --emit-activity <project> <kind> <relpath> [--ttl-ms N] [--label X] [--agent A]
                                       append an event to the activity stream
@@ -224,7 +229,8 @@ Commands:
   --bootstrap <project> [-m "<msg>"] [--with-remote [--public|--private]]
                                       one-liner: --git-init + default .gitignore + first commit;
                                       --with-remote chains --gh-init (private default)
-  --backup <project>                  create on-demand backup (tar.gz under ~/.antcrate/backups/)
+  --backup <project>                  fan backup to enabled targets (config backup_targets;
+                                      default local tar.gz; git-mirror pushes dev/)
   --backups <project>                 list backups for a project
   --restore <project> [--at <ts>]     restore project from backup (latest if --at omitted)
   --propose <name> "<description>"    log a proposed pattern (escape valve when no flag fits)
@@ -396,7 +402,12 @@ cmd_pp() {
         git -C "$p" add -A
         git -C "$p" commit -qm "antcrate: auto-commit $(date -u +%Y-%m-%dT%H:%M:%SZ)" || true
     fi
-    ac_git_push "$project" "$p" || true
+    # dev/ mirror fires only after a SUCCESSFUL public push (G2); its failure
+    # never fails pp — the public push already landed
+    if ac_git_push "$project" "$p"; then
+        ac_pp_mirror_maybe "$project" "$p" ${PP_NO_MIRROR:+--no-mirror}
+    fi
+    return 0
 }
 
 cmd_resume_expand() {
@@ -456,8 +467,11 @@ cmd_status() {
     health_out=$(ac_health_status_line 2>/dev/null) || true
     if [[ -n "$health_out" ]]; then
         printf '  %s\n' "${health_out%%$'\n'*}" | sed 's/^  health: /  health    : /'
-        [[ "$health_out" == *$'\n'* ]] && printf '%s\n' "${health_out#*$'\n'}" | sed 's/^/  /'
+        if [[ "$health_out" == *$'\n'* ]]; then
+            printf '%s\n' "${health_out#*$'\n'}" | sed 's/^/  /'
+        fi
     fi
+    return 0
 }
 
 cmd_list() {
@@ -606,7 +620,7 @@ HOOK_WITH_STASH="" HOOK_NO_TRACE=""
 HOOK_BYPASS_REASON=""
 MD_FORCE=""
 SELFCHECK_QUIET=""
-INTEL_SOURCE="" INTEL_QUIET="" INTEL_JSON="" INTEL_SHA="" INTEL_KIND=""
+INTEL_SOURCE="" INTEL_QUIET="" INTEL_JSON="" INTEL_SHA="" INTEL_KIND="" PP_NO_MIRROR=""
 DUTY_TEXT="" DUTY_N="" DUTY_TYPE=""
 FETCH_URL="" FETCH_NAME=""
 CI_SNAPSHOT="" CI_SOURCE=""
@@ -656,7 +670,9 @@ while (( $# > 0 )); do
             else shift; fi ;;
         --branch)            ACTION="branch"; NAME="$2"; shift 2 ;;
         --link)              ACTION="link"; NAME="$2"; shift 2 ;;
-        --pp)                ACTION="pp"; NAME="$2"; shift 2 ;;
+        --pp)
+            ACTION="pp"; NAME="$2"; shift 2
+            if [[ "${1:-}" == "--no-mirror" ]]; then PP_NO_MIRROR=1; shift; fi ;;
         --ingest)            ACTION="ingest"; NAME="$2"; shift 2 ;;
         --emit-activity)
             ACTION="emit-activity"; NAME="${2:-}"; EVENT_KIND="${3:-}"; RELPATH="${4:-}"

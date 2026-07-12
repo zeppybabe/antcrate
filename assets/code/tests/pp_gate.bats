@@ -47,3 +47,46 @@ setup() {
     run git --git-dir="$REMOTE" log -1 --pretty=%s
     [[ "$output" == antcrate:\ auto-commit* ]]
 }
+
+# ── G2 (2026-07-12): dev/ mirror on pp ──────────────────────────────────────
+
+mirror_setup() {   # ignore dev/ in the fixture repo (real projects always do)
+    export ANTCRATE_CONFIG="$BATS_TEST_TMPDIR/config"
+    printf 'mirror_dev=proj\n' > "$ANTCRATE_CONFIG"
+    export ANTCRATE_MIRROR_PREFIX="$BATS_TEST_TMPDIR/hub/"
+    mkdir -p "$BATS_TEST_TMPDIR/hub"
+    ( cd "$R" && echo "dev/" > .gitignore && git add .gitignore && git commit -qm gitignore )
+    mkdir -p "$R/dev"; echo "note" > "$R/dev/state.md"
+}
+
+@test "pp: mirror_dev project mirrors dev/ after a successful push" {
+    mirror_setup
+    run "$BIN" pp proj
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"mirror"*"proj-dev"* ]]
+    [ -d "$BATS_TEST_TMPDIR/hub/proj-dev.git" ]
+}
+
+@test "pp: --no-mirror suppresses the dev mirror for that push" {
+    mirror_setup
+    run "$BIN" pp proj --no-mirror
+    [ "$status" -eq 0 ]
+    [ ! -d "$BATS_TEST_TMPDIR/hub/proj-dev.git" ]
+}
+
+@test "pp: project not in mirror_dev list is never mirrored" {
+    mirror_setup
+    printf 'mirror_dev=otherproj\n' > "$ANTCRATE_CONFIG"
+    run "$BIN" pp proj
+    [ "$status" -eq 0 ]
+    [ ! -d "$BATS_TEST_TMPDIR/hub/proj-dev.git" ]
+}
+
+@test "pp: mirror failure warns but never fails the public push" {
+    mirror_setup
+    touch "$BATS_TEST_TMPDIR/blocked"
+    export ANTCRATE_MIRROR_PREFIX="$BATS_TEST_TMPDIR/blocked/hub/"
+    run "$BIN" pp proj
+    [ "$status" -eq 0 ]
+    [[ "$output" != *"mirror    :"* ]]
+}

@@ -14,7 +14,8 @@ Relocated verbatim from the orchestrator `SKILL.md` (three-tier skill cut, spec 
   - `scaffold.sh` — `--start` / `--branch` / `--link` / `--register`
   - `subbranch.sh` — atomic `--resume --expand` nesting (backup-protected)
   - `safety.sh` — path-zone guard + `ac_safety_guard_destructive` (rule #1 enforcement)
-  - `backup.sh` — verified tar.gz + sha256 manifests, retention pruning, restore
+  - `backup.sh` — verified tar.gz + sha256 manifests, retention pruning, restore; `ac_backup_run` fans push to enabled targets per advertised scope (project = whole tree, dev = `<path>/dev`)
+  - `targets.sh` — backup-target registry + dispatch (`backup_targets=` config key; hyphenated names map to underscore functions); `targets/local.sh` = the classic store behind the contract; `targets/git_mirror.sh` = private `<owner>/<project>-dev` companion (scope dev, gh-created, ALWAYS private; `ANTCRATE_MIRROR_PREFIX` local-path mode for tests/air-gapped hubs); pp auto-mirror via `ac_pp_mirror_maybe` (config `mirror_dev=` list, `--no-mirror` escape)
   - `commit.sh` — `--commit` wrapper with secret-pattern guard + Gateway-Law preview/prompt (rule #12)
   - `git_triage.sh` — `--pp` push wrapper with conflict triage to `/tmp/antcrate_conflict.log`
   - `gh.sh` — `--gh-init` (HTTPS via `gh` CLI, no plaintext PATs)
