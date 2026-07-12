@@ -54,6 +54,13 @@ mirror_setup() {   # ignore dev/ in the fixture repo (real projects always do)
     export ANTCRATE_CONFIG="$BATS_TEST_TMPDIR/config"
     printf 'mirror_dev=proj\n' > "$ANTCRATE_CONFIG"
     export ANTCRATE_MIRROR_PREFIX="$BATS_TEST_TMPDIR/hub/"
+    # the nested dev repo commits with the GLOBAL git identity — pin one, or
+    # these tests track the ambient machine state (green locally, red on a
+    # bare CI runner: exactly how run 29178263554 failed)
+    export GIT_CONFIG_GLOBAL="$BATS_TEST_TMPDIR/gitconfig"
+    git config --file "$GIT_CONFIG_GLOBAL" user.name tester
+    git config --file "$GIT_CONFIG_GLOBAL" user.email t@example.com
+    git config --file "$GIT_CONFIG_GLOBAL" init.defaultBranch master
     mkdir -p "$BATS_TEST_TMPDIR/hub"
     ( cd "$R" && echo "dev/" > .gitignore && git add .gitignore && git commit -qm gitignore )
     mkdir -p "$R/dev"; echo "note" > "$R/dev/state.md"
