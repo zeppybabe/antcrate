@@ -82,7 +82,7 @@ EOF
         printf -- '- [ ] %s — %s\n' "$(date -u +%F)" "$clean" >> "$f"
     fi
     ac_info "duty: appended to $f"
-    printf 'Duty recorded. Review with: antcrate --duties\n'
+    printf 'Duty recorded. Review with: antcrate duty ls\n'
 }
 
 ac_duty_list() {
