@@ -94,6 +94,12 @@ registered project*:
   config defaults, Gateway-Law gate). Pure passthrough reads should defer to
   the plugin.
 
+### Session: 2026-07-14 (SKILL.md stale-path fix — pp push triage)
+
+| Command | Purpose | Wrapped? | Proposed flag |
+|---|---|---|---|
+| `gh auth status` | Diagnose `pp` rc=128 (`fatal: could not read Username for 'https://github.com'` in a non-interactive agent shell) — found the hosts.yml token INVALID while the keyring copy may still be valid desktop-side | no | none — but the `st` doctor's gh check could distinguish "token invalid/expired" from "not logged in" and say which store (keyring vs hosts.yml) it checked |
+
 ---
 
 ## Proposed flag set (first implementation pass)
