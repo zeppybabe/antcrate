@@ -1,167 +1,154 @@
 # AntCrate
 
-Bash, jq, and inotify. One controllable surface for human + AI development.
+**One controllable surface for solo and AI-assisted development.** AntCrate is the governance layer that lets you — and the AI agent working beside you — move fast across many projects while every risky action stays *backed up, approved, and reversible*.
 
-AntCrate is a pure-Bash orchestration shell that wraps every structural, destructive, or remote-facing operation a solo developer — or the AI agent working beside them — repeats across projects: scaffolding, a JSON registry as single source of truth, guarded commits and pushes, backups with verified manifests, git-hook management, and a safety layer that makes the dangerous paths *narrow, audited, and reversible*.
+Modern development, especially with an AI coding agent in the loop, means a lot of powerful, occasionally irreversible actions — renames, deletes, pushes, hook execution, secret handling — scattered across projects. The usual choice is speed *or* control. AntCrate removes that trade-off: it makes one auditable entry point the only way those actions happen, so the agent (or you at 2am) can work at full speed inside a project while the dangerous paths stay narrow and gated. Nothing runs elevated; everything lives under your own home directory.
 
-It began as a project scaffolder. It has evolved into an **agent-governance layer**: the boundary that lets a coding agent operate at full speed inside registered project trees while every risky action — rename, remove, push, hook execution, secret exposure — routes through a single auditable entry point with backup and approval gates. Nothing runs elevated; all state lives under your XDG base directories (`~/.config`, `~/.local/share`, `~/.local/state`) and the registered trees.
+It began as a project scaffolder. It became a **boundary** — the single place where structural, destructive, and remote-facing operations route through backup-and-approval gates before they touch disk or a remote.
 
-## The contract
+---
 
-Five rules shape everything in this repo:
+## What AntCrate is for
 
-1. **No destructive operation without a backup and explicit human approval.** Enforced in code (`ac_safety_guard_destructive`), not by convention.
-2. **Quarantine over destruction.** User data is never deleted by automation — it is archived and moved to `~/.local/state/antcrate/quarantine/`. There is deliberately no purge flag; only the human deletes.
-3. **Updates and removals come last** in any roadmap or operation chain (the *Gateway Law*): read state → confirm no dependents → backup → show the human the verify output → receive approval → only then execute.
-4. **Agents propose, humans approve.** When no flag fits an intent, the agent files `antcrate propose` instead of falling back to a bare command. The proposal log is how the agent says "I needed this" without crossing the boundary.
-5. **Bash owns retrieval, the human/agent owns judgment.** Timers fetch and snapshot; nothing automated ever decides meaning or edits code on its own.
+- **A safety boundary around risky operations.** Rename, remove, push, restore, hook execution — none of them happen without passing one gate that enforces a backup and an explicit approval first.
+- **A governance layer for AI agents.** An agent can operate freely inside your projects, but every action that could lose work or leak a secret is intercepted, logged, and either approved or refused — never silently executed.
+- **A single source of truth for your projects.** One registry knows every project, its layout, its remotes, and its history — so tools and agents stop guessing and start asking.
+- **A calm, honest status surface.** One command tells you the real state of everything and, for anything wrong, prints the exact command to fix it.
 
-## Quick start
+Built in Bash so it runs anywhere a shell does, at user privilege, with no daemon running as root and no service you have to trust.
 
-**Linux**
+---
+
+## The Gateway Law
+
+Five principles shape everything AntCrate does. They are enforced in code, not left to discipline:
+
+1. **No destructive operation without a verified backup and explicit human approval.** This is checked before the action runs, every time.
+2. **Quarantine over deletion.** Automation never deletes your data — it archives and sets it aside. Only a human ever permanently removes anything; there is deliberately no "purge" shortcut.
+3. **Updates and removals come last.** Any change that could break something follows a fixed chain: read the current state → confirm nothing depends on it → back up → show you the result → get approval → only then execute.
+4. **Agents propose, humans approve.** When an agent needs something the gates don't allow, it files a proposal instead of forcing the action. The proposal log is how it says "I needed this" without crossing the line.
+5. **Automation retrieves; people decide.** Background tasks fetch, snapshot, and watch — but nothing automated ever interprets meaning or edits your code on its own.
+
+---
+
+## Installation
+
+AntCrate installs without root and keeps all of its state in your home directory. It runs on **Linux** and **macOS** (Apple Silicon and Intel).
+
+### Linux
 
 ```bash
-# 1. Dependencies (Debian/Ubuntu shown — see Dependencies for dnf/pacman/zypper)
-sudo apt-get install -y jq git inotify-tools
+# 1. Dependencies (Debian/Ubuntu shown; the installer prints the right hint for dnf/pacman/zypper)
+sudo apt-get install -y bash jq git inotify-tools
 
-# 2. Install — no root; the installer checks deps and runs --init for you
+# 2. Install — no root; the installer checks your system and sets everything up
 git clone https://github.com/zeppybabe/antcrate.git ~/antcrate-src
 bash ~/antcrate-src/assets/code/install.sh
 
-# 3. Use it
-antcrate st                                                  # status + health panel, misses print their fix
-antcrate new coolapp --domain webapps --meta html,css,js     # scaffolds under ~/Projects
-antcrate map coolapp
+# 3. Confirm
+antcrate st
 ```
 
-**macOS** (Apple Silicon and Intel)
+### macOS
 
 ```bash
-# 1. Dependencies — Homebrew is the sanctioned source; macOS's stock bash 3.2
-#    is too old (scripts use `env bash`, so brew's bash 5 on PATH is all it takes)
-xcode-select --install                        # git + developer tools, once
+# 1. Dependencies — Homebrew is the supported source (macOS ships an ancient bash;
+#    AntCrate uses whichever modern bash is on your PATH)
+xcode-select --install     # git + developer tools, once
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 brew install bash jq fswatch gh
 
-# 2. Install — same installer; it detects macOS, requires fswatch instead of
-#    inotify-tools, and renders launchd agents instead of systemd units
+# 2. Install — the same installer detects macOS and adapts (fswatch for the live
+#    watcher, launchd agents in place of systemd services)
 git clone https://github.com/zeppybabe/antcrate.git ~/antcrate-src
 bash ~/antcrate-src/assets/code/install.sh
 
-# 3. Enable the daemon + daily timers (the systemctl-enable equivalent;
-#    `antcrate st` prints these exact commands until you run them)
-launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.antcrate.daemon.plist
-launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.antcrate.backup.plist
-launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.antcrate.intel.plist
+# 3. Confirm
+antcrate st
 ```
 
-The installer finishes by printing that same `st` panel — anything left to set up
-(timers, dev tools, GitHub auth, git identity) is listed there with a
-copy-pasteable fix command. There is no separate `init` or `doctor` step.
+The installer **is** the setup and the health check in one — it finishes by printing the status panel, and anything still left to do (enable the background daemon, install optional dev tools, sign in to GitHub, set your git identity) is listed there with a copy-pasteable command next to it. There is no separate init or doctor step to remember.
 
-**Where things live (XDG).** Binaries in `~/.local/bin`; libs, templates, hooks, and the registry under `~/.local/share/antcrate/`; config at `~/.config/antcrate/config`; logs, backups, and locks under `~/.local/state/antcrate/`. Projects scaffold under `~/Projects` by default (override with `ANTCRATE_ROOT`). All locations honor the `XDG_*_HOME` variables, and upgrading from a pre-XDG install migrates `~/.antcrate/` automatically, once. A fresh install reports `selfsrc: OK-WITH-WARNINGS` (not `FAIL`) — the warnings are just "no backup yet / unpushed".
+**Where your state lives.** Projects scaffold under `~/Projects` by default. AntCrate's own files follow the standard home-directory layout — config, data, and state each in their conventional place — and honor the usual environment overrides. Nothing is written outside your home directory or the projects you register.
 
-**Dev tools, no root.** `antcrate tool install bats|shellcheck` provisions pinned, SHA256-verified tools under the XDG data dir; the bundled `local-install-guard.sh` hook steers reflexive `sudo apt` / `curl | bash` installs toward that path. The installer prints a per-distro hint if a required tool is missing — see [Dependencies](#dependencies).
+---
 
-**Full reference:** every flag, file, environment variable, and exit code is documented man-page style in [docs/MANUAL.md](docs/MANUAL.md). The flag-by-intent index — what agents read before reaching for a shell command — is [PATTERNS.md](assets/docs/PATTERNS.md).
+## Everyday use
+
+You drive AntCrate with short, readable words. A typical day looks like this:
+
+```bash
+antcrate st                    # the whole picture: projects, daemon, backups, health — misses show their fix
+antcrate new site --domain webapps   # scaffold a new project, registered from birth
+antcrate map site              # see its live structure
+antcrate commit site -m "..."  # a guarded commit: previews the change, scans for secrets first
+antcrate pp site               # push with a pre-flight panel and conflict handling — never a silent failure
+antcrate bak site              # a verified, restorable backup on demand
+antcrate duty ls               # the running list of things only you (not an agent) should do
+```
+
+Two ideas make the daily flow smooth:
+
+- **You never need to `cd`.** Every command takes the project by name and runs anchored at its root.
+- **The tool is self-describing.** `antcrate st` is the single place to learn what's healthy, what isn't, and exactly how to fix what isn't — so you rarely have to consult the manual.
+
+The full command reference lives in **[docs/MANUAL.md](docs/MANUAL.md)**, and the by-intent index an agent reads first is **[PATTERNS.md](assets/docs/PATTERNS.md)**.
+
+---
 
 ## How it works
 
-**Schema.** Filenames are argument arrays. `Name.Domain.Action.#Meta#` maps to positional indices: creating `coolapp.webapps.start.#html,css,js#` is exactly equivalent to `antcrate --start coolapp --domain webapps --meta html,css,js`. No parsing ambiguity; both paths produce the same registry write.
+- **A single registry is the source of truth.** One record holds every project's path, layout, relationships, and remotes. Every read and write goes through it atomically — no hand-edited state, no drift, no two tools disagreeing about reality.
 
-**Daemon.** `antcrated` is an `inotifywait` background process watching a configured directory. A file whose name matches the schema dispatches the corresponding CLI command — editor file-creation becomes a first-class invocation path. The daemon also keeps per-project Mermaid tree diagrams live on every filesystem event, debounced per project.
+- **A live daemon keeps everything current.** A lightweight background watcher (inotify on Linux, fswatch on macOS) notices filesystem changes and keeps each project's structure diagram up to date automatically. Diagrams are a function of the current state, never a stale snapshot.
 
-**Registry.** `~/.local/share/antcrate/registry.json` is the single source of truth: paths, domains, parent/child nesting, linked nodes, git remotes, recent removals. Every read and write goes through `lib/registry.sh` using atomic jq + temp-file replacement. No direct edits, no concurrent corruption.
+- **One safety gate guards the dangerous paths.** Anything that could lose work or expose a secret funnels through a single chokepoint that backs up first and asks for approval. Push failures are captured and surfaced, never swallowed.
 
-**Safety gate.** Destructive operations funnel through one chokepoint that enforces backup-before-touch and approval — a TTY y/N, or (non-interactively) a verified backup plus a review duty on the duty ledger. The `--pp` push-pipe captures git rejection, generates a truncated diff, and routes it to email before halting — never a silent failed push.
+- **It runs the same on Linux and macOS.** A small compatibility layer probes for what the host actually provides and adapts — the Linux world of inotify and systemd and the macOS world of fswatch and launchd are both first-class, from one codebase.
 
-## Capability tour
+---
 
-AntCrate ships **~60 commands** backed by 47 lib modules. You invoke everything with compact words (`antcrate st`, `antcrate bak antcrate`, `antcrate duty ls`); the `--flag` names listed below are the internal canonical map those words rewrite to — typing a retired leading `--flag` exits 2 with a pointer to the word (retired 2026-07-10); the 2026-07-10 audit atticked five modules (loop, delegate, canary+core, cost, obsidian) obsoleted by native harness features — preserved on branch `attic`. The groups below are the shape of the tool; [docs/MANUAL.md](docs/MANUAL.md) documents every flag.
+## Working alongside an AI agent
 
-### Project lifecycle and navigation
+This is what makes AntCrate more than a CLI. When a coding agent operates inside your projects, AntCrate sits in the path of its actions:
 
-`--start`, `--register`, `--branch`, `--link`, `--resume --expand` (atomic sub-branching), `--rename`, `--archive` / `--unarchive`, `--info`, `--list`, `--map`.
+- **Destructive shell commands are intercepted** before they run, and routed through the same backup-and-approval gate a human would face.
+- **Secret *values* stay out of the conversation** — an agent can reference and set them, but never print them into a transcript.
+- **A running session can't drive itself off a cliff** — it's warned as its working context fills and stopped before it overruns, with room reserved to wrap up cleanly.
+- **Duties and proposals draw the human line.** Actions only a person should take (rotating a key, approving a policy, editing protected config) live on a checklist an agent can add to but never check off; when an agent needs something out of bounds, it proposes rather than forces.
 
-No `cd` is ever needed: `--in <project> -- <cmd>` runs anchored at the project root, `--anchor` exports a stable handle, and the **layered address system** gives every file a positional code (`1a3` = 3rd entry inside the 1st sub-branch of the 1st top-level dir) resolvable via `--addr`.
+The result is an agent that can be genuinely useful at speed without you having to watch its every keystroke.
 
-### Safety architecture
+---
 
-- **Backups:** `--backup` / `--backups` / `--restore [--at <ts>]` — verified tar.gz + sha256 manifests, retention pruning, pre-restore auto-backup. Multi-target: `backup_targets=local,git-mirror` fans each backup out; the `git-mirror` target pushes a project's git-ignored `dev/` tree as real git history to a **private** `<owner>/<project>-dev` companion repo (also auto-pushed after every successful `pp` for projects listed in `mirror_dev=`).
-- **Quarantine:** `--quarantine-list` / `--quarantine-restore` — capture-first removal staging. No purge flag exists, by design.
-- **Registry hygiene:** `--ghosts` lists entries whose path vanished; `--deregister` drops a ghost capture-first, and *refuses* if the path still exists.
+## BizCrate — the business-facing sibling
 
-### Git, GitHub, and hooks
+The same governance philosophy, packaged for organizations rather than developers. **BizCrate** is a "backend-in-a-box": one command installs a governed, **local-first** AI-operations layer for small businesses and non-profits — data stays on the machine by default, every AI action is budgeted and written to an append-only audit trail, and the pipeline produces useful output even with zero AI spend. It's built with AntCrate and ships standalone (no AntCrate dependency on the client's machine).
 
-- `--commit` — staged commit with a secret-pattern guard and Gateway-Law preview prompt.
-- `--pp` — push-pipe with conflict triage: rejection emails a truncated diff, full log kept at `/tmp/antcrate_conflict.log`.
-- `--gh-init` — GitHub repo creation over HTTPS, **private by default**; `--bootstrap` chains init + `.gitignore` + first commit in one idempotent call.
-- **Hook suite:** `--hooks`, `--hook-install` (4 shipped templates: CI, secrets, stack-aware bash, pre-push tests), `--hook-remove`, `--hook-debug` (annotated re-run with trace), `--hook-bypass` (single-shot, reason-required, dual audit-logged), `--hook-render`, `--hook-audit`, `--hook-autoinstall` (profile-driven), `--hook-log`, `--hook-smoke` (pipe a synthetic payload into any Claude Code hook and propagate its verdict).
+Think of it as a family: **AntCrate** governs *developer* operations, **BizCrate** governs *business* operations, both on the same principle — make the risky paths narrow, audited, and reversible, and keep the human in the loop.
 
-### Agent governance
-
-The layer that makes AntCrate an AI-development boundary rather than just a CLI:
-
-- **Claude Code hooks** (`assets/code/hooks/claude/`): `gateway-guard.sh` blocks bare destructive shell commands before they execute; `env-guard.sh` keeps secret *values* out of the transcript (names and assignment are fine; display sinks are blocked); `session-budget-guard.sh` gates on context-window size — soft warn at 100k tokens, hard block at 140k with a wrap-up whitelist, so a session can never run itself off a cliff; `shellcheck-on-save.sh` lints every shell edit on write; `local-install-guard.sh` blocks reflexive system-wide and opaque (`curl | bash`) installs, steering to the local, pinned `--tool-install` path with an audited bypass.
-- **Provisioning:** `--agent-init`, `--md-scaffold`, `--profile`, and `--env-scan` provision a project for agent work. (Delegation attempt-budgets moved to the harness's native subagents; atticked.)
-- **Duties:** `--duty` / `--duties` / `--duty-done` — a first-class checklist for actions only the human may perform (key rotation, policy approvals, config edits). Agents file duties; they never close them.
-- **Proposals:** `--propose` / `--proposals` — the escape valve described in the contract above.
-
-### Awareness and accounting
-
-- **Activity stream:** `--emit-activity` appends durable JSONL events; `--watch` paints a live colored project tree from them (severity-ordered: delete > modify > delegate > think > read); `--watch-window` spawns it in a detached terminal.
-
-- **Intel tracker:** `--intel-pull` / `--intel-new` / `--intel-ack` / `--intel-status` — snapshot-on-change tracking of pinned Anthropic-official sources (any other host is refused before fetch). A daily timer retrieves; classification stays with the human/agent. Append-only; nothing is ever deleted.
-- **Retrieval:** `antcrate rag init|index|q` — deterministic FTS5/BM25 search over any registered project (zero keys, zero models); agents query before they grep.
-- **Health:** `antcrate st` *is* the doctor — one panel with daemon/pipe/registry posture, intel (unread · sources · last pull), audit cadence, duties (count + oldest), backup age, and a health section where every miss (PATH, timers, dev tools, gh auth, git identity) prints its own fix command. `self check` verifies the tool's own persistence (registry path, skill link, git state, unpushed work, backup age).
-- **Diagrams:** Mermaid views of the whole registry and every project tree, auto-regenerated on every mutating action and filesystem event. Diagrams are a function of state, not a snapshot.
-
-### Bundles
-
-`--ingest` consumes typed research bundles (manifest-validated before any disk write, four source types, relationship semantics including backup-gated `supersedes`) per [BUNDLE_SPEC.md](assets/docs/BUNDLE_SPEC.md) — the handshake that lets a research machine hand work to a dev machine.
+---
 
 ## Documentation
 
 | Document | What it covers |
 |---|---|
-| [docs/MANUAL.md](docs/MANUAL.md) | **The manual** — every command, file, env var, exit code, man-page style |
-| [assets/docs/PATTERNS.md](assets/docs/PATTERNS.md) | Flag-by-intent index (what agents read first) |
-| [assets/docs/architecture.md](assets/docs/architecture.md) | System blueprint: schema, daemon, registry, triage |
+| [docs/MANUAL.md](docs/MANUAL.md) | The full reference — every command, file, and setting |
+| [assets/docs/PATTERNS.md](assets/docs/PATTERNS.md) | By-intent index: "I want to do X" → the command for it |
+| [assets/docs/architecture.md](assets/docs/architecture.md) | System blueprint: registry, daemon, safety gate |
 | [assets/code/AGENTS.md](assets/code/AGENTS.md) | The hard rules for agents and automated tools |
-| [assets/code/README.md](assets/code/README.md) | Codebase walkthrough for contributors |
-| [assets/docs/BUNDLE_SPEC.md](assets/docs/BUNDLE_SPEC.md) | Research-to-dev bundle handshake contract |
-| [assets/docs/HOOK_PLAN.md](assets/docs/HOOK_PLAN.md) | Hook surface design and history |
-| [SKILL.md](SKILL.md) | Claude Code skill manifest (agent integration metadata) |
+| [SECURITY.md](SECURITY.md) | Security posture and how to report a vulnerability |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Test gate, commit style, and proposal process |
 
-## Dependencies
+---
 
-**Required:** Bash 4+ (5 recommended), jq, git, and a filesystem watcher — inotify-tools on Linux, fswatch on macOS. mailx/sendmail is optional (conflict-triage email degrades to a retained body file). flock (util-linux) is the preferred lock backend and ships on every Linux; on macOS it is optional (`brew install flock`) — a built-in mkdir-lock fallback covers its absence. The installer reports anything missing with a per-platform install hint.
+## Project status
 
-**Optional:** `gh` for GitHub repo creation; `mmdc` / `plantuml` / `d2` for diagram rendering (Mermaid sources render inline on GitHub regardless); `bats-core` + `shellcheck` to run the test/lint suite — fetch both locally with `antcrate tool install bats` / `antcrate tool install shellcheck` (no root). `antcrate self ci` detects absent optional tools and skips their stage with a log line.
-
-## CI
-
-`antcrate self ci` runs shellcheck on every `.sh` file and the full bats suite — fail-fast, exit 0 only when all pass. Every PASS records a snapshot to `~/.local/state/antcrate/ci-baseline.json`, which drives a periodic codebase-audit cadence surfaced in `antcrate st`.
-
-The same `self ci` runs in GitHub Actions on every push and PR, and is available locally as an opt-in pre-commit hook:
-
-```bash
-git config core.hooksPath .githooks
-```
-
-## Status
-
-**717 bats tests** across 66 files, shellcheck clean. (The Wave-1 C++ canary core is preserved on the `attic` branch, audit 2026-07-10.)
-
-Solo-maintained, pre-1.0; the CLI surface may still shift before a v1 tag. The live work queue and append-only decision log are kept in the maintainers' local `dev/` records (not published). AntCrate develops AntCrate: this repo is itself a registered project, pushed via `antcrate pp antcrate`, gated by its own hooks and CI.
-
-## Contributing
-
-Issues are welcome; PRs are reviewed against current in-flight work — read `state.md` first. See [CONTRIBUTING.md](CONTRIBUTING.md) for the test gate, commit style, and proposal process.
+Solo-maintained and pre-1.0 — the surface may still shift before a v1 tag. The full test suite runs on **both Linux and macOS in CI** and stays green, with shellcheck clean across the codebase. AntCrate develops AntCrate: this repository is itself a registered project, backed up, committed, and pushed through its own gates.
 
 ## Security
 
-AntCrate wraps `git push`, executes repo-local hooks, runs an `inotifywait` daemon, and sits in the path of AI-agent tool calls — a non-trivial attack surface even at user privilege. Secret values are kept out of agent transcripts by design (`env-guard`), remotes default to private, and no automated path deletes user data. Vulnerability reports go through GitHub's private vulnerability reporting, not public issues; details in [SECURITY.md](SECURITY.md).
+AntCrate wraps `git push`, executes repository-local hooks, runs a filesystem-watching daemon, and sits in the path of AI-agent actions — a real attack surface even at user privilege. Secret values are kept out of agent transcripts by design, new remotes default to private, and no automated path ever deletes your data. Please report vulnerabilities through GitHub's private vulnerability reporting rather than public issues — see [SECURITY.md](SECURITY.md).
 
 ## License
 
