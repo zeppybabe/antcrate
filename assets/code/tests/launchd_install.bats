@@ -39,6 +39,12 @@ setup() {
 }
 
 @test "launchd install: rendered plists lint clean when plutil exists" {
+  # plist linting is only meaningful with Apple's plutil, which exists solely on
+  # macOS. Some Linux hosts ship a GNUstep `plutil` (gnustep-base-runtime) that
+  # is NOT a drop-in and rejects a valid plist — gate on Darwin so a foreign
+  # plutil can't cause a spurious failure. (Rendering-on-Linux is covered by the
+  # AC_OS=darwin render tests + "linux branch renders no plists".)
+  [ "$(uname -s)" = Darwin ] || skip "plist lint requires Apple plutil (macOS only)"
   command -v plutil >/dev/null 2>&1 || skip "no plutil on this host"
   AC_OS=darwin run bash "$SRC/install.sh"
   [ "$status" -eq 0 ]
