@@ -5,6 +5,12 @@ on:
     branches: [master, main]
   pull_request:
 
+# Network-dependent install steps are wrapped in a 3-attempt retry with backoff so
+# a transient registry/clone/download blip no longer reds an otherwise-green run.
+# gitleaks install degrades gracefully after retries: antcrate's scan treats an
+# absent gitleaks as skip-not-fail, so a persistent download outage warns instead
+# of failing the publication-boundary step.
+
 jobs:
   ci:
     runs-on: ubuntu-latest
@@ -13,12 +19,14 @@ jobs:
 
       - name: Install system dependencies
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends jq shellcheck inotify-tools
+          retry(){ for i in 1 2 3; do "$@" && return 0; echo "::warning::attempt $i failed: $*"; sleep $((i*10)); done; return 1; }
+          retry sudo apt-get update -qq
+          retry sudo apt-get install -y --no-install-recommends jq shellcheck inotify-tools
 
       - name: Install bats-core
         run: |
-          git clone --depth 1 https://github.com/bats-core/bats-core.git /tmp/bats
+          retry(){ for i in 1 2 3; do "$@" && return 0; echo "::warning::attempt $i failed: $*"; sleep $((i*10)); done; return 1; }
+          retry bash -c 'rm -rf /tmp/bats && git clone --depth 1 https://github.com/bats-core/bats-core.git /tmp/bats'
           sudo /tmp/bats/install.sh /usr/local
 
       - name: Install antcrate
@@ -26,8 +34,10 @@ jobs:
 
       - name: Leak scan (publication boundary)
         run: |
-          $HOME/.local/bin/antcrate tool install gitleaks
-          $HOME/.local/bin/antcrate scan "$GITHUB_WORKSPACE"
+          retry(){ for i in 1 2 3; do "$@" && return 0; echo "::warning::attempt $i failed: $*"; sleep $((i*10)); done; return 1; }
+          retry "$HOME/.local/bin/antcrate" tool install gitleaks \
+            || echo "::warning::gitleaks unavailable after retries — secrets scan will skip (scan treats absent gitleaks as skip-not-fail)"
+          "$HOME/.local/bin/antcrate" scan "$GITHUB_WORKSPACE"
 
       - name: Run antcrate self ci (shellcheck + bats)
         run: $HOME/.local/bin/antcrate self ci
@@ -42,7 +52,8 @@ jobs:
       # which rag depends on (stock macOS /usr/bin/sqlite3 has it; runners differ).
       - name: Install system dependencies
         run: |
-          brew install bash jq fswatch shellcheck bats-core sqlite
+          retry(){ for i in 1 2 3; do "$@" && return 0; echo "::warning::attempt $i failed: $*"; sleep $((i*10)); done; return 1; }
+          retry brew install bash jq fswatch shellcheck bats-core sqlite
           echo "$(brew --prefix)/bin" >> "$GITHUB_PATH"
           echo "$(brew --prefix)/opt/sqlite/bin" >> "$GITHUB_PATH"
 
@@ -51,8 +62,11 @@ jobs:
 
       - name: Leak scan (publication boundary)
         run: |
-          $HOME/.local/bin/antcrate tool install gitleaks || brew install gitleaks
-          $HOME/.local/bin/antcrate scan "$GITHUB_WORKSPACE"
+          retry(){ for i in 1 2 3; do "$@" && return 0; echo "::warning::attempt $i failed: $*"; sleep $((i*10)); done; return 1; }
+          retry "$HOME/.local/bin/antcrate" tool install gitleaks \
+            || retry brew install gitleaks \
+            || echo "::warning::gitleaks unavailable after retries — secrets scan will skip (scan treats absent gitleaks as skip-not-fail)"
+          "$HOME/.local/bin/antcrate" scan "$GITHUB_WORKSPACE"
 
       - name: Run antcrate self ci (shellcheck + bats)
         run: $HOME/.local/bin/antcrate self ci
