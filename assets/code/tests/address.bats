@@ -10,6 +10,10 @@ setup() {
 
     # build a fixture tree
     R="$BATS_TEST_TMPDIR/proj"
+    mkdir -p "$R"
+    # resolver returns PHYSICAL paths; macOS tmpdirs sit behind a /var symlink,
+    # so compare against the physical form of R everywhere
+    R="$(cd "$R" && pwd -P)"
     mkdir -p "$R"/{src/{api,utils},tests,docs}
     touch "$R/Dockerfile" "$R/README.md" "$R/.gitignore"
     touch "$R/src/main.sh" "$R/src/helpers.sh"

@@ -26,6 +26,11 @@
 #   AC_INGEST_SOURCE_TYPE, AC_INGEST_SKILL_NAME,
 #   AC_INGEST_RELATIONSHIPS_JSON (raw JSON array, may be "null")
 
+# compat.sh self-source: shims used below; guard makes re-sourcing free
+# (bats tests source libs directly, without the wrapper preamble).
+# shellcheck disable=SC1091
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/compat.sh"
+
 : "${ANTCRATE_HOME:=$HOME/.antcrate}"
 : "${ANTCRATE_ROOT:=$HOME/projects}"
 : "${ANTCRATE_INGEST_OFFLINE:=0}"        # skip reachability network checks
@@ -355,7 +360,7 @@ ac_ingest_source_archive() {
             fi ;;
     esac
     if [[ -n "$sha" ]]; then
-        local actual; actual=$(sha256sum "$archive" 2>/dev/null | awk '{print $1}')
+        local actual; actual=$(ac_sha256 "$archive" 2>/dev/null | awk '{print $1}')
         if [[ "$actual" != "$sha" ]]; then
             ac_error "ingest: sha256 mismatch (expected $sha, got $actual)"
             rm -rf "$tmp"
@@ -426,7 +431,7 @@ ac_ingest_copy_opaque() {
     if [[ -d "$bundle/skill" ]]; then
         local skill_dir="$ANTCRATE_SKILLS_DIR/$AC_INGEST_SKILL_NAME"
         mkdir -p "$skill_dir"
-        cp -rT "$bundle/skill" "$skill_dir"
+        ac_copy_into "$bundle/skill" "$skill_dir"
         ac_info "ingest: skill copied → $skill_dir"
     fi
     if [[ -d "$bundle/diagrams" ]]; then
@@ -549,7 +554,7 @@ ac_ingest() {
     # Validate → claim → materialize → opaque copy → register → ingested.
     # On any failure: STATUS=failed: <reason>, no partial registry state.
     local bundle="$1"
-    bundle=$(realpath -m "$bundle")
+    bundle=$(ac_realpath_m "$bundle")
     [[ -d "$bundle" ]] || { ac_error "ingest: bundle dir missing: $bundle"; return 1; }
 
     if ! ac_ingest_validate "$bundle"; then

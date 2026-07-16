@@ -29,3 +29,46 @@ setup() { source "$BATS_TEST_DIRNAME/../lib/preflight.sh"; }
   [[ -n "$output" ]]
   [[ "$output" == *"inotify-tools"* ]]
 }
+
+@test "preflight: darwin pkg hint is brew install" {
+  AC_OS=darwin run ac_preflight_pkg_hint fswatch
+  [ "$status" -eq 0 ]
+  [[ "$output" == "brew install fswatch"* ]]
+}
+
+@test "preflight: linux pkg hint never mentions brew" {
+  AC_OS=linux run ac_preflight_pkg_hint fswatch
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"brew"* ]]
+}
+
+@test "preflight: fswatcher token satisfied by either watcher" {
+  # a fake inotifywait OR fswatch on PATH must satisfy the virtual token
+  mkdir -p "$BATS_TEST_TMPDIR/bin"
+  printf '#!/bin/sh\nexit 0\n' > "$BATS_TEST_TMPDIR/bin/fswatch"
+  chmod +x "$BATS_TEST_TMPDIR/bin/fswatch"
+  PATH="$BATS_TEST_TMPDIR/bin:$PATH" run ac_preflight_deps fswatcher
+  [ "$status" -eq 0 ]
+}
+
+@test "preflight: fswatcher miss maps to the platform watcher package" {
+  # restrict PATH to core dirs; if neither watcher lives there, the token
+  # must miss and the darwin hint must name fswatch
+  AC_OS=darwin PATH="/usr/bin:/bin" run ac_preflight_deps fswatcher
+  if PATH="/usr/bin:/bin" bash -c 'command -v inotifywait || command -v fswatch' >/dev/null 2>&1; then
+    [ "$status" -eq 0 ]   # watcher genuinely ships in a core dir — accept pass
+  else
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"fswatch"* ]]
+  fi
+}
+
+@test "preflight: bash version guard matches the running bash" {
+  run ac_preflight_bash_version
+  if (( BASH_VERSINFO[0] >= 4 )); then
+    [ "$status" -eq 0 ]
+  else
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"bash 4+"* ]]
+  fi
+}

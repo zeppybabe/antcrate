@@ -31,7 +31,7 @@ src() {
     src "ac_events_emit mybun modify src/foo.ts"
     src "ac_events_emit mybun read  src/bar.ts"
     f="$ANTCRATE_EVENTS_DIR/mybun.jsonl"
-    n=$(wc -l < "$f")
+    n=$(wc -l < "$f" | tr -d ' ')
     [ "$n" = "2" ]
     # both lines parse as JSON with required fields
     while IFS= read -r line; do

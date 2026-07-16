@@ -31,6 +31,11 @@
 # inside pull so the trust rules cannot be bypassed per-call: seed sources
 # are exclusively Anthropic; user extras are https-only and human-vouched.
 
+# compat.sh self-source: shims used below; guard makes re-sourcing free
+# (bats tests source libs directly, without the wrapper preamble).
+# shellcheck disable=SC1091
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/compat.sh"
+
 : "${ANTCRATE_HOME:=$HOME/.antcrate}"
 : "${ANTCRATE_INTEL_DIR:=$ANTCRATE_HOME/intel}"
 : "${ANTCRATE_INTEL_OFFLINE:=0}"        # 1 = skip all network fetching
@@ -182,7 +187,7 @@ ac_intel_pull() {
             continue
         fi
         norm=$(_ac_intel_normalize <<< "$body")
-        sha=$(sha256sum <<< "$norm" | awk '{print $1}')
+        sha=$(ac_sha256 <<< "$norm" | awk '{print $1}')
 
         sdir="$ANTCRATE_INTEL_DIR/snapshots/$id"
         mkdir -p "$sdir"
@@ -294,7 +299,7 @@ ac_intel_status() {
         [[ -n "$id" ]] || continue
         marker="$ANTCRATE_INTEL_DIR/snapshots/$id/latest.sha256"
         lp="never"
-        [[ -f "$marker" ]] && lp=$(date -u -d "@$(stat -c %Y "$marker")" +%Y-%m-%dT%H:%M:%SZ)
+        [[ -f "$marker" ]] && lp=$(ac_date_from_epoch "$(ac_stat_mtime "$marker")")
         lc=$(jq -rs --arg s "$id" '[.[] | select(.source == $s)] | (last.ts // "-")' \
                 "$ANTCRATE_INTEL_DIR/new.jsonl" 2>/dev/null || printf '%s' "-")
         n=$(printf '%s\n' "$unread_all" | jq -rs --arg s "$id" '[.[] | select(.source == $s)] | length')
@@ -323,7 +328,7 @@ ac_intel_status_line() {
     srcs=$(_ac_intel_all_sources | grep -c .) || true
     for m in "$ANTCRATE_INTEL_DIR"/snapshots/*/latest.sha256; do
         [[ -f "$m" ]] || continue
-        t=$(stat -c %Y "$m" 2>/dev/null) || continue
+        t=$(ac_stat_mtime "$m" 2>/dev/null) || continue
         (( t > newest )) && newest=$t
     done
     (( newest > 0 )) && last="$(_ac_intel_age $(( $(date +%s) - newest ))) ago"

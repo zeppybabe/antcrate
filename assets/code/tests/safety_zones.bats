@@ -39,8 +39,8 @@ src() {
 @test "zones: assets/code SELFSRC derives the PROJECT ROOT, not assets/" {
     run src '. "'"$LIB"'/safety.sh"; ac_safety_allowed_zones'
     [ "$status" -eq 0 ]
-    printf '%s\n' "$output" | grep -qx "$SKILLROOT"
-    [[ "$output" != *"$SKILLROOT/assets"* ]]
+    printf '%s\n' "$output" | grep -qx "$(cd "$SKILLROOT" && pwd -P)"
+    [[ "$output" != *"$SKILLROOT/assets"* && "$output" != *"$(cd "$SKILLROOT" && pwd -P)/assets"* ]]
 }
 
 @test "zones: a path at the project root passes ac_safety_check_path" {
@@ -57,7 +57,7 @@ src() {
              ac_registry_upsert antcrate "'"$REGROOT"'" claude-skills ""
              ac_safety_allowed_zones'
     [ "$status" -eq 0 ]
-    printf '%s\n' "$output" | grep -qx "$REGROOT"
+    printf '%s\n' "$output" | grep -qx "$(cd "$REGROOT" && pwd -P)"
 }
 
 @test "zones: flat SELFSRC (no assets/code suffix) does NOT widen above itself" {

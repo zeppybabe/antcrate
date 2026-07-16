@@ -1,6 +1,8 @@
 #!/usr/bin/env bats
 # tests for ac_watch_window in lib/watch_window.sh — spawn mocked via PATH shim
 
+load test_helper
+
 setup() {
     export ANTCRATE_CANARY_DISABLE=1
     LIB="$BATS_TEST_DIRNAME/../lib"
@@ -18,6 +20,7 @@ setup() {
 src() {
     bash -c '
         set -eo pipefail
+        export AC_OS="'"${TEST_AC_OS:-linux}"'"
         export ANTCRATE_HOME="'"$ANTCRATE_HOME"'"
         export ANTCRATE_REGISTRY="'"$ANTCRATE_REGISTRY"'"
         export ANTCRATE_ROOT="'"$ANTCRATE_ROOT"'"
@@ -40,13 +43,12 @@ ALACRITTY
     if ! command -v setsid >/dev/null 2>&1; then
         cat > "$BATS_TEST_TMPDIR/bin/setsid" <<'SETSID'
 #!/usr/bin/env bash
-shift  # drop the command name that setsid would normally prefix
-exec "$@"
+exec "$@"   # setsid's args ARE the command; exec them as-is
 SETSID
         chmod +x "$BATS_TEST_TMPDIR/bin/setsid"
     fi
     # Replace BATS_TEST_TMPDIR placeholder in the alacritty script
-    sed -i "s|\$BATS_TEST_TMPDIR|$BATS_TEST_TMPDIR|g" "$BATS_TEST_TMPDIR/bin/alacritty"
+    t_sed_i "s|\$BATS_TEST_TMPDIR|$BATS_TEST_TMPDIR|g" "$BATS_TEST_TMPDIR/bin/alacritty"
     chmod +x "$BATS_TEST_TMPDIR/bin/alacritty"
     # Stub antcrate binary so -e arg resolves
     cat > "$BATS_TEST_TMPDIR/bin/antcrate" <<'ANTCRATE'
@@ -176,4 +178,57 @@ kill_mock_alacritty() {
     '
     [ "$status" -eq 1 ]
     [[ "$output" == *"cannot resolve antcrate"* ]]
+}
+
+# ---- terminal (macOS Terminal.app) backend — osascript mocked via PATH shim ----
+
+install_mock_osascript() {
+    cat > "$BATS_TEST_TMPDIR/bin/osascript" <<OSA
+#!/usr/bin/env bash
+printf '%s\n' "\$@" > "$BATS_TEST_TMPDIR/osascript.args"
+exit 0
+OSA
+    chmod +x "$BATS_TEST_TMPDIR/bin/osascript"
+    cat > "$BATS_TEST_TMPDIR/bin/antcrate" <<'ANTCRATE'
+#!/usr/bin/env bash
+exec sleep 30
+ANTCRATE
+    chmod +x "$BATS_TEST_TMPDIR/bin/antcrate"
+}
+
+@test "watch-window darwin: terminal backend is the default and calls osascript" {
+    install_mock_osascript
+    TEST_AC_OS=darwin run src "ac_watch_window mybun"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"Terminal.app"* ]]
+    grep -q 'tell application "Terminal"' "$BATS_TEST_TMPDIR/osascript.args"
+}
+
+@test "watch-window darwin: launcher script records pid file and execs watch" {
+    install_mock_osascript
+    TEST_AC_OS=darwin run src "ac_watch_window mybun"
+    [ "$status" -eq 0 ]
+    local launcher="$ANTCRATE_HOME/watch/mybun.cmd"
+    [ -x "$launcher" ]
+    grep -q "watch/mybun.pid" "$launcher"
+    grep -q 'watch "mybun"' "$launcher"
+}
+
+@test "watch-window darwin: alacritty still selectable explicitly" {
+    install_mock_alacritty
+    TEST_AC_OS=darwin run src "ac_watch_window mybun --terminal alacritty"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"alacritty"* ]]
+    kill_mock_alacritty
+}
+
+@test "watch-window darwin: missing osascript is a clean error" {
+    # osascript lives in /usr/bin, so hide /usr/bin — but keep jq (registry)
+    # and the antcrate stub reachable via the shim dir
+    install_mock_osascript
+    rm "$BATS_TEST_TMPDIR/bin/osascript"
+    ln -sf "$(command -v jq)" "$BATS_TEST_TMPDIR/bin/jq"
+    TEST_AC_OS=darwin run src "PATH='$BATS_TEST_TMPDIR/bin:/bin'; ac_watch_window mybun"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"osascript"* ]]
 }

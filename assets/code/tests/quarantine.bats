@@ -1,6 +1,8 @@
 #!/usr/bin/env bats
 # tests/quarantine.bats — verify the quarantine pivot end-to-end.
 
+load test_helper
+
 setup() {
     export ANTCRATE_CANARY_DISABLE=1
     LIB="$BATS_TEST_DIRNAME/../lib"
@@ -62,7 +64,7 @@ src() {
     local manifest; manifest=$(find "$ANTCRATE_HOME/quarantine/_generic" -name "manifest.json" | head -n1)
     local tarball; tarball=$(dirname "$manifest")/payload.tar.gz
 
-    local expected; expected=$(sha256sum "$tarball" | awk '{print $1}')
+    local expected; expected=$(t_sha256 "$tarball" | awk '{print $1}')
     local recorded; recorded=$(jq -r '.sha256' "$manifest")
     [ "$expected" = "$recorded" ]
 }

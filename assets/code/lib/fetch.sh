@@ -7,6 +7,11 @@
 # Unlike intel there is NO host allowlist: this is user/orchestrator-directed
 # retrieval, not a timer. http(s) only.
 
+# compat.sh self-source: shims used below; guard makes re-sourcing free
+# (bats tests source libs directly, without the wrapper preamble).
+# shellcheck disable=SC1091
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/compat.sh"
+
 : "${ANTCRATE_FETCH_DIR:=${ANTCRATE_HOME:-$HOME/.antcrate}/fetch}"
 : "${ANTCRATE_FETCH_MAX_TIME:=20}"
 
@@ -36,7 +41,7 @@ ac_fetch() {
     fi
     local norm sha sdir snap ts last=""
     norm=$(_ac_intel_normalize <<< "$body")
-    sha=$(sha256sum <<< "$norm" | awk '{print $1}')
+    sha=$(ac_sha256 <<< "$norm" | awk '{print $1}')
     sdir="$ANTCRATE_FETCH_DIR/$name"
     mkdir -p "$sdir"
     [[ -f "$sdir/latest.sha256" ]] && last=$(< "$sdir/latest.sha256")

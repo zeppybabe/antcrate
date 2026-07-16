@@ -31,3 +31,28 @@ jobs:
 
       - name: Run antcrate self ci (shellcheck + bats)
         run: $HOME/.local/bin/antcrate self ci
+
+  ci-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      # brew bash 5 must precede /bin (bash 3.2) on PATH — scripts use env bash.
+      # Keg-only brew sqlite too: the runner image's default sqlite3 lacks FTS5,
+      # which rag depends on (stock macOS /usr/bin/sqlite3 has it; runners differ).
+      - name: Install system dependencies
+        run: |
+          brew install bash jq fswatch shellcheck bats-core sqlite
+          echo "$(brew --prefix)/bin" >> "$GITHUB_PATH"
+          echo "$(brew --prefix)/opt/sqlite/bin" >> "$GITHUB_PATH"
+
+      - name: Install antcrate
+        run: bash assets/code/install.sh
+
+      - name: Leak scan (publication boundary)
+        run: |
+          $HOME/.local/bin/antcrate tool install gitleaks || brew install gitleaks
+          $HOME/.local/bin/antcrate scan "$GITHUB_WORKSPACE"
+
+      - name: Run antcrate self ci (shellcheck + bats)
+        run: $HOME/.local/bin/antcrate self ci

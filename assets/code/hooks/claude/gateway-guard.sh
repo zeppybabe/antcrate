@@ -36,6 +36,12 @@ fi
 CRIT=()
 while IFS= read -r c; do [ -n "$c" ] && CRIT+=("$c"); done < <(zones_critical_paths)
 
+CP=()
+while IFS= read -r c; do [ -n "$c" ] && CP+=("$c"); done < <(zones_control_plane)
+
+SAFE_TMP=()
+while IFS= read -r c; do [ -n "$c" ] && SAFE_TMP+=("$c"); done < <(zones_safe_tmp_prefixes)
+
 # --- helpers -----------------------------------------------------------------
 
 _neutralize_quoted() {  # blank out shell operators sitting INSIDE quotes so
@@ -119,6 +125,13 @@ _is_safe_dev() {  # ubiquitous harmless pseudo-devices — safe as redirect/op t
 _is_critical() {
     local path="$1" c
     _is_safe_dev "$path" && return 1
+    # user-temp carve-out: only the control plane stays critical there
+    for c in "${SAFE_TMP[@]+"${SAFE_TMP[@]}"}"; do
+        if _under "$path" "$c"; then
+            for c in "${CP[@]+"${CP[@]}"}"; do _under "$path" "$c" && return 0; done
+            return 1
+        fi
+    done
     for c in "${CRIT[@]}"; do _under "$path" "$c" && return 0; done
     return 1
 }
@@ -205,6 +218,11 @@ while IFS= read -r seg; do
         systemctl)
             for t in "${toks[@]:1}"; do
                 case "$t" in enable|start|disable) bump 2 "dangerous: systemctl $t" ;; esac
+            done ;;
+        launchctl)
+            for t in "${toks[@]:1}"; do
+                case "$t" in bootstrap|bootout|enable|disable|kickstart|load|unload)
+                    bump 2 "dangerous: launchctl $t" ;; esac
             done ;;
         service)
             for t in "${toks[@]:1}"; do [ "$t" = start ] && bump 2 "dangerous: service start"; done ;;

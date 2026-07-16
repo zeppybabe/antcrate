@@ -34,7 +34,7 @@ _ac_profile_count_files() {
         -path '*/target'       -prune -o \
         -path '*/dist'         -prune -o \
         -path '*/build'        -prune -o \
-        -type f "$@" -print 2>/dev/null | wc -l
+        -type f "$@" -print 2>/dev/null | wc -l | tr -d ' '
 }
 
 # ac_profile_raw <project>
@@ -87,7 +87,7 @@ ac_profile_raw() {
     env_files=$(find "$p" -maxdepth 2 \
         -path '*/.git' -prune -o \
         -path '*/node_modules' -prune -o \
-        \( -name '.env' -o -name '.env.*' \) -type f -print 2>/dev/null | wc -l)
+        \( -name '.env' -o -name '.env.*' \) -type f -print 2>/dev/null | wc -l | tr -d ' ')
     (( env_files > 0 )) && printf 'env\tenv-files\t%s\n' "$env_files"
     [[ -f "$p/.env.example" ]] && printf 'env\tenv-example\ttrue\n'
 

@@ -149,7 +149,7 @@ ac_registry_info() {
     local backup_dir="$ANTCRATE_HOME/backups/$project"
     local backup_count=0
     if [[ -d "$backup_dir" ]]; then
-        backup_count=$(find "$backup_dir" -maxdepth 1 -name "*.tar.gz" 2>/dev/null | wc -l)
+        backup_count=$(find "$backup_dir" -maxdepth 1 -name "*.tar.gz" 2>/dev/null | wc -l | tr -d ' ')
     fi
     printf 'backups    : %d\n' "$backup_count"
 
@@ -163,7 +163,7 @@ ac_registry_info() {
         branch=$(git -C "$proj_path" rev-parse --abbrev-ref HEAD 2>/dev/null || echo '(detached)')
         printf 'branch     : %s\n' "$branch"
         local dirty_count
-        dirty_count=$(git -C "$proj_path" status --porcelain 2>/dev/null | wc -l)
+        dirty_count=$(git -C "$proj_path" status --porcelain 2>/dev/null | wc -l | tr -d ' ')
         if (( dirty_count > 0 )); then
             printf 'working    : dirty (%d entries)\n' "$dirty_count"
         else

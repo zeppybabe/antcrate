@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 # antcrate :: lib/scaffold.sh — action dispatcher
 
+# compat.sh self-source: shims used below; guard makes re-sourcing free
+# (bats tests source libs directly, without the wrapper preamble).
+# shellcheck disable=SC1091
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/compat.sh"
+
 : "${ANTCRATE_ROOT:=$HOME/projects}"
 : "${ANTCRATE_TEMPLATES:=}"  # set by caller; defaults resolved below
 
@@ -52,12 +57,12 @@ ac_scaffold_apply_template() {
     fi
 
     if [[ -n "$tdir" ]]; then
-        cp -rT "$tdir" "$target"
+        ac_copy_into "$tdir" "$target"
         # token substitution: __NAME__ → name, __DOMAIN__ → domain, __DATE__ → today
         local today; today=$(date +%Y-%m-%d)
         local f
         while IFS= read -r -d '' f; do
-            sed -i "s|__NAME__|${name}|g; s|__DOMAIN__|${domain}|g; s|__DATE__|${today}|g" "$f"
+            ac_sed_i "s|__NAME__|${name}|g; s|__DOMAIN__|${domain}|g; s|__DATE__|${today}|g" "$f"
         done < <(find "$target" -type f -print0)
     else
         mkdir -p "$target"
@@ -128,7 +133,7 @@ ac_action_register() {
         ac_error "register: '$name' already registered (use --rename to relabel, or pick a different name)"
         return 1
     fi
-    local abs; abs=$(realpath -m "$existing")
+    local abs; abs=$(ac_realpath_m "$existing")
     [[ -z "$domain" ]] && domain=$(basename "$(dirname "$abs")")
     local remote; remote=$(ac_scaffold_remote_for "$name")
     ac_registry_upsert "$name" "$abs" "$domain" "$remote"

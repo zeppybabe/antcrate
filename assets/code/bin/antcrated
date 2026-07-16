@@ -17,6 +17,13 @@
 
 set -euo pipefail
 
+# Bash 4+ hard requirement (associative arrays, mapfile). macOS stock /bin/bash
+# is 3.2 — scripts use `env bash`, so a Homebrew bash 4/5 earlier on PATH fixes it.
+if (( BASH_VERSINFO[0] < 4 )); then
+    echo "antcrate: bash 4+ required, this is $BASH_VERSION (macOS: brew install bash)" >&2
+    exit 1
+fi
+
 # shellcheck disable=SC2034  # AC_COMPONENT is read by lib/log.sh
 AC_COMPONENT="daemon"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -27,6 +34,8 @@ ANTCRATE_BIN="$SCRIPT_DIR/antcrate"
 # so lib paths are runtime-resolved and not statically followable.
 # shellcheck disable=SC1091
 . "$LIB_DIR/paths.sh"
+# shellcheck disable=SC1091
+. "$LIB_DIR/compat.sh"
 # shellcheck disable=SC1091
 . "$LIB_DIR/log.sh"
 # shellcheck disable=SC1091
@@ -66,9 +75,15 @@ fi
 mkdir -p "$ANTCRATE_HOME"
 echo $$ > "$PID_FILE"
 
-# require inotify-tools
-command -v inotifywait >/dev/null 2>&1 || {
-    ac_error "inotifywait not found (install inotify-tools)"; exit 1; }
+# require a filesystem watcher: inotifywait (Linux) or fswatch (macOS/FSEvents)
+if ! command -v inotifywait >/dev/null 2>&1 && ! command -v fswatch >/dev/null 2>&1; then
+    if [[ "${AC_OS:-linux}" == darwin ]]; then
+        ac_error "no filesystem watcher found (brew install fswatch)"
+    else
+        ac_error "no filesystem watcher found (install inotify-tools)"
+    fi
+    exit 1
+fi
 
 mkdir -p "$ANTCRATE_ROOT"
 
@@ -83,12 +98,12 @@ declare -A PROJECT_LAST_SEEN
 declare -a REG_NAMES REG_PATHS
 REG_MTIME=0
 
-now_ms() { date +%s%3N; }
+now_ms() { ac_now_ms; }
 
 reload_registry_cache() {
     local rfile="$ANTCRATE_REGISTRY" m
     [[ -f "$rfile" ]] || return 0
-    m=$(stat -c %Y "$rfile" 2>/dev/null || echo 0)
+    m=$(ac_stat_mtime "$rfile" 2>/dev/null || echo 0)
     [[ "$m" == "$REG_MTIME" ]] && return 0
     REG_MTIME=$m
     REG_NAMES=()
@@ -194,18 +209,77 @@ handle_event() {
         || ac_warn "wrapper exit nonzero on $fname"
 }
 
-# inotifywait monitor loop, recursive on the project root.
-# Events:
+# ---- watch backends ----------------------------------------------------
+# Both backends emit the same line contract handle_event parses:
+#     <dir-with-trailing-slash>|<COMMA,JOINED,TOKENS>|<basename>
+# with inotify's token vocabulary (CREATE, CLOSE_WRITE, MOVED_TO, MOVED_FROM,
+# DELETE, ISDIR) — handle_event matches tokens as substrings, so a port only
+# has to speak the same vocabulary, not reproduce inotify ordering.
+
+# ac_fswatch_stream <root> — fswatch (FSEvents) adapter for macOS/BSD.
+# Mapping deltas vs inotify, both absorbed by the existing debounce tables:
+#   * FSEvents has no close-notify: Updated → CLOSE_WRITE approximates
+#     "finished write"; the per-basename debounce coalesces mid-write bursts.
+#   * A rename fires Renamed on BOTH paths; existence disambiguates old (gone
+#     → MOVED_FROM) from new (present → MOVED_TO). A racing re-rename can
+#     mislabel, which is harmless: dispatch only fires on MOVED_TO and tree
+#     regen fires on any token.
+#   * Attribute/owner churn maps to no token and the line is dropped.
+ac_fswatch_stream() {
+    local root="$1"
+    # IsDir must be requested explicitly: fswatch strips flags absent from the
+    # --event filter, and without ISDIR a directory moved into the tree would
+    # wrongly schema-dispatch (verified against fswatch 1.21).
+    fswatch -r \
+        --event Created --event Updated --event Removed --event Renamed \
+        --event MovedFrom --event MovedTo --event IsDir \
+        --format '%p|%f' --event-flag-separator ',' \
+        --latency 0.1 \
+        "$root" |
+    while IFS='|' read -r path flags; do
+        local fname="${path##*/}" dir="${path%/*}/" tokens="" f farr
+        IFS=',' read -ra farr <<< "$flags"
+        for f in "${farr[@]}"; do
+            case "$f" in
+                Created)   tokens+="CREATE," ;;
+                Updated)   tokens+="CLOSE_WRITE," ;;
+                Removed)   tokens+="DELETE," ;;
+                MovedTo)   tokens+="MOVED_TO," ;;
+                MovedFrom) tokens+="MOVED_FROM," ;;
+                Renamed)   if [[ -e "$path" ]]; then tokens+="MOVED_TO,"; else tokens+="MOVED_FROM,"; fi ;;
+                IsDir)     tokens+="ISDIR," ;;
+            esac
+        done
+        # inotify parity for bare file creation: on Linux even `touch` yields a
+        # close_write after create; FSEvents emits only Created for a file that
+        # was never written. Files (not dirs) therefore get CLOSE_WRITE added.
+        if [[ "$tokens" == *CREATE,* && "$tokens" != *ISDIR,* && "$tokens" != *CLOSE_WRITE,* ]]; then
+            tokens+="CLOSE_WRITE,"
+        fi
+        [[ -n "$tokens" ]] || continue
+        printf '%s|%s|%s\n' "$dir" "${tokens%,}" "$fname"
+    done
+}
+
+# watch_backend_stream — pick the platform watcher. inotifywait first, so
+# Linux behavior is byte-identical to the pre-port daemon.
+# inotify events watched:
 #   create        — new files/dirs (dirs only signal here, no close_write)
 #   close_write   — finished writes (file content / new files)
 #   moved_to      — files/dirs moved into the watched tree
 #   moved_from    — files/dirs moved out
 #   delete        — files/dirs removed
+watch_backend_stream() {
+    if command -v inotifywait >/dev/null 2>&1; then
+        inotifywait -m -r -q \
+            -e create -e close_write -e moved_to -e moved_from -e delete \
+            --format '%w|%e|%f' \
+            "$ANTCRATE_ROOT"
+    else
+        ac_fswatch_stream "$ANTCRATE_ROOT"
+    fi
+}
+
 while IFS='|' read -r dir event fname; do
     handle_event "$dir" "$event" "$fname" || true
-done < <(
-    inotifywait -m -r -q \
-        -e create -e close_write -e moved_to -e moved_from -e delete \
-        --format '%w|%e|%f' \
-        "$ANTCRATE_ROOT"
-)
+done < <(watch_backend_stream)

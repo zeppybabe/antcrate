@@ -22,8 +22,11 @@ setup() {
 }
 
 run_health() {
+    # AC_OS pinned to linux: these tests exercise the systemd branch and the
+    # apt-flavored hints; darwin variants live in run_health_darwin below
     bash -c "
         export PATH='$HEALTH_PATH'
+        export AC_OS=linux
         export ANTCRATE_HOME='$ANTCRATE_HOME' ANTCRATE_CONFIG='$ANTCRATE_CONFIG'
         export ANTCRATE_ROOT='$ANTCRATE_ROOT' ANTCRATE_REGISTRY='$ANTCRATE_REGISTRY'
         export ANTCRATE_BIN_DIR='$ANTCRATE_BIN_DIR' ANTCRATE_TOOLS_BIN='$ANTCRATE_TOOLS_BIN'
@@ -112,4 +115,45 @@ run_health() {
     chmod +x "$BATS_TEST_TMPDIR/stubs/systemctl"
     run run_health "ac_health_status_line"
     [[ "$output" == *"(opt)"* ]]
+}
+
+# ---- darwin (launchd) branch — forced via AC_OS, launchctl PATH stub ----
+
+run_health_darwin() {
+    bash -c "
+        export PATH='$HEALTH_PATH'
+        export AC_OS=darwin
+        export ANTCRATE_HOME='$ANTCRATE_HOME' ANTCRATE_CONFIG='$ANTCRATE_CONFIG'
+        export ANTCRATE_ROOT='$ANTCRATE_ROOT' ANTCRATE_REGISTRY='$ANTCRATE_REGISTRY'
+        export ANTCRATE_BIN_DIR='$ANTCRATE_BIN_DIR' ANTCRATE_TOOLS_BIN='$ANTCRATE_TOOLS_BIN'
+        export ANTCRATE_LOG_LEVEL='$ANTCRATE_LOG_LEVEL'
+        . '$LIB/log.sh'; . '$LIB/health.sh'
+        $1
+    "
+}
+
+@test "checks darwin: unloaded launchd timer is an opt miss with bootstrap fix" {
+    printf '#!/usr/bin/env bash\nexit 1\n' > "$BATS_TEST_TMPDIR/stubs/launchctl"
+    chmod +x "$BATS_TEST_TMPDIR/stubs/launchctl"
+    run run_health_darwin "ac_health_checks | awk -F'\t' '\$2==\"timer-backup\"'"
+    [[ "$output" == *"opt	timer-backup	miss"* ]]
+    [[ "$output" == *"launchctl bootstrap"* ]]
+    [[ "$output" == *"com.antcrate.backup.plist"* ]]
+}
+
+@test "checks darwin: loaded launchd timer is ok" {
+    printf '#!/usr/bin/env bash\nexit 0\n' > "$BATS_TEST_TMPDIR/stubs/launchctl"
+    chmod +x "$BATS_TEST_TMPDIR/stubs/launchctl"
+    run run_health_darwin "ac_health_checks | awk -F'\t' '\$2==\"timer-intel\"'"
+    [[ "$output" == *"opt	timer-intel	ok"* ]]
+}
+
+@test "checks darwin: missing gh hint is brew, not apt" {
+    printf '#!/usr/bin/env bash\nexit 0\n' > "$BATS_TEST_TMPDIR/stubs/launchctl"
+    chmod +x "$BATS_TEST_TMPDIR/stubs/launchctl"
+    run run_health_darwin "ac_health_checks | awk -F'\t' '\$2==\"gh\"'"
+    if [[ "$output" == *"gh not installed"* ]]; then
+        [[ "$output" == *"brew install gh"* ]]
+    fi
+    [[ "$output" != *"apt"* ]]   # darwin must never suggest apt
 }

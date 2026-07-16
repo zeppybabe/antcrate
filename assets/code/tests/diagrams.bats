@@ -1,6 +1,8 @@
 #!/usr/bin/env bats
 # tests for lib/diagrams.sh
 
+load test_helper
+
 setup() {
     export ANTCRATE_CANARY_DISABLE=1
     LIB="$BATS_TEST_DIRNAME/../lib"
@@ -193,11 +195,11 @@ src() {
     out="$R/docs/diagrams/tree.mmd"
     mkdir -p "$(dirname "$out")"
     printf '%%%% header line A\nstable body\n' > "$out"
-    initial_mtime=$(stat -c %Y "$out")
+    initial_mtime=$(t_mtime "$out")
     sleep 1.1
     run src "printf '%%%% header line B\nstable body\n' | ac_diagrams_write_if_changed '$out'"
     [ "$status" -eq 0 ]
-    final_mtime=$(stat -c %Y "$out")
+    final_mtime=$(t_mtime "$out")
     [ "$initial_mtime" = "$final_mtime" ]   # no write happened
     grep -q '^%% header line A$' "$out"     # original header preserved
 }
@@ -221,11 +223,11 @@ src() {
          ac_diagrams_auto_regen proj
          ac_diagrams_auto_regen proj"
     first=$(cat "$R/docs/diagrams/tree.mmd")
-    initial_mtime=$(stat -c %Y "$R/docs/diagrams/tree.mmd")
+    initial_mtime=$(t_mtime "$R/docs/diagrams/tree.mmd")
     sleep 1.1
     src "ac_diagrams_auto_regen proj"
     second=$(cat "$R/docs/diagrams/tree.mmd")
-    final_mtime=$(stat -c %Y "$R/docs/diagrams/tree.mmd")
+    final_mtime=$(t_mtime "$R/docs/diagrams/tree.mmd")
     # Bytes identical, mtime unchanged — the post-convergence regen did NOT rewrite.
     [ "$first" = "$second" ]
     [ "$initial_mtime" = "$final_mtime" ]

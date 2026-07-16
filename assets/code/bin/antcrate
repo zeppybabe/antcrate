@@ -15,6 +15,13 @@
 
 set -euo pipefail
 
+# Bash 4+ hard requirement (associative arrays, mapfile). macOS stock /bin/bash
+# is 3.2 — scripts use `env bash`, so a Homebrew bash 4/5 earlier on PATH fixes it.
+if (( BASH_VERSINFO[0] < 4 )); then
+    echo "antcrate: bash 4+ required, this is $BASH_VERSION (macOS: brew install bash)" >&2
+    exit 1
+fi
+
 # shellcheck disable=SC2034  # AC_COMPONENT is read by lib/log.sh
 AC_COMPONENT="wrapper"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -24,6 +31,8 @@ LIB_DIR="$SCRIPT_DIR/../lib"
 # so lib paths are runtime-resolved and not statically followable.
 # shellcheck disable=SC1091
 . "$LIB_DIR/paths.sh"
+# shellcheck disable=SC1091
+. "$LIB_DIR/compat.sh"
 # shellcheck disable=SC1091
 . "$LIB_DIR/log.sh"
 # shellcheck disable=SC1091
@@ -424,10 +433,14 @@ cmd_status() {
        && kill -0 "$(cat "$ANTCRATE_HOME/daemon.pid")" 2>/dev/null; then
         printf '  daemon    : running (pid %s)\n' "$(cat "$ANTCRATE_HOME/daemon.pid")"
     else
-        printf '  daemon    : not running — fix: systemctl --user enable --now antcrated\n'
+        if [[ "${AC_OS:-linux}" == darwin ]]; then
+            printf '  daemon    : not running — fix: launchctl bootstrap gui/%s %s/Library/LaunchAgents/com.antcrate.daemon.plist\n' "$(id -u)" "$HOME"
+        else
+            printf '  daemon    : not running — fix: systemctl --user enable --now antcrated\n'
+        fi
     fi
     if ac_pipe_paused; then printf '  pipe      : PAUSED\n'; else printf '  pipe      : active\n'; fi
-    local n; n=$(ac_registry_list | wc -l)
+    local n; n=$(ac_registry_list | wc -l | tr -d ' ')
     printf '  projects  : %s registered\n' "$n"
     local sc_out sc_rc=0
     sc_out=$(ac_selfcheck --quiet 2>/dev/null) || sc_rc=$?
@@ -454,11 +467,11 @@ cmd_status() {
     printf '  ghosts    : %s\n' "$ghosts"
     # backup posture: newest tarball anywhere (Plan 2)
     local newest_b
-    newest_b=$(find "${ANTCRATE_BACKUP_DIR:-$ANTCRATE_HOME/backups}" -name '*.tar.gz' \
-        -printf '%T@\t%p\n' 2>/dev/null | sort -rn | head -1 | cut -f2-) || newest_b=""
+    newest_b=$(ac_files_by_mtime "${ANTCRATE_BACKUP_DIR:-$ANTCRATE_HOME/backups}" -name '*.tar.gz' \
+        | head -1 | cut -f2-) || newest_b=""
     if [[ -n "$newest_b" ]]; then
         printf '  backups   : newest %s (%s ago)\n' \
-            "$(basename "$newest_b")" "$(_ac_pp_age "$(stat -c %Y "$newest_b")")"
+            "$(basename "$newest_b")" "$(_ac_pp_age "$(ac_stat_mtime "$newest_b")")"
     else
         printf '  backups   : none\n'
     fi

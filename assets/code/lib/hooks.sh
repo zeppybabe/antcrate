@@ -41,6 +41,11 @@
 # ac_hooks_dir <project_path>
 # Echo the absolute path of the directory git will read hooks from for this
 # project (honors core.hooksPath; falls back to .git/hooks).
+# compat.sh self-source: shims used below; guard makes re-sourcing free
+# (bats tests source libs directly, without the wrapper preamble).
+# shellcheck disable=SC1091
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/compat.sh"
+
 ac_hooks_dir() {
     local proj_path="$1"
     [[ -d "$proj_path" ]] || return 1
@@ -228,7 +233,7 @@ ac_hook_install() {
         ac_error "hook-install: unknown template '$template'"
         local tdir; tdir=$(dirname "${BASH_SOURCE[0]}")/../hooks/templates
         if [[ -d "$tdir" ]]; then
-            ac_error "available: $(find "$tdir" -mindepth 1 -maxdepth 1 -type f -printf '%f ' 2>/dev/null)"
+            ac_error "available: $(ac_basenames "$tdir" -mindepth 1 -maxdepth 1 -type f | tr '\n' ' ')"
         fi
         return 1
     }
@@ -285,7 +290,7 @@ _ac_hooks_audit_append() {
     local project="$1" proj_path="$2" action="$3" hook="$4" dir="$5" sha="$6" bak="$7"
     local ts ts_ms
     ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-    ts_ms=$(date -u +%s%3N 2>/dev/null || printf '%s000' "$(date -u +%s)")
+    ts_ms=$(ac_now_ms)
     local home="${ANTCRATE_HOME:-$HOME/.antcrate}"
     mkdir -p "$home" 2>/dev/null || true
     local global="$home/hooks.log"
@@ -353,7 +358,7 @@ ac_hook_remove() {
     fi
 
     local sha bak ts
-    sha=$(sha256sum "$target" | cut -d' ' -f1)
+    sha=$(ac_sha256 "$target" | cut -d' ' -f1)
     ts=$(date -u +%Y%m%dT%H%M%SZ)
     bak="$target.bak.$ts"
     # remove-by-rename: the backup IS the removed file — no delete verb at all
@@ -428,12 +433,12 @@ ac_hook_debug() {
     fi
 
     local sha ts ts_human
-    sha=$(sha256sum "$target" | cut -d' ' -f1)
+    sha=$(ac_sha256 "$target" | cut -d' ' -f1)
     ts=$(date -u +%Y%m%dT%H%M%SZ)
     ts_human=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
     local tmpdir
-    tmpdir=$(mktemp -d -t antcrate-hookdbg.XXXXXX) || {
+    tmpdir=$(ac_mktemp_d antcrate-hookdbg) || {
         ac_error "hook-debug: mktemp failed"; return 1
     }
     local out_file="$tmpdir/stdout" err_file="$tmpdir/stderr" trace_file="$tmpdir/trace"
@@ -444,10 +449,10 @@ ac_hook_debug() {
     local stashed=0 stash_label="antcrate-hook-debug-$ts"
     if (( with_stash == 1 )); then
         local pre_count post_count
-        pre_count=$(git -C "$p" stash list 2>/dev/null | wc -l)
+        pre_count=$(git -C "$p" stash list 2>/dev/null | wc -l | tr -d ' ')
         git -C "$p" stash push --keep-index --include-untracked -m "$stash_label" \
             >/dev/null 2>&1 || true
-        post_count=$(git -C "$p" stash list 2>/dev/null | wc -l)
+        post_count=$(git -C "$p" stash list 2>/dev/null | wc -l | tr -d ' ')
         if (( post_count > pre_count )); then stashed=1; fi
     fi
 
@@ -753,7 +758,7 @@ ac_hook_render() {
         ac_error "hook-render: unknown template '$template'"
         local tdir; tdir=$(dirname "${BASH_SOURCE[0]}")/../hooks/templates
         if [[ -d "$tdir" ]]; then
-            ac_error "available: $(find "$tdir" -mindepth 1 -maxdepth 1 -type f -printf '%f ' 2>/dev/null)"
+            ac_error "available: $(ac_basenames "$tdir" -mindepth 1 -maxdepth 1 -type f | tr '\n' ' ')"
         fi
         return 1
     }

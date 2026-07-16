@@ -14,6 +14,11 @@
 # Exit: 0 = all ok, 1 = critical FAIL, 2 = warnings only.
 # Sourced by wrapper. No side effects on source.
 
+# compat.sh self-source: shims used below; guard makes re-sourcing free
+# (bats tests source libs directly, without the wrapper preamble).
+# shellcheck disable=SC1091
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/compat.sh"
+
 : "${ANTCRATE_HOME:=$HOME/.antcrate}"
 : "${ANTCRATE_BACKUP_DIR:=$ANTCRATE_HOME/backups}"
 : "${ANTCRATE_SELF_NAME:=antcrate}"
@@ -71,7 +76,7 @@ ac_selfcheck() {
             _sc_line "git repo" "ok" "(branch $(git -C "$path" rev-parse --abbrev-ref HEAD 2>/dev/null))"
 
             local ahead
-            ahead=$(git -C "$path" rev-list --count '@{u}..HEAD' 2>/dev/null)
+            ahead=$(git -C "$path" rev-list --count '@{u}..HEAD' 2>/dev/null) || ahead=""
             if [[ -z "$ahead" ]]; then
                 _sc_line "unpushed" "WARN" "(no upstream configured)"
             elif (( ahead > 0 )); then
@@ -81,7 +86,7 @@ ac_selfcheck() {
             fi
 
             local dirty
-            dirty=$(git -C "$path" status --porcelain 2>/dev/null | wc -l)
+            dirty=$(git -C "$path" status --porcelain 2>/dev/null | wc -l | tr -d ' ')
             if (( dirty > 0 )); then
                 _sc_line "uncommitted" "WARN" "($dirty file(s) dirty)"
             else
@@ -98,13 +103,14 @@ ac_selfcheck() {
     # exits 1; under the wrapper's `set -euo pipefail` that aborted the whole
     # --selfcheck run before it could print its report. Tolerate it → empty
     # `newest` → the WARN branch below.
-    newest=$(find "$ANTCRATE_BACKUP_DIR/$self" -maxdepth 1 -name '*.tar.gz' \
-                 -printf '%T@ %p\n' 2>/dev/null | sort -rn | head -1) || true
+    newest=$(ac_files_by_mtime "$ANTCRATE_BACKUP_DIR/$self" -maxdepth 1 -name '*.tar.gz' \
+                 | head -1) || true
     if [[ -z "$newest" ]]; then
         _sc_line "backup" "WARN" "(none found — run --backup $self)"
     else
         local age_h
-        age_h=$(( ($(date +%s) - ${newest%%.*}) / 3600 ))
+        local newest_ts=${newest%%$'\t'*}
+        age_h=$(( ($(date +%s) - ${newest_ts%%.*}) / 3600 ))
         if (( age_h > ANTCRATE_SELFCHECK_BACKUP_MAX_AGE_HOURS )); then
             _sc_line "backup" "WARN" "(stale: ${age_h}h old — run --backup $self)"
         else

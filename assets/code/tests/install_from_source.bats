@@ -1,6 +1,8 @@
 #!/usr/bin/env bats
 # tests for ac_devops_install_from_source in lib/devops.sh
 
+load test_helper
+
 setup() {
     export ANTCRATE_CANARY_DISABLE=1
     LIB="$BATS_TEST_DIRNAME/../lib"
@@ -122,12 +124,12 @@ register_antcrate() {
     [ "$status" -eq 0 ]
     # libs install under the XDG data home (HOME=tmp, no XDG override → ~/.local/share)
     lib_dir="$HOME/.local/share/antcrate/lib"
-    ino1=$(stat -c %i "$PREFIX/bin/antcrate")
-    lib_ino1=$(stat -c %i "$lib_dir/log.sh")
+    ino1=$(t_inode "$PREFIX/bin/antcrate")
+    lib_ino1=$(t_inode "$lib_dir/log.sh")
     run bash "$SRCROOT/install.sh"
     [ "$status" -eq 0 ]
-    ino2=$(stat -c %i "$PREFIX/bin/antcrate")
-    lib_ino2=$(stat -c %i "$lib_dir/log.sh")
+    ino2=$(t_inode "$PREFIX/bin/antcrate")
+    lib_ino2=$(t_inode "$lib_dir/log.sh")
     [ "$ino1" != "$ino2" ]
     [ "$lib_ino1" != "$lib_ino2" ]
 }

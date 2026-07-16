@@ -18,6 +18,8 @@ Five rules shape everything in this repo:
 
 ## Quick start
 
+**Linux**
+
 ```bash
 # 1. Dependencies (Debian/Ubuntu shown — see Dependencies for dnf/pacman/zypper)
 sudo apt-get install -y jq git inotify-tools
@@ -30,6 +32,27 @@ bash ~/antcrate-src/assets/code/install.sh
 antcrate st                                                  # status + health panel, misses print their fix
 antcrate new coolapp --domain webapps --meta html,css,js     # scaffolds under ~/Projects
 antcrate map coolapp
+```
+
+**macOS** (Apple Silicon and Intel)
+
+```bash
+# 1. Dependencies — Homebrew is the sanctioned source; macOS's stock bash 3.2
+#    is too old (scripts use `env bash`, so brew's bash 5 on PATH is all it takes)
+xcode-select --install                        # git + developer tools, once
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+brew install bash jq fswatch gh
+
+# 2. Install — same installer; it detects macOS, requires fswatch instead of
+#    inotify-tools, and renders launchd agents instead of systemd units
+git clone https://github.com/zeppybabe/antcrate.git ~/antcrate-src
+bash ~/antcrate-src/assets/code/install.sh
+
+# 3. Enable the daemon + daily timers (the systemctl-enable equivalent;
+#    `antcrate st` prints these exact commands until you run them)
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.antcrate.daemon.plist
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.antcrate.backup.plist
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.antcrate.intel.plist
 ```
 
 The installer finishes by printing that same `st` panel — anything left to set up
@@ -112,7 +135,7 @@ The layer that makes AntCrate an AI-development boundary rather than just a CLI:
 
 ## Dependencies
 
-**Required:** Bash 5+, jq, inotify-tools, git, mailx or sendmail, flock (util-linux). `--init` reports anything missing.
+**Required:** Bash 4+ (5 recommended), jq, git, and a filesystem watcher — inotify-tools on Linux, fswatch on macOS. mailx/sendmail is optional (conflict-triage email degrades to a retained body file). flock (util-linux) is the preferred lock backend and ships on every Linux; on macOS it is optional (`brew install flock`) — a built-in mkdir-lock fallback covers its absence. The installer reports anything missing with a per-platform install hint.
 
 **Optional:** `gh` for GitHub repo creation; `mmdc` / `plantuml` / `d2` for diagram rendering (Mermaid sources render inline on GitHub regardless); `bats-core` + `shellcheck` to run the test/lint suite — fetch both locally with `antcrate tool install bats` / `antcrate tool install shellcheck` (no root). `antcrate self ci` detects absent optional tools and skips their stage with a log line.
 

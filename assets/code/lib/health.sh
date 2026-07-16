@@ -6,6 +6,11 @@
 # install itself delivers the first health report. Every check is local,
 # read-only and fast; every miss row carries a copy-pasteable fix command.
 
+# compat.sh self-source: AC_OS used below; guard makes re-sourcing free
+# (bats tests source libs directly, without the wrapper preamble).
+# shellcheck disable=SC1091
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/compat.sh"
+
 : "${ANTCRATE_BIN_DIR:=$HOME/.local/bin}"
 : "${ANTCRATE_TOOLS_BIN:=${ANTCRATE_DATA_HOME:-$HOME/.local/share/antcrate}/tools/bin}"
 
@@ -46,8 +51,20 @@ ac_health_checks() {
     done
 
     # ── optional: quality-of-life; misses degrade features, not safety ─────
-    if command -v systemctl >/dev/null 2>&1; then
-        local t
+    local t
+    # darwin first: macOS hosts can have a systemctl shim on PATH, but launchd
+    # is always the real timer framework there
+    if [[ "${AC_OS:-linux}" == darwin ]] && command -v launchctl >/dev/null 2>&1; then
+        local la_dir="${ANTCRATE_LAUNCHD_DIR:-$HOME/Library/LaunchAgents}"
+        for t in backup intel; do
+            if launchctl print "gui/$(id -u)/com.antcrate.$t" >/dev/null 2>&1; then
+                _ac_health_row opt "timer-$t" ok "loaded" -
+            else
+                _ac_health_row opt "timer-$t" miss "not loaded" \
+                    "launchctl bootstrap gui/\$(id -u) $la_dir/com.antcrate.$t.plist"
+            fi
+        done
+    elif command -v systemctl >/dev/null 2>&1; then
         for t in backup intel; do
             if systemctl --user is-enabled "antcrate-$t.timer" >/dev/null 2>&1; then
                 _ac_health_row opt "timer-$t" ok "enabled" -
@@ -57,8 +74,8 @@ ac_health_checks() {
             fi
         done
     else
-        _ac_health_row opt timer-backup skip "no systemd" -
-        _ac_health_row opt timer-intel  skip "no systemd" -
+        _ac_health_row opt timer-backup skip "no timer framework" -
+        _ac_health_row opt timer-intel  skip "no timer framework" -
     fi
 
     local missing="" tool
@@ -73,8 +90,13 @@ ac_health_checks() {
             "antcrate tool install${missing}"
     fi
 
+    local gh_fix="sudo apt install gh" git_fix="sudo apt install git"
+    if [[ "${AC_OS:-linux}" == darwin ]]; then
+        gh_fix="brew install gh"
+        git_fix="xcode-select --install"
+    fi
     if ! command -v gh >/dev/null 2>&1; then
-        _ac_health_row opt gh miss "gh not installed" "sudo apt install gh"
+        _ac_health_row opt gh miss "gh not installed" "$gh_fix"
     elif gh auth token >/dev/null 2>&1; then
         _ac_health_row opt gh ok "authenticated" -
     else
@@ -82,7 +104,7 @@ ac_health_checks() {
     fi
 
     if ! command -v git >/dev/null 2>&1; then
-        _ac_health_row req git miss "git not installed" "sudo apt install git"
+        _ac_health_row req git miss "git not installed" "$git_fix"
     elif [[ -n "$(git config --get user.name 2>/dev/null)" \
          && -n "$(git config --get user.email 2>/dev/null)" ]]; then
         _ac_health_row opt git-id ok "identity set" -

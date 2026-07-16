@@ -1,6 +1,8 @@
 #!/usr/bin/env bats
 # tests for lib/hook_autoinstall.sh
 
+load test_helper
+
 setup() {
     export ANTCRATE_CANARY_DISABLE=1
     LIB="$BATS_TEST_DIRNAME/../lib"
@@ -69,10 +71,10 @@ src() {
 @test "hook_autoinstall: idempotent (re-run is no-op)" {
     src "ac_registry_upsert proj '$R' scripts ''
          ac_hook_autoinstall proj"
-    cs1=$(sha256sum "$R/.git/hooks/pre-commit" "$R/.gitignore" | sort | sha256sum)
+    cs1=$(t_sha256 "$R/.git/hooks/pre-commit" "$R/.gitignore" | sort | t_sha256)
     run src "ac_hook_autoinstall proj"
     [ "$status" -eq 0 ]
-    cs2=$(sha256sum "$R/.git/hooks/pre-commit" "$R/.gitignore" | sort | sha256sum)
+    cs2=$(t_sha256 "$R/.git/hooks/pre-commit" "$R/.gitignore" | sort | t_sha256)
     [ "$cs1" = "$cs2" ]
 }
 
