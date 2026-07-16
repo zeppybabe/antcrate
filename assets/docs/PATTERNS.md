@@ -82,7 +82,7 @@ Every entry forces a backup tarball before touching disk; approval is the TTY pr
 |---|---|---|
 | Commit + push with conflict triage | `antcrate pp <project> [--no-mirror]` | Prints the bundled pre-push panel FIRST (branch, last/stable/current version, last commit, unpushed, working state, milestone from ledger heads, newest plan, backup age, open duties), then commits (if dirty) + pushes. On rejection: emails truncated diff, full log at `/tmp/antcrate_conflict.log`. Never bare `git push`. Successful pushes print `verify: <upstream> in sync at <SHA>`, then mirror dev/ to the private `<project>-dev` companion when config `mirror_dev=` lists the project (`--no-mirror` skips once; mirror failure never fails the push). |
 | Read the same panel without pushing | `antcrate info <project>` | Registry record + the pp panel, fully read-only. |
-| Commit only (no push), unattended | `antcrate commit <project> -m "<msg>" --all-tracked -y` | `-y` skips the y/N prompt for non-TTY use (proposal #83). |
+| Commit only (no push), unattended | `antcrate commit <project> -m "<msg>" --all-tracked` | Non-interactive (non-TTY) invocations proceed prompt-free automatically — no flag needed. `-y`/AUTO_YES was retired 2026-07-10 and now exits 2. |
 | `git status` + `git diff` (no cd) | `antcrate diff <project>` | Uses `git -C`. |
 | Initialize GitHub repo (HTTPS) | `antcrate --gh-init <project> [--public]` | Defaults to private. Requires `gh` authed. |
 | GitHub onboarding hint | `antcrate --gh-help` | Prints HTTPS onboarding steps. |
