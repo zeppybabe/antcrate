@@ -78,7 +78,29 @@ src() {
     [ "$output" = "3" ]
 }
 
-@test "urlencode: spaces and special chars" {
-    run src "ac_post_urlencode 'hello world#tag'"
-    [ "$output" = "hello%20world%23tag" ]
+@test "urlencode: spaces, quotes, hash, newline" {
+    run src "ac_post_urlencode \$'a b\"#\nc'"
+    [ "$output" = "a%20b%22%23%0Ac" ]
+}
+
+@test "redact: JWT-shaped line is redacted (mawk-safe)" {
+    result=$(printf 'safe\neyJhbGciOiJIUzI1NiJ9-not-quite.eyJreal_jwt_secret_payload_1234567890\nend\n' | src "ac_post_redact")
+    [[ "$result" == *"safe"* ]]
+    [[ "$result" == *"[redacted: secret-pattern]"* ]]
+    [[ "$result" == *"end"* ]]
+    [[ "$result" != *"eyJhbGciOiJIUzI1NiJ9"* ]]
+}
+
+@test "guard: JWT-shaped text refused" {
+    run src "ac_post_guard_text 'eyJhbGciOiJIUzI1NiJ9-not-quite.eyJreal_jwt_secret_payload_1234567890'"
+    [ "$status" -eq 1 ]
+}
+
+@test "guard: ALL-CAPS TOKEN/API_KEY/SECRET assignments refused" {
+    run src "ac_post_guard_text 'TOKEN=abc123'"
+    [ "$status" -eq 1 ]
+    run src "ac_post_guard_text 'API_KEY=abc123'"
+    [ "$status" -eq 1 ]
+    run src "ac_post_guard_text 'SECRET=abc123'"
+    [ "$status" -eq 1 ]
 }

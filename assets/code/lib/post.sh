@@ -8,7 +8,6 @@
 #  - ~/.config/antcrate/x-accounts.json is HUMAN-ONLY (Rule #13): read, never write.
 
 # Local defaults for standalone sourcing (house convention: libs redeclare paths.sh vars)
-# shellcheck disable=SC2034
 : "${ANTCRATE_POSTS_DIR:=${XDG_STATE_HOME:-$HOME/.local/state}/antcrate/posts}"
 : "${ANTCRATE_X_ACCOUNTS:=${XDG_CONFIG_HOME:-$HOME/.config}/antcrate/x-accounts.json}"
 : "${ANTCRATE_BROWSER_CMD:=firefox}"
@@ -83,7 +82,16 @@ ac_post_log_show() {
 
 # Content secret guard — credential SHAPES, deliberately conservative: a post is
 # ~280 chars of prose; a false positive costs a rewrite, a false negative leaks.
-AC_POST_SECRET_ERE='AKIA[0-9A-Z]{16}|ghp_[A-Za-z0-9]{36}|github_pat_[A-Za-z0-9_]{22,}|sk-[A-Za-z0-9_-]{20,}|xox[baprs]-[A-Za-z0-9-]{10,}|AIza[0-9A-Za-z_-]{35}|eyJ[A-Za-z0-9_-]{20,}\.eyJ|-----BEGIN [A-Z ]*PRIVATE KEY-----|[Pp]assword[[:space:]]*[=:][[:space:]]*[^[:space:]]+|PASSWORD[[:space:]]*[=:][[:space:]]*[^[:space:]]+|[Aa]pi[_-]?[Kk]ey[[:space:]]*[=:][[:space:]]*[^[:space:]]+|[Ss]ecret[[:space:]]*[=:][[:space:]]*[^[:space:]]+|[Tt]oken[[:space:]]*[=:][[:space:]]*[^[:space:]]+'
+#
+# JWT alternative uses `+` (not `{20,}`): under the system mawk, an open-ended
+# `{20,}` bound followed by more pattern (here `\.eyJ`) silently fails to
+# match, so a JWT-shaped secret would pass ac_post_redact unredacted while
+# grep -E (ac_post_guard_text) still refuses it — same ERE, disagreeing
+# engines. `+` is unbounded-but-not-interval and mawk handles it correctly.
+# Assignment alternatives are duplicated in lower/Title/ALL-CAPS ([Pp]assword,
+# PASSWORD, etc.) rather than using a case-insensitive flag, since ERE has no
+# inline (?i) and grep/awk here don't share a portable case-fold option.
+AC_POST_SECRET_ERE='AKIA[0-9A-Z]{16}|ghp_[A-Za-z0-9]{36}|github_pat_[A-Za-z0-9_]{22,}|sk-[A-Za-z0-9_-]{20,}|xox[baprs]-[A-Za-z0-9-]{10,}|AIza[0-9A-Za-z_-]{35}|eyJ[A-Za-z0-9_-]+\.eyJ|-----BEGIN [A-Z ]*PRIVATE KEY-----|[Pp]assword[[:space:]]*[=:][[:space:]]*[^[:space:]]+|PASSWORD[[:space:]]*[=:][[:space:]]*[^[:space:]]+|[Aa]pi[_-]?[Kk]ey[[:space:]]*[=:][[:space:]]*[^[:space:]]+|API[_-]?KEY[[:space:]]*[=:][[:space:]]*[^[:space:]]+|[Ss]ecret[[:space:]]*[=:][[:space:]]*[^[:space:]]+|SECRET[[:space:]]*[=:][[:space:]]*[^[:space:]]+|[Tt]oken[[:space:]]*[=:][[:space:]]*[^[:space:]]+|TOKEN[[:space:]]*[=:][[:space:]]*[^[:space:]]+'
 
 # ac_post_guard_text <text> — refuse on any credential shape. Never echoes the hit.
 ac_post_guard_text() {
@@ -95,8 +103,13 @@ ac_post_guard_text() {
 }
 
 # ac_post_redact — stdin filter for material mode; whole matching line replaced.
+# Pattern passed via ENVIRON, not `awk -v` (house convention, see
+# lib/hooks.sh:_ac_hook_render): `-v` interprets escape sequences in the
+# value, which would mangle the `\.` inside the JWT alternative. ENVIRON
+# passes the ERE byte-for-byte, keeping this in lockstep with the grep -E
+# used by ac_post_guard_text.
 ac_post_redact() {
-    awk -v re="$AC_POST_SECRET_ERE" '{ if ($0 ~ re) print "[redacted: secret-pattern]"; else print }'
+    AC_POST_SECRET_ERE="$AC_POST_SECRET_ERE" awk '{ if ($0 ~ ENVIRON["AC_POST_SECRET_ERE"]) print "[redacted: secret-pattern]"; else print }'
 }
 
 # ac_post_x_len <text> — X counting: every URL is 23 chars (t.co wrapping).
