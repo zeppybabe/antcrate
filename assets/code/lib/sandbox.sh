@@ -116,6 +116,11 @@ ac_endpoint_run() {
     local name="${1:-}"
     [[ -n "$name" ]] || { ac_error "endpoint: usage: ac_endpoint_run <name> [args...]"; return 2; }
     shift
+    # injection guard: the name is interpolated into a jq path below — an
+    # unvalidated name like 'x"]|"local" #' would rewrite the query and forge
+    # kind=local, bypassing the unknown/non-local refusals. Whitelist FIRST.
+    [[ "$name" =~ ^[A-Za-z0-9._-]+$ ]] \
+        || { ac_error "endpoint: invalid endpoint name '$name' (allowed: A-Za-z0-9._-)"; return 1; }
     local kind
     kind=$(ac_policy_get ".endpoints[\"$name\"].kind") \
         || { ac_error "endpoint: no policy file — run: antcrate policy seed"; return 1; }

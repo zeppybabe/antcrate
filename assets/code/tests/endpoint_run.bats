@@ -56,6 +56,22 @@ src() {
     [ "$status" -eq 1 ]
 }
 
+@test "endpoint_run: jq-path injection in endpoint name refused" {
+    # name 'x"]|"local" #' would forge kind=local if spliced into the jq
+    # path unescaped — must be refused by the name guard, nothing executed
+    _policy_with '{}'
+    run src "ac_endpoint_run 'x\"]|\"local\" #' </dev/null"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"invalid endpoint name"* ]]
+}
+
+@test "endpoint_run: local endpoint without exec refused" {
+    _policy_with '{"noexec": {"kind":"local"}}'
+    run src "ac_endpoint_run noexec </dev/null"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"has no exec"* ]]
+}
+
 @test "endpoint_run: model_file becomes -m arg with ~ expanded" {
     # argv-recording stand-in (mock-llm ignores argv, so use a recorder here)
     cat > "$BATS_TEST_TMPDIR/rec" <<'EOF'
