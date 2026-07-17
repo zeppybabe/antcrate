@@ -82,16 +82,29 @@ ac_sandbox_run() {
         ac_error "sandbox: write_path must be an absolute path: $wpath"
         return 2
     fi
+    # "/" as write_path would make the ENTIRE filesystem writable
+    # (ReadWritePaths=/), neutralizing ProtectHome=read-only outright.
+    if [[ "$wpath" == "/" ]]; then
+        ac_error "sandbox: write_path must not be / (would neutralize ProtectHome)"
+        return 2
+    fi
     if [[ "${ANTCRATE_SANDBOX_DISABLE:-0}" == "1" ]]; then
         ac_warn "sandbox: DISABLED via ANTCRATE_SANDBOX_DISABLE — running unsandboxed"
+        # A security bypass must always leave a visible trace: ac_warn alone
+        # goes only to the log file (and stderr) IF the configured log level
+        # allows it — ANTCRATE_LOG_LEVEL=error silences warn entirely. This
+        # notice is unconditional so the bypass can never be filtered away.
+        printf 'antcrate sandbox: DISABLED via ANTCRATE_SANDBOX_DISABLE — running unsandboxed\n' >&2
         "$@"
         return
     fi
     if ! ac_sandbox_capable; then
         if [[ "${AC_OS:-linux}" == darwin ]]; then
             ac_warn "sandbox: unavailable on this OS — running unsandboxed"
+            printf 'antcrate sandbox: unavailable on this OS — running unsandboxed\n' >&2
         else
             ac_warn "sandbox: hardening not enforceable on this host (kernel/AppArmor restriction?) — running unsandboxed"
+            printf 'antcrate sandbox: hardening not enforceable on this host (kernel/AppArmor restriction?) — running unsandboxed\n' >&2
         fi
         "$@"
         return
@@ -119,27 +132,48 @@ ac_endpoint_run() {
     # injection guard: the name is interpolated into a jq path below — an
     # unvalidated name like 'x"]|"local" #' would rewrite the query and forge
     # kind=local, bypassing the unknown/non-local refusals. Whitelist FIRST.
-    [[ "$name" =~ ^[A-Za-z0-9._-]+$ ]] \
-        || { ac_error "endpoint: invalid endpoint name '$name' (allowed: A-Za-z0-9._-)"; return 1; }
+    if [[ ! "$name" =~ ^[A-Za-z0-9._-]+$ ]]; then
+        # %q-sanitize before it ever reaches stderr — a raw reject of an
+        # attacker-controlled string could carry terminal control chars.
+        local safe_name; safe_name=$(printf '%q' "$name")
+        ac_error "endpoint: invalid endpoint name $safe_name (allowed: A-Za-z0-9._-)"
+        return 1
+    fi
     local kind
     kind=$(ac_policy_get ".endpoints[\"$name\"].kind") \
         || { ac_error "endpoint: no policy file — run: antcrate policy seed"; return 1; }
     [[ -n "$kind" ]] || { ac_error "endpoint: unknown endpoint '$name'"; return 1; }
     [[ "$kind" == "local" ]] \
         || { ac_error "endpoint: '$name' is kind $kind — only local endpoints are launched"; return 1; }
-    local exec_bin model_file sandboxed
+    local exec_bin model_file
     exec_bin=$(ac_policy_get ".endpoints[\"$name\"].exec")
     [[ -n "$exec_bin" ]] || { ac_error "endpoint: '$name' has no exec"; return 1; }
     model_file=$(ac_policy_get ".endpoints[\"$name\"].model_file")
-    sandboxed=$(ac_policy_get ".endpoints[\"$name\"].sandbox")
     local -a cmd=()
     [[ -n "${MOCK_LLM_MODE:-}" ]] && cmd+=( env "MOCK_LLM_MODE=$MOCK_LLM_MODE" )
     cmd+=( "$exec_bin" )
     [[ -n "$model_file" ]] && cmd+=( -m "${model_file/#\~/$HOME}" )
     cmd+=( "$@" )
-    if [[ "$sandboxed" == "false" ]]; then
+    # NOTE: ac_policy_get is `jq -r "$1 // empty"` — for a JSON `false` value
+    # `false // empty` emits nothing (jq's `//` treats false as falsy, same
+    # as null), so a plain ac_policy_get read here can never distinguish
+    # "sandbox: false" from "field absent". A dedicated jq call is required;
+    # ac_policy_get itself is left untouched since other callers depend on
+    # its empty-on-false/null semantics. true = opted out (run direct);
+    # anything else (false, absent, malformed) = sandboxed (fail-closed).
+    local sandboxed
+    sandboxed=$(jq -r --arg n "$name" '.endpoints[$n].sandbox == false' "$(_ac_policy_file)" 2>/dev/null) || sandboxed=false
+    if [[ "$sandboxed" == "true" ]]; then
         "${cmd[@]}"
     else
-        ac_sandbox_run "${ANTCRATE_HOME:-$HOME/.antcrate}" -- "${cmd[@]}"
+        # Scratch dir, not the whole state tree ($ANTCRATE_HOME): a one-shot
+        # stdin->stdout inference call needs no other writable state, and
+        # policy.json — the file that governs confinement itself — must
+        # never be inside the writable set. Otherwise a compromised payload
+        # could rewrite its own endpoint's exec/sandbox fields and get
+        # unsandboxed execution on the next human launch.
+        local scratch="${ANTCRATE_HOME:-$HOME/.antcrate}/sandbox/scratch"
+        mkdir -p "$scratch"
+        ac_sandbox_run "$scratch" -- "${cmd[@]}"
     fi
 }

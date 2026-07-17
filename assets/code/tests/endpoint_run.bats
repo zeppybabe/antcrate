@@ -8,6 +8,35 @@ setup() {
     export ANTCRATE_HOME="$BATS_TEST_TMPDIR/.antcrate"
     export ANTCRATE_LOG_LEVEL="error"
     mkdir -p "$ANTCRATE_HOME/anycrate"
+
+    # fake systemd-run (same technique as sandbox.bats): records argv to
+    # FAKE_LOG, execs the payload after `--`. FAKE_PROBE_MODE=pass (default)
+    # makes ac_sandbox_capable's in-unit probe succeed WITHOUT actually
+    # running it, so AC_OS=linux + this shim on PATH = "capable host" on any
+    # dev box, real systemd required or not. Used by the tests that must
+    # prove whether systemd-run was (or wasn't) invoked for the payload.
+    FAKE_BIN="$BATS_TEST_TMPDIR/fakebin"
+    export FAKE_LOG="$BATS_TEST_TMPDIR/systemd-run.argv"
+    mkdir -p "$FAKE_BIN"
+    cat > "$FAKE_BIN/systemd-run" <<'EOF'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >> "$FAKE_LOG"
+payload=()
+saw_dd=0
+for a in "$@"; do
+    if [[ $saw_dd -eq 1 ]]; then
+        payload+=("$a")
+    elif [[ "$a" == "--" ]]; then
+        saw_dd=1
+    fi
+done
+[[ $saw_dd -eq 1 ]] || exit 0
+if [[ "${payload[*]}" == *"/sys/class/net"* ]]; then
+    exit 0
+fi
+exec "${payload[@]}"
+EOF
+    chmod +x "$FAKE_BIN/systemd-run"
 }
 
 # write a policy.json whose endpoints object is the given JSON
@@ -19,6 +48,21 @@ _policy_with() {
 # path itself is what's under test (the real-sandbox test overrides this)
 src() {
     ANTCRATE_SANDBOX_DISABLE="${FORCE_SANDBOX:-1}" \
+    ANTCRATE_HOME="$ANTCRATE_HOME" ANTCRATE_LOG_LEVEL=error \
+    bash -c "
+        . '$LIB/log.sh'
+        . '$LIB/policy.sh'
+        . '$LIB/sandbox.sh'
+        $1
+    "
+}
+
+# like src(), but AC_OS=linux + the fake systemd-run on PATH, sandbox NOT
+# disabled — a genuinely "capable" host, for tests that must prove whether
+# the sandboxed launch path (systemd-run with ReadWritePaths=) actually ran.
+src_capable() {
+    AC_OS=linux PATH="$FAKE_BIN:$PATH" FAKE_LOG="$FAKE_LOG" \
+    ANTCRATE_SANDBOX_DISABLE=0 \
     ANTCRATE_HOME="$ANTCRATE_HOME" ANTCRATE_LOG_LEVEL=error \
     bash -c "
         . '$LIB/log.sh'
@@ -98,10 +142,27 @@ EOF
     [[ "$output" != *"NETWORK-REACHED"* ]]
 }
 
-@test "endpoint_run: endpoint sandbox:false runs direct" {
+@test "endpoint_run: endpoint sandbox:false runs direct, never invoking systemd-run" {
+    # Proves the direct path for real: capable host (fake systemd-run makes
+    # the probe pass), sandbox NOT disabled via the escape hatch — so if
+    # "sandbox": false were dead code (ac_policy_get's "false // empty" bug),
+    # this would fall through to the sandboxed launch and FAKE_LOG would
+    # show a ReadWritePaths= entry for the payload.
     _policy_with "{\"mock\": {\"kind\":\"local\",\"exec\":\"$MOCK\",\"sandbox\":false}}"
-    FORCE_SANDBOX=0 run src "ac_endpoint_run mock </dev/null"
+    run src_capable "ac_endpoint_run mock </dev/null"
     [ "$status" -eq 0 ]
     [[ "$output" == *"MOCK-OK"* ]]
-    [[ "$output" != *"unavailable"* ]]   # no sandbox-fallback warning: direct path
+    [[ "$output" != *"unavailable"* ]]        # no sandbox-fallback warning: direct path
+    [[ "$output" != *"not enforceable"* ]]
+    ! grep -q -- 'ReadWritePaths=' "$FAKE_LOG" 2>/dev/null   # systemd-run never launched the payload
+}
+
+@test "endpoint_run: sandboxed launch (no sandbox:false) DOES invoke systemd-run with ReadWritePaths=" {
+    # Inverse of the test above, on the same capable-host rig: without the
+    # opt-out, the payload must go through the real hardened launch.
+    _policy_with "{\"mock\": {\"kind\":\"local\",\"exec\":\"$MOCK\"}}"
+    run src_capable "ac_endpoint_run mock </dev/null"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"MOCK-OK"* ]]
+    grep -q -- 'ReadWritePaths=' "$FAKE_LOG"
 }

@@ -330,7 +330,7 @@ Idempotent seed (compact-word form of `--policy-init`): writes the file only if 
 
 Endpoints are **HUMAN-ONLY**: agents may read `.endpoints` and reference an endpoint by name, but must never add, edit, or remove one — file `antcrate propose` instead (AGENTS.md rule #23; same standing as `~/.antcrate/config` and the intel-sources file). Edit by hand at `~/.antcrate/anycrate/policy.json`.
 
-`antcrate st` shows a one-line summary — `policy: N endpoints (M local) · sandbox available|unavailable` — or, if the file is missing, `policy: missing — fix: antcrate policy seed`. The doctor also carries an optional `policy` row (`present` / `policy.json absent — budget guards inert`, fix `antcrate policy seed`).
+`antcrate st` shows a one-line summary — `policy: N endpoints (M local) · sandbox available|unavailable|unavailable (macOS)` — or, if the file is missing, `policy: missing — fix: antcrate policy seed`. The doctor also carries an optional `policy` row (`present` / `policy.json absent — budget guards inert`, fix `antcrate policy seed`).
 
 **Launching a local endpoint — `ac_endpoint_run <name> [args...]`** (lib function, no wrapper flag): reads the prompt on stdin, writes completion to stdout. Refuses (never downgrades) unknown names, non-`local` kinds, and endpoints with no `exec` — all rc 1. Endpoint names are allowlisted to `^[A-Za-z0-9._-]+$` before being interpolated into a jq path (injection guard). Sandboxed by default; an endpoint may opt out with `"sandbox": false` (human-set field, same as every other endpoint property).
 

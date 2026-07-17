@@ -149,7 +149,33 @@ src() {
     [ ! -e "$BATS_TEST_TMPDIR/marker-relative" ]
 }
 
+@test "sandbox: write_path / is refused (would neutralize ProtectHome)" {
+    run src "ac_sandbox_run '/' -- touch '$BATS_TEST_TMPDIR/marker-root'"
+    [ "$status" -eq 2 ]
+    [ ! -e "$BATS_TEST_TMPDIR/marker-root" ]
+}
+
 @test "sandbox: payload exit code propagates" {
     run src "ac_sandbox_run '$BATS_TEST_TMPDIR' -- bash -c 'exit 7'"
     [ "$status" -eq 7 ]
+}
+
+# A security bypass must always leave a visible trace: ac_warn alone is
+# subject to ANTCRATE_LOG_LEVEL filtering (level=error silences warn
+# entirely), so the fallback paths also print an unconditional plain-stderr
+# notice. These two tests run at level=error specifically to prove that
+# notice survives even when ac_warn itself would be fully suppressed.
+
+@test "sandbox: DISABLE bypass notice reaches stderr even at ANTCRATE_LOG_LEVEL=error" {
+    FORCE_DISABLE=1 ANTCRATE_LOG_LEVEL=error run src "ac_sandbox_run '$BATS_TEST_TMPDIR' -- echo bypassed-quiet"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"antcrate sandbox: DISABLED"* ]]
+    [[ "$output" == *bypassed-quiet* ]]
+}
+
+@test "sandbox: degraded-host bypass notice reaches stderr even at ANTCRATE_LOG_LEVEL=error" {
+    FORCE_PROBE_MODE=real ANTCRATE_LOG_LEVEL=error run src "ac_sandbox_run '$BATS_TEST_TMPDIR' -- echo ran-degraded-quiet"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"antcrate sandbox: hardening not enforceable"* ]]
+    [[ "$output" == *ran-degraded-quiet* ]]
 }
