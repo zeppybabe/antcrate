@@ -11,6 +11,17 @@
 # deprecated; a security feature must not sit on a dying API) → warn + run
 # unsandboxed (owner decision 2026-07-16: enforced-on-Linux, warn-on-macOS).
 #
+# Degraded-Linux case: on hosts with kernel.apparmor_restrict_unprivileged_
+# userns=1 (DEFAULT on Ubuntu 23.10+/24.04), `systemd-run --user` SUCCEEDS
+# but the kernel silently DROPS PrivateNetwork=yes and ProtectHome=read-only
+# — logged only to the journal ("proceeding without ..."), nothing on the
+# forwarded stdout/stderr. A probe that merely checks "did systemd-run exit
+# 0" cannot see this and reports capable when the payload would actually run
+# with full network + a writable home. So the probe below launches a real
+# hardened unit and checks confinement FROM INSIDE it (loopback-only
+# networking, non-writable $HOME); only that verifies the properties
+# actually took effect on this kernel.
+#
 # Escape hatch: ANTCRATE_SANDBOX_DISABLE=1 (warned). Agents MUST NOT set it
 # (AGENTS.md — same class as ANTCRATE_COST_GUARD_DISABLE).
 
@@ -23,14 +34,25 @@ _AC_SANDBOX_PROBED=""
 _AC_SANDBOX_RC=1
 
 # rc 0 iff this host can actually confine: Linux AND a systemd-run --user
-# that verifiably works (probed with a real no-op unit, not assumed —
-# compat.sh philosophy). Result cached for the process lifetime.
+# unit launched WITH the hardening properties, verified from inside the unit
+# (not merely "did systemd-run exit 0" — see header comment on the
+# apparmor_restrict_unprivileged_userns degrade, where properties are
+# silently dropped and a no-op probe would false-positive). Only the
+# loopback interface visible AND $HOME not writable proves the properties
+# actually applied. Result cached for the process lifetime.
 ac_sandbox_capable() {
     if [[ -z "$_AC_SANDBOX_PROBED" ]]; then
         _AC_SANDBOX_PROBED=1
+        # shellcheck disable=SC2016  # single-quoted: expands inside the probe unit, not here
         if [[ "${AC_OS:-linux}" == linux ]] \
            && command -v systemd-run >/dev/null 2>&1 \
-           && systemd-run --user --quiet --collect --wait true >/dev/null 2>&1; then
+           && systemd-run --user --quiet --collect --wait --pipe \
+                  -p PrivateNetwork=yes \
+                  -p ProtectHome=read-only \
+                  -p PrivateTmp=yes \
+                  -p NoNewPrivileges=yes \
+                  -- bash -c '[ "$(ls /sys/class/net)" = "lo" ] && [ ! -w "$HOME" ]' \
+                  >/dev/null 2>&1; then
             _AC_SANDBOX_RC=0
         fi
     fi
@@ -49,13 +71,28 @@ ac_sandbox_run() {
     [[ "${1:-}" == "--" ]] || { ac_error "sandbox: usage: ac_sandbox_run <write_path> -- <cmd...>"; return 2; }
     shift
     (( $# > 0 )) || { ac_error "sandbox: no command given"; return 2; }
+    # ReadWritePaths= is space-separated; whitespace in wpath would silently
+    # widen the writable set to multiple paths. A relative path is also
+    # meaningless as a mount boundary.
+    if [[ "$wpath" =~ [[:space:]] ]]; then
+        ac_error "sandbox: write_path must not contain whitespace: $wpath"
+        return 2
+    fi
+    if [[ "$wpath" != /* ]]; then
+        ac_error "sandbox: write_path must be an absolute path: $wpath"
+        return 2
+    fi
     if [[ "${ANTCRATE_SANDBOX_DISABLE:-0}" == "1" ]]; then
         ac_warn "sandbox: DISABLED via ANTCRATE_SANDBOX_DISABLE — running unsandboxed"
         "$@"
         return
     fi
     if ! ac_sandbox_capable; then
-        ac_warn "sandbox: unavailable on this OS — running unsandboxed"
+        if [[ "${AC_OS:-linux}" == darwin ]]; then
+            ac_warn "sandbox: unavailable on this OS — running unsandboxed"
+        else
+            ac_warn "sandbox: hardening not enforceable on this host (kernel/AppArmor restriction?) — running unsandboxed"
+        fi
         "$@"
         return
     fi
