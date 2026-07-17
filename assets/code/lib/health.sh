@@ -90,6 +90,18 @@ ac_health_checks() {
             "antcrate tool install${missing}"
     fi
 
+    # policy file: cost/budget hooks and endpoint launches fail OPEN without
+    # it — the 2026-06-13 XDG migration dropped it on at least one device
+    local pol_file
+    if declare -F _ac_policy_file >/dev/null; then pol_file=$(_ac_policy_file)
+    else pol_file="${ANTCRATE_HOME:-$HOME/.antcrate}/anycrate/policy.json"; fi
+    if [[ -f "$pol_file" ]]; then
+        _ac_health_row opt policy ok "present" -
+    else
+        _ac_health_row opt policy miss "policy.json absent — budget guards inert" \
+            "antcrate policy seed"
+    fi
+
     local gh_fix="sudo apt install gh" git_fix="sudo apt install git"
     if [[ "${AC_OS:-linux}" == darwin ]]; then
         gh_fix="brew install gh"

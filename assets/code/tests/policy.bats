@@ -165,3 +165,21 @@ _seed_with_endpoints() {
     [ "$status" -eq 1 ]
     [[ "$output" == *"antcrate policy seed"* ]]
 }
+
+@test "policy: status line — missing file names the fix" {
+    run src "ac_policy_status_line"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"policy: missing"* ]]
+    [[ "$output" == *"antcrate policy seed"* ]]
+}
+
+@test "policy: status line — counts endpoints and local subset" {
+    _seed_with_endpoints '{
+      "l1": {"kind":"local","exec":"x"}, "l2": {"kind":"local","exec":"y"},
+      "a":  {"kind":"api","url":"https://z"}
+    }'
+    run src "ac_policy_status_line"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"3 endpoints (2 local)"* ]]
+    [[ "$output" == *"sandbox "* ]]
+}

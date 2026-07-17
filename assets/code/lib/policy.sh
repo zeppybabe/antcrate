@@ -101,3 +101,25 @@ ac_policy_endpoints_validate() {
     while IFS= read -r line; do ac_error "policy endpoint $line"; done <<< "$errs"
     return 1
 }
+
+# one-liner for cmd_status — mirrors ac_health_status_line's contract
+# (single line, misses carry their fix). Sandbox verdict comes from
+# ac_sandbox_capable when sandbox.sh is loaded (wrapper always loads it;
+# direct-sourcing tests may not — degrade to "unavailable").
+ac_policy_status_line() {
+    local f; f=$(_ac_policy_file)
+    if [[ ! -f "$f" ]]; then
+        printf 'policy: missing — fix: antcrate policy seed\n'
+        return 0
+    fi
+    local n nlocal
+    n=$(jq -r '(.endpoints // {}) | length' "$f" 2>/dev/null) || n=0
+    nlocal=$(jq -r '[(.endpoints // {})[] | select(.kind == "local")] | length' "$f" 2>/dev/null) || nlocal=0
+    local sb="unavailable"
+    if [[ "${AC_OS:-linux}" == darwin ]]; then
+        sb="unavailable (macOS)"
+    elif declare -F ac_sandbox_capable >/dev/null && ac_sandbox_capable; then
+        sb="available"
+    fi
+    printf 'policy: %s endpoints (%s local) · sandbox %s\n' "$n" "$nlocal" "$sb"
+}

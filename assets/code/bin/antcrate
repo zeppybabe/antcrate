@@ -461,6 +461,9 @@ cmd_status() {
     local duties_out
     duties_out=$(ac_duties_status_line 2>/dev/null) || true
     [[ -n "$duties_out" ]] && printf '  %s\n' "${duties_out/: /    : }"
+    local policy_out
+    policy_out=$(ac_policy_status_line 2>/dev/null) || true
+    [[ -n "$policy_out" ]] && printf '  %s\n' "${policy_out/: /    : }"
     # ghost entries (registered path gone) — cheap registry walk (Plan 2)
     local ghosts=0 gp
     while IFS=$'\t' read -r _ gp; do

@@ -87,7 +87,7 @@ run_health() {
 }
 
 @test "status line: clean env says OK with check count" {
-    # make everything pass: stub systemctl ok, gh with token, git identity, tools
+    # make everything pass: stub systemctl ok, gh with token, git identity, tools, and policy
     printf '#!/usr/bin/env bash\nexit 0\n' > "$BATS_TEST_TMPDIR/stubs/systemctl"
     printf '#!/usr/bin/env bash\n[ "$1" = auth ] && { echo tok; exit 0; }\nexit 0\n' \
         > "$BATS_TEST_TMPDIR/stubs/gh"
@@ -97,6 +97,8 @@ run_health() {
         printf '#!/usr/bin/env bash\n' > "$ANTCRATE_TOOLS_BIN/$t"
         chmod +x "$ANTCRATE_TOOLS_BIN/$t"
     done
+    mkdir -p "$ANTCRATE_HOME/anycrate"
+    echo '{}' > "$ANTCRATE_HOME/anycrate/policy.json"
     run run_health "ac_health_status_line"
     [ "$status" -eq 0 ]
     [[ "$output" == "health: OK ("*" checks)" ]]
@@ -156,4 +158,18 @@ run_health_darwin() {
         [[ "$output" == *"brew install gh"* ]]
     fi
     [[ "$output" != *"apt"* ]]   # darwin must never suggest apt
+}
+
+@test "health: policy row miss with seed fix when policy.json absent" {
+    # ANTCRATE_HOME sandboxed by this file's setup — no file there
+    run run_health "ac_health_checks"
+    [[ "$output" == *$'opt\tpolicy\tmiss'* ]]
+    [[ "$output" == *"antcrate policy seed"* ]]
+}
+
+@test "health: policy row ok when policy.json present" {
+    mkdir -p "$ANTCRATE_HOME/anycrate"
+    echo '{}' > "$ANTCRATE_HOME/anycrate/policy.json"
+    run run_health "ac_health_checks"
+    [[ "$output" == *$'opt\tpolicy\tok'* ]]
 }

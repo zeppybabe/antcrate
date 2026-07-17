@@ -175,6 +175,11 @@ fi
 
 echo "[antcrate] done. PATH should include $BIN_DIR"
 
+# seed the model/budget/endpoint policy if absent (idempotent — a present
+# file is user territory). Without it the budget hooks fail open; the
+# 2026-06-13 XDG migration dropped it on at least one device.
+"$BIN_DIR/antcrate" policy seed || true
+
 # the status panel doubles as the doctor: anything left to do (enable timers,
 # missing tools, auth) shows up here with its fix command — no extra step
 echo ""
