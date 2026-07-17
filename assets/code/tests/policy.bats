@@ -68,3 +68,78 @@ src() {
     run src "ac_policy_show"
     [ "$status" -eq 1 ]
 }
+
+# ---- endpoints (spec 2026-07-16) ----
+
+# helper: seed then overwrite .endpoints with the given JSON object
+_seed_with_endpoints() {
+    src "ac_policy_seed" >/dev/null
+    jq --argjson e "$1" '.endpoints = $e' "$ANTCRATE_HOME/anycrate/policy.json" \
+        > "$BATS_TEST_TMPDIR/t" && mv "$BATS_TEST_TMPDIR/t" "$ANTCRATE_HOME/anycrate/policy.json"
+}
+
+@test "policy: seed includes empty endpoints object" {
+    src "ac_policy_seed" >/dev/null
+    [ "$(jq -r '.endpoints | type' "$ANTCRATE_HOME/anycrate/policy.json")" = "object" ]
+    [ "$(jq -r '.endpoints | length' "$ANTCRATE_HOME/anycrate/policy.json")" = "0" ]
+}
+
+@test "policy: endpoints validate — clean file passes" {
+    _seed_with_endpoints '{
+      "local-llama": {"kind":"local","exec":"llama-cli","model_file":"~/m.gguf"},
+      "office-vllm": {"kind":"vllm","url":"http://10.0.0.5:8000/v1","model":"qwen"},
+      "claude":      {"kind":"api","url":"https://api.anthropic.com","model":"claude-sonnet-5"}
+    }'
+    run src "ac_policy_endpoints_validate"
+    [ "$status" -eq 0 ]
+}
+
+@test "policy: endpoints validate — empty endpoints passes" {
+    src "ac_policy_seed" >/dev/null
+    run src "ac_policy_endpoints_validate"
+    [ "$status" -eq 0 ]
+}
+
+@test "policy: endpoints validate — unknown kind refused" {
+    _seed_with_endpoints '{"bad": {"kind":"cloud","url":"https://x"}}'
+    run src "ac_policy_endpoints_validate"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"kind must be local|vllm|api"* ]]
+}
+
+@test "policy: endpoints validate — local without exec refused" {
+    _seed_with_endpoints '{"l": {"kind":"local"}}'
+    run src "ac_policy_endpoints_validate"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"requires exec"* ]]
+}
+
+@test "policy: endpoints validate — vllm without url refused" {
+    _seed_with_endpoints '{"v": {"kind":"vllm"}}'
+    run src "ac_policy_endpoints_validate"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"requires url"* ]]
+}
+
+@test "policy: endpoints validate — http api url refused, http vllm allowed" {
+    _seed_with_endpoints '{"a": {"kind":"api","url":"http://api.example.com"}}'
+    run src "ac_policy_endpoints_validate"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"api url must be https"* ]]
+    _seed_with_endpoints '{"v": {"kind":"vllm","url":"http://10.0.0.5:8000/v1"}}'
+    run src "ac_policy_endpoints_validate"
+    [ "$status" -eq 0 ]
+}
+
+@test "policy: endpoints validate — missing file rc 1" {
+    run src "ac_policy_endpoints_validate"
+    [ "$status" -eq 1 ]
+}
+
+@test "policy: endpoints validate — reports EVERY defect, not just the first" {
+    _seed_with_endpoints '{"a": {"kind":"nope"}, "b": {"kind":"local"}}'
+    run src "ac_policy_endpoints_validate"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"kind must be"* ]]
+    [[ "$output" == *"requires exec"* ]]
+}

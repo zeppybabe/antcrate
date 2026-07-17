@@ -22,7 +22,10 @@ ac_policy_seed() {
     local f json; f=$(_ac_policy_file)
     [[ -f "$f" ]] && { ac_info "policy: already present at $f"; return 0; }
     mkdir -p "$(dirname "$f")"
+    # endpoints (spec 2026-07-16): where inference may run. HUMAN-ONLY —
+    # agents read + propose, never write. kind local|vllm|api.
     json=$(jq -n '{
+      endpoints: {},
       models: {
         fable:  {window: 1000000, max_out: 128000, usd_in: 10, usd_out: 50, tokenizer_factor: 1.3, effort: true},
         opus:   {window: 1000000, max_out: 128000, usd_in: 5,  usd_out: 25, tokenizer_factor: 1.0, effort: true},
@@ -61,4 +64,31 @@ ac_policy_show() {
     local f; f=$(_ac_policy_file)
     [[ -f "$f" ]] || { ac_error "policy: no file at $f — run --policy-init"; return 1; }
     jq . "$f"
+}
+
+# ac_policy_endpoints_validate — validate .endpoints against the v1 schema
+# (spec 2026-07-16). rc 0 clean; rc 1 with one ac_error line PER defect
+# (report everything, make the human's single edit pass complete).
+# Schema: kind local|vllm|api · local requires exec · vllm/api require url ·
+# api url must be https:// (vllm may be http — LAN reality).
+ac_policy_endpoints_validate() {
+    local f; f=$(_ac_policy_file)
+    [[ -f "$f" ]] || { ac_error "policy: no file at $f — run: antcrate policy seed"; return 1; }
+    local errs
+    errs=$(jq -r '
+      (.endpoints // {}) | to_entries[] | .key as $n | .value as $e |
+      ( if (["local","vllm","api"] | index($e.kind // "")) == null
+        then "\($n): kind must be local|vllm|api (got: \($e.kind // "missing"))" else empty end ),
+      ( if ($e.kind // "") == "local" and (($e.exec // "") == "")
+        then "\($n): kind local requires exec" else empty end ),
+      ( if ((($e.kind // "") == "vllm") or (($e.kind // "") == "api")) and (($e.url // "") == "")
+        then "\($n): kind \($e.kind) requires url" else empty end ),
+      ( if ($e.kind // "") == "api" and (($e.url // "") != "")
+           and (($e.url // "") | startswith("https://") | not)
+        then "\($n): api url must be https:// (got: \($e.url))" else empty end )
+    ' "$f" 2>/dev/null) || { ac_error "policy: cannot read endpoints (invalid JSON?)"; return 1; }
+    [[ -z "$errs" ]] && return 0
+    local line
+    while IFS= read -r line; do ac_error "policy endpoint $line"; done <<< "$errs"
+    return 1
 }
