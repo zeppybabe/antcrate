@@ -1,4 +1,4 @@
-%% antcrate tree — generated 2026-07-16T00:12:50Z
+%% antcrate tree — generated 2026-07-17T06:15:45Z
 graph TD
   root(["antcrate"])
   1["AGENTS.md"]
@@ -157,30 +157,32 @@ graph TD
   8a9 --> 8a9al
   8a9am["safety.sh"]
   8a9 --> 8a9am
-  8a9an["scaffold.sh"]
+  8a9an["sandbox.sh"]
   8a9 --> 8a9an
-  8a9ao["scan.sh"]
+  8a9ao["scaffold.sh"]
   8a9 --> 8a9ao
-  8a9ap["schema.sh"]
+  8a9ap["scan.sh"]
   8a9 --> 8a9ap
-  8a9aq["selfcheck.sh"]
+  8a9aq["schema.sh"]
   8a9 --> 8a9aq
-  8a9ar["subbranch.sh"]
+  8a9ar["selfcheck.sh"]
   8a9 --> 8a9ar
-  8a9as[/targets/]
+  8a9as["subbranch.sh"]
   8a9 --> 8a9as
-  8a9as1["git_mirror.sh"]
-  8a9as --> 8a9as1
-  8a9as2["local.sh"]
-  8a9as --> 8a9as2
-  8a9at["targets.sh"]
+  8a9at[/targets/]
   8a9 --> 8a9at
-  8a9au["tooling.sh"]
+  8a9at1["git_mirror.sh"]
+  8a9at --> 8a9at1
+  8a9at2["local.sh"]
+  8a9at --> 8a9at2
+  8a9au["targets.sh"]
   8a9 --> 8a9au
-  8a9av["watch.sh"]
+  8a9av["tooling.sh"]
   8a9 --> 8a9av
-  8a9aw["watch_window.sh"]
+  8a9aw["watch.sh"]
   8a9 --> 8a9aw
+  8a9ax["watch_window.sh"]
+  8a9 --> 8a9ax
   8a10[/systemd/]
   8a --> 8a10
   8a10a["antcrate-backup.service"]
@@ -277,116 +279,124 @@ graph TD
   8a12 --> 8a12p
   8a12q["duties_typed.bats"]
   8a12 --> 8a12q
-  8a12r["env_guard.bats"]
+  8a12r["endpoint_run.bats"]
   8a12 --> 8a12r
-  8a12s["env_scan.bats"]
+  8a12s["env_guard.bats"]
   8a12 --> 8a12s
-  8a12t["events.bats"]
+  8a12t["env_scan.bats"]
   8a12 --> 8a12t
-  8a12u["fetch.bats"]
+  8a12u["events.bats"]
   8a12 --> 8a12u
-  8a12v["gate.bats"]
+  8a12v["fetch.bats"]
   8a12 --> 8a12v
-  8a12w["gateway_guard.bats"]
+  8a12w[/fixtures/]
   8a12 --> 8a12w
-  8a12x["git_init.bats"]
+  8a12w1["mock-llm"]
+  8a12w --> 8a12w1
+  8a12x["gate.bats"]
   8a12 --> 8a12x
-  8a12y["git_triage.bats"]
+  8a12y["gateway_guard.bats"]
   8a12 --> 8a12y
-  8a12z["health.bats"]
+  8a12z["git_init.bats"]
   8a12 --> 8a12z
-  8a12aa["hook_autoinstall.bats"]
+  8a12aa["git_triage.bats"]
   8a12 --> 8a12aa
-  8a12ab["hook_smoke.bats"]
+  8a12ab["health.bats"]
   8a12 --> 8a12ab
-  8a12ac["hooks.bats"]
+  8a12ac["hook_autoinstall.bats"]
   8a12 --> 8a12ac
-  8a12ad["hygiene.bats"]
+  8a12ad["hook_smoke.bats"]
   8a12 --> 8a12ad
-  8a12ae["ingest.bats"]
+  8a12ae["hooks.bats"]
   8a12 --> 8a12ae
-  8a12af["install_from_source.bats"]
+  8a12af["hygiene.bats"]
   8a12 --> 8a12af
-  8a12ag["intel.bats"]
+  8a12ag["ingest.bats"]
   8a12 --> 8a12ag
-  8a12ah["launchd_install.bats"]
+  8a12ah["install_from_source.bats"]
   8a12 --> 8a12ah
-  8a12ai["lifecycle.bats"]
+  8a12ai["intel.bats"]
   8a12 --> 8a12ai
-  8a12aj["lock.bats"]
+  8a12aj["launchd_install.bats"]
   8a12 --> 8a12aj
-  8a12ak["md_scaffold.bats"]
+  8a12ak["lifecycle.bats"]
   8a12 --> 8a12ak
-  8a12al["migrate.bats"]
+  8a12al["lock.bats"]
   8a12 --> 8a12al
-  8a12am["new_bundle.bats"]
+  8a12am["md_scaffold.bats"]
   8a12 --> 8a12am
-  8a12an["paths.bats"]
+  8a12an["migrate.bats"]
   8a12 --> 8a12an
-  8a12ao["policy.bats"]
+  8a12ao["new_bundle.bats"]
   8a12 --> 8a12ao
-  8a12ap["pp_gate.bats"]
+  8a12ap["paths.bats"]
   8a12 --> 8a12ap
-  8a12aq["pp_panel.bats"]
+  8a12aq["policy.bats"]
   8a12 --> 8a12aq
-  8a12ar["preflight.bats"]
+  8a12ar["pp_gate.bats"]
   8a12 --> 8a12ar
-  8a12as["profile.bats"]
+  8a12as["pp_panel.bats"]
   8a12 --> 8a12as
-  8a12at["propose.bats"]
+  8a12at["preflight.bats"]
   8a12 --> 8a12at
-  8a12au["quarantine.bats"]
+  8a12au["profile.bats"]
   8a12 --> 8a12au
-  8a12av["rag.bats"]
+  8a12av["propose.bats"]
   8a12 --> 8a12av
-  8a12aw["register.bats"]
+  8a12aw["quarantine.bats"]
   8a12 --> 8a12aw
-  8a12ax["registry.bats"]
+  8a12ax["rag.bats"]
   8a12 --> 8a12ax
-  8a12ay["relocate.bats"]
+  8a12ay["register.bats"]
   8a12 --> 8a12ay
-  8a12az["safety_gate.bats"]
+  8a12az["registry.bats"]
   8a12 --> 8a12az
-  8a12ba["safety_zones.bats"]
+  8a12ba["relocate.bats"]
   8a12 --> 8a12ba
-  8a12bb["scaffold.bats"]
+  8a12bb["safety_gate.bats"]
   8a12 --> 8a12bb
-  8a12bc["scan.bats"]
+  8a12bc["safety_zones.bats"]
   8a12 --> 8a12bc
-  8a12bd["schema.bats"]
+  8a12bd["sandbox.bats"]
   8a12 --> 8a12bd
-  8a12be["selfcheck.bats"]
+  8a12be["scaffold.bats"]
   8a12 --> 8a12be
-  8a12bf["session_budget_guard_models.bats"]
+  8a12bf["scan.bats"]
   8a12 --> 8a12bf
-  8a12bg["session_gate.bats"]
+  8a12bg["schema.bats"]
   8a12 --> 8a12bg
-  8a12bh["shellcheck_on_save.bats"]
+  8a12bh["selfcheck.bats"]
   8a12 --> 8a12bh
-  8a12bi["skills_builder.bats"]
+  8a12bi["session_budget_guard_models.bats"]
   8a12 --> 8a12bi
-  8a12bj["subcmd.bats"]
+  8a12bj["session_gate.bats"]
   8a12 --> 8a12bj
-  8a12bk["targets.bats"]
+  8a12bk["shellcheck_on_save.bats"]
   8a12 --> 8a12bk
-  8a12bl["targets_git_mirror.bats"]
+  8a12bl["skills_builder.bats"]
   8a12 --> 8a12bl
-  8a12bm["targets_local.bats"]
+  8a12bm["subcmd.bats"]
   8a12 --> 8a12bm
-  8a12bn["test_helper.bash"]
+  8a12bn["targets.bats"]
   8a12 --> 8a12bn
-  8a12bo["tooling.bats"]
+  8a12bo["targets_git_mirror.bats"]
   8a12 --> 8a12bo
-  8a12bp["watch.bats"]
+  8a12bp["targets_local.bats"]
   8a12 --> 8a12bp
-  8a12bq["watch_live.bats"]
+  8a12bq["test_helper.bash"]
   8a12 --> 8a12bq
-  8a12br["watch_smoke.bats"]
+  8a12br["tooling.bats"]
   8a12 --> 8a12br
-  8a12bs["watch_window.bats"]
+  8a12bs["watch.bats"]
   8a12 --> 8a12bs
-  8a12bt["wrapper_dispatch.bats"]
+  8a12bt["watch_live.bats"]
   8a12 --> 8a12bt
+  8a12bu["watch_smoke.bats"]
+  8a12 --> 8a12bu
+  8a12bv["watch_window.bats"]
+  8a12 --> 8a12bv
+  8a12bw["wrapper_dispatch.bats"]
+  8a12 --> 8a12bw
   8b[/docs/]
   8 --> 8b
   8b1["AntCrate_blueprint_v0.pdf"]
@@ -507,6 +517,10 @@ graph TD
   9b1 --> 9b1q
   9b1r["2026-07-14-bizcrate-v0-plan.md"]
   9b1 --> 9b1r
+  9b1s["2026-07-16-endpoint-policy-sandbox-design.md"]
+  9b1 --> 9b1s
+  9b1t["2026-07-16-endpoint-policy-sandbox-plan.md"]
+  9b1 --> 9b1t
   9b2[/specs/]
   9b --> 9b2
   9b2a["2026-05-31-harness-enforcement-layer.md"]
