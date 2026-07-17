@@ -93,6 +93,10 @@ These rules govern any AI agent (Claude Code, Cursor, etc.) operating on or with
 
 22. **`policy.json` is human territory except one grant.** In `~/.antcrate/anycrate/policy.json`, only `budgets.fable` is agent-adjustable — by the orchestrator (Cable), evidence-backed, with a ledger entry recorded at change time. Every other key (`models`, `classes`, other models' budgets, `skill_overrides`, `budget_usd`) is human-only or goes through `--propose`. Seeding via `--policy-init` is allowed anywhere (idempotent, never clobbers).
 
+23. **Endpoints in `policy.json` are HUMAN-ONLY.** Agents may read `.endpoints` and reference endpoints by name (e.g. `ac_endpoint_run <name>`), but NEVER add, edit, or remove one — file a proposal (`antcrate propose`) instead. Same standing as `~/.antcrate/config` (rule #13) and the intel-sources file (`~/.config/antcrate/intel-sources.json`, human-curated per `antcrate intel pull`): agents get read access, never write access.
+
+24. **Agents MUST NOT set `ANTCRATE_SANDBOX_DISABLE`.** The sandbox around local-inference launches (`ac_sandbox_run`, `ac_endpoint_run`) is a safety boundary, not a convenience. If a launch fails under the sandbox — degraded host, missing `systemd-run`, whatever the cause — report it and stop; do not bypass it. Same class as `ANTCRATE_COST_GUARD_DISABLE` (rule #21) and the other CI-only escape hatches.
+
 ## Soft rules (proceed but log to ledger)
 
 - New project creation via `--start` or `--branch` — fine, log path to ledger.

@@ -48,7 +48,7 @@ Four mechanisms compose, strictest innermost:
 
 ### The agent boundary
 
-Codified in `assets/code/AGENTS.md` (the hard rules). The operational summary: agents use wrapper flags, never bare structural/destructive/push commands; when no flag fits, they file `--propose`; actions only the human may take are filed with `--duty`; `~/.antcrate/config` is human-only territory; escape hatches (`ANTCRATE_CANARY_DISABLE`, `ANTCRATE_SESSION_GATE_DISABLE`, `ANTCRATE_ENV_GUARD_DISABLE`) exist for CI and are off-limits to agents.
+Codified in `assets/code/AGENTS.md` (the hard rules). The operational summary: agents use wrapper flags, never bare structural/destructive/push commands; when no flag fits, they file `--propose`; actions only the human may take are filed with `--duty`; `~/.antcrate/config` is human-only territory, as are endpoints in `policy.json`; escape hatches (`ANTCRATE_CANARY_DISABLE`, `ANTCRATE_SESSION_GATE_DISABLE`, `ANTCRATE_ENV_GUARD_DISABLE`, `ANTCRATE_SANDBOX_DISABLE`) exist for CI and are off-limits to agents.
 
 ## COMMANDS
 
@@ -312,6 +312,42 @@ Unread items (new minus acked, both append-only). `--kind` filters by source kin
 **`antcrate intel ack all | <id> [<sha256>]`** / **`antcrate intel st`**
 Mark reviewed (everything, one source, or one item); per-source kind / last-pull / last-change / unread summary (user extras marked `(user)`). Nothing in the intel tree is ever deleted.
 
+### Model endpoints & sandbox
+
+`~/.antcrate/anycrate/policy.json` carries an `.endpoints` map (spec 2026-07-16) describing where local/remote model inference may run. Three kinds, validated by `ac_policy_endpoints_validate` (reports every defect, not just the first):
+
+| Kind | Requires | Notes |
+|---|---|---|
+| `local` | `exec` | Optional `model_file` (passed as `-m`, `~` expanded) and `sandbox` (bool, default `true`). The only kind AntCrate ever launches. |
+| `vllm` | `url` | Remote; `http://` allowed (LAN reality). Read/reference only — never launched by `ac_endpoint_run`. |
+| `api` | `url` | Remote; `url` **must** be `https://`. Read/reference only. |
+
+**`antcrate policy`**
+Pretty-prints the whole policy file, then an `.endpoints` table (`name  [kind]  url-or-exec`), an edit hint, and the schema line above. Also runs the endpoints validator and surfaces every defect found.
+
+**`antcrate policy seed`**
+Idempotent seed (compact-word form of `--policy-init`): writes the file only if absent, never clobbers an existing one.
+
+Endpoints are **HUMAN-ONLY**: agents may read `.endpoints` and reference an endpoint by name, but must never add, edit, or remove one — file `antcrate propose` instead (AGENTS.md rule #23; same standing as `~/.antcrate/config` and the intel-sources file). Edit by hand at `~/.antcrate/anycrate/policy.json`.
+
+`antcrate st` shows a one-line summary — `policy: N endpoints (M local) · sandbox available|unavailable` — or, if the file is missing, `policy: missing — fix: antcrate policy seed`. The doctor also carries an optional `policy` row (`present` / `policy.json absent — budget guards inert`, fix `antcrate policy seed`).
+
+**Launching a local endpoint — `ac_endpoint_run <name> [args...]`** (lib function, no wrapper flag): reads the prompt on stdin, writes completion to stdout. Refuses (never downgrades) unknown names, non-`local` kinds, and endpoints with no `exec` — all rc 1. Endpoint names are allowlisted to `^[A-Za-z0-9._-]+$` before being interpolated into a jq path (injection guard). Sandboxed by default; an endpoint may opt out with `"sandbox": false` (human-set field, same as every other endpoint property).
+
+**Sandbox behavior** (`lib/sandbox.sh`, `ac_sandbox_run <write_path> -- <cmd...>`): `systemd-run --user` hardening — `PrivateNetwork=yes`, `ProtectHome=read-only`, `ReadWritePaths=<write_path>`, `PrivateTmp=yes`, `NoNewPrivileges=yes`. `<write_path>` must be absolute and whitespace-free (rc 2 otherwise — whitespace would silently widen `ReadWritePaths` to multiple paths).
+
+| Host | Behavior |
+|---|---|
+| Linux, hardening verified | Enforced. `ac_sandbox_capable` launches a real hardened probe unit and checks confinement *from inside* it (only-loopback networking, unwritable `$HOME`) — not merely "did `systemd-run` exit 0". |
+| Linux, degraded (`kernel.apparmor_restrict_unprivileged_userns=1`, the Ubuntu 23.10+/24.04 default) | `systemd-run` succeeds but the kernel silently drops `PrivateNetwork`/`ProtectHome`; the probe's from-inside check catches this. Warns "hardening not enforceable on this host (kernel/AppArmor restriction?)" and runs unsandboxed. |
+| macOS | No non-deprecated user-space isolation primitive (`sandbox-exec` is deprecated). Warns "unavailable on this OS" and runs unsandboxed (owner decision 2026-07-16: enforced-on-Linux, warn-on-macOS). |
+| Any host, endpoint `"sandbox": false` | Per-endpoint human opt-out; runs unsandboxed, no warning (it's a deliberate policy setting, not a degrade). |
+| Any host, `ANTCRATE_SANDBOX_DISABLE=1` | Human escape hatch, warned. Agents MUST NOT set this (AGENTS.md rule #24) — if a launch fails under the sandbox, report it, don't bypass it. |
+
+**One-shot only.** V1 launches are single inference calls, not persistent servers: `PrivateNetwork=yes` is safe precisely because nothing outside the unit needs to reach in. A long-running server inside a private network namespace would be unreachable from the caller, so persistent sandboxed serving is out of scope (tracked for a future data-egress-classes design).
+
+**Testing:** `tests/fixtures/mock-llm` is a deterministic model stand-in — reads the prompt on stdin, emits canned output, ignores argv. `MOCK_LLM_MODE` selects behavior: `ok` (default, echoes a char-count summary), `slow` (2s sleep then done), `garbage` (unparseable bytes), `tries-network` (attempts an outbound connection — must fail under `PrivateNetwork=yes`; a positive proof the sandbox is real). `ac_endpoint_run` carries `MOCK_LLM_MODE` through explicitly via `env(1)` since `systemd-run` units don't inherit the caller's environment. Also the designated test double for BizCrate v0.5's local tier.
+
 ### Obsidian
 
 **`antcrate --obsidian-mirror [project] [--with-docs]`**
@@ -366,6 +402,7 @@ Smoke-test any of them with `antcrate --hook-smoke`. Override knobs (`ANTCRATE_S
 | `~/.antcrate/ci-baseline.json` | Last CI pass + audit baseline |
 | `~/.antcrate/intel/` | Pinned-source snapshots + `new.jsonl`/`acked.jsonl` (append-only) |
 | `~/.antcrate/canary/state.json` | Compaction-canary state |
+| `~/.antcrate/anycrate/policy.json` | Model/budget/endpoint policy — human-only except `budgets.fable` (rule #22) and endpoints (rule #23); seed with `antcrate policy seed` |
 | `~/.antcrate/log/{wrapper,daemon}.log` | Leveled logs |
 | `~/.antcrate/daemon.{pid,lock}`, `pipe.paused` | Daemon coordination |
 | `<project>/duties.md` | Human-only action checklist (antcrate repo root) |
@@ -392,7 +429,8 @@ Smoke-test any of them with `antcrate --hook-smoke`. Override knobs (`ANTCRATE_S
 | `ANTCRATE_INGEST_OFFLINE` | `0` | Skip bundle reachability checks |
 | `ANTCRATE_SESSION_SOFT` / `_HARD` | `100000` / `140000` | Session-budget gate thresholds (human-only) |
 | `ANTCRATE_ALLOW_OUTSIDE_ROOT` | unset | Required guard for any path mutation outside `$ANTCRATE_ROOT` |
-| `ANTCRATE_CANARY_DISABLE`, `ANTCRATE_SESSION_GATE_DISABLE`, `ANTCRATE_ENV_GUARD_DISABLE` | unset | CI/test escape hatches — **agents must never set these** |
+| `ANTCRATE_CANARY_DISABLE`, `ANTCRATE_SESSION_GATE_DISABLE`, `ANTCRATE_ENV_GUARD_DISABLE`, `ANTCRATE_SANDBOX_DISABLE` | unset | CI/test escape hatches — **agents must never set these** |
+| `MOCK_LLM_MODE` | `ok` | Selects `tests/fixtures/mock-llm` behavior: `ok`\|`slow`\|`garbage`\|`tries-network` — test-only |
 
 ## EXIT STATUS
 

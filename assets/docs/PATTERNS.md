@@ -276,8 +276,10 @@ Research order of record: **TH duty → `--fetch` → model research LAST** (AGE
 
 | Intent | Command | Notes |
 |---|---|---|
-| See model tiers / budgets / classes | `antcrate policy` | Pretty-prints `~/.antcrate/anycrate/policy.json`. Only `budgets.fable` is agent-adjustable (rule #22). |
+| See model tiers / budgets / classes / endpoints | `antcrate policy` | Pretty-prints `~/.antcrate/anycrate/policy.json` plus an `.endpoints` table, edit hint, and schema line. Only `budgets.fable` is agent-adjustable (rule #22); endpoints are HUMAN-ONLY (rule #23). |
 | Seed the policy file | `antcrate --policy-init` | Idempotent — never clobbers an existing file. |
+| Seed policy.json (idempotent) | `antcrate policy seed` | Compact-word form of `--policy-init`. |
+| Launch a local model endpoint (sandboxed) | lib: `ac_endpoint_run <name>` — prompt on stdin | Only `kind: local` endpoints launch (vllm/api refuse, rc 1). Sandboxed by default via `ac_sandbox_run`; endpoint `"sandbox": false` opts out. Endpoints are HUMAN-ONLY in policy.json (rule #23) — agents call by name, never add/edit one. |
 | Fetch a web page without spending model tokens | `antcrate fetch <url> [--name <slug>]` | Normalizes (script/tag-strip) + snapshots to `~/.antcrate/fetch/<slug>/`, append-only and hash-keyed; unchanged content = no new snapshot. http(s) only. |
 
 Hooks backing this layer (wired in `~/.claude/settings.json`): `session-budget-guard.sh` is the REACTIVE gate (model-aware budgets — Fable soft 250k / hard 400k, default 100k/140k); `cost-anticipator.sh` is the PREDICTIVE gate (PreToolUse Skill|Agent|Read — estimates the call's token load first, warns past soft, blocks past hard/window naming a cheaper path). Both fail open; DISABLE hatches are human-only.
