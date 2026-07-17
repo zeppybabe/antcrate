@@ -62,8 +62,17 @@ ac_policy_get() {
 
 ac_policy_show() {
     local f; f=$(_ac_policy_file)
-    [[ -f "$f" ]] || { ac_error "policy: no file at $f — run --policy-init"; return 1; }
+    [[ -f "$f" ]] || { ac_error "policy: no file at $f — run: antcrate policy seed"; return 1; }
     jq . "$f"
+    printf '\nendpoints:\n'
+    local rows
+    rows=$(jq -r '(.endpoints // {}) | to_entries[]
+        | "  \(.key)  [\(.value.kind // "?")]  \(.value.url // .value.exec // "-")"' "$f" 2>/dev/null)
+    if [[ -n "$rows" ]]; then printf '%s\n' "$rows"; else printf '  (none)\n'; fi
+    printf 'edit: %s — HUMAN-ONLY (agents: antcrate propose)\n' "$f"
+    printf 'schema: kind local|vllm|api · local needs exec · vllm/api need url · api must be https\n'
+    ac_policy_endpoints_validate || true   # loud on defects, show itself still succeeds
+    return 0
 }
 
 # ac_policy_endpoints_validate — validate .endpoints against the v1 schema

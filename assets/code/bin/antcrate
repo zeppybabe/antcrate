@@ -244,7 +244,8 @@ Commands:
   --restore <project> [--at <ts>]     restore project from backup (latest if --at omitted)
   --propose <name> "<description>"    log a proposed pattern (escape valve when no flag fits)
   --proposals                         list all logged pattern proposals
-  --policy                            show the policy.json file (models/budgets/classes)
+  --policy                            show policy.json (models/budgets/classes/endpoints)
+                                      word form: antcrate policy [seed]
   --policy-init                       seed policy.json if absent (idempotent)
   --duty [--type <t>] "<text>"        append a human-only action to duties.md (checklist);
                                       types: policy|command|research|debug (untyped = policy)
@@ -611,7 +612,11 @@ elif [[ "${1:0:1}" != "-" ]]; then
                     install) shift; set -- --tool-install "$@" ;;
                     *)       set -- --tool-install "$@" ;;
                 esac ;;
-        pp|commit|watch|scan|fetch|map|anchor|in|info|list|status|start|branch|link|ingest|backup|backups|restore|propose|proposals|policy|diff|logs|ci|ghosts|deregister|cleanup|relocate|archive|unarchive|remove|rename|bootstrap|register|init|selftest|selfcheck|selfsrc|profile)
+        policy) case "${1:-}" in
+                    seed) shift; set -- --policy-init "$@" ;;
+                    *)    set -- --policy "$@" ;;
+                esac ;;
+        pp|commit|watch|scan|fetch|map|anchor|in|info|list|status|start|branch|link|ingest|backup|backups|restore|propose|proposals|diff|logs|ci|ghosts|deregister|cleanup|relocate|archive|unarchive|remove|rename|bootstrap|register|init|selftest|selfcheck|selfsrc|profile)
                 set -- "--$_sub" "$@" ;;
         *)      ac_error "unknown command: $_sub (try: antcrate help)"; exit 2 ;;
     esac

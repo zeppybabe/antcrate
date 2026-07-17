@@ -143,3 +143,25 @@ _seed_with_endpoints() {
     [[ "$output" == *"kind must be"* ]]
     [[ "$output" == *"requires exec"* ]]
 }
+
+@test "policy: show includes endpoints table, edit hint, and human-only marker" {
+    _seed_with_endpoints '{"local-llama": {"kind":"local","exec":"llama-cli"}}'
+    run src "ac_policy_show"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"local-llama"* ]]
+    [[ "$output" == *"HUMAN-ONLY"* ]]
+    [[ "$output" == *"anycrate/policy.json"* ]]
+}
+
+@test "policy: show surfaces endpoint defects loudly but still rc 0" {
+    _seed_with_endpoints '{"bad": {"kind":"nope"}}'
+    run src "ac_policy_show"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"kind must be"* ]]
+}
+
+@test "policy: show on missing file names the word-form fix" {
+    run src "ac_policy_show"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"antcrate policy seed"* ]]
+}
