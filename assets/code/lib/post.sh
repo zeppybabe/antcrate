@@ -121,3 +121,54 @@ ac_post_x_len() {
 
 # ac_post_urlencode <text>
 ac_post_urlencode() { jq -rn --arg t "$1" '$t|@uri'; }
+
+# ac_post_repo_url <project> <path> — public https URL for the draft, or "".
+ac_post_repo_url() {
+    local url
+    url=$(ac_registry_get "$1" git_remote); [[ -z "$url" ]] \
+        && url=$(git -C "$2" remote get-url origin 2>/dev/null || true)
+    [[ -z "$url" ]] && return 0
+    url="${url%.git}"
+    case "$url" in
+        git@*) url="https://${url#git@}"; url="${url/://}" ;;
+    esac
+    printf '%s\n' "$url"
+}
+
+# ac_post_material <project> — rc 0 material, rc 2 unknown project, rc 3 empty range.
+ac_post_material() {
+    local project="$1" path last range log url subjects draft s
+    path=$(ac_registry_get "$project" path)
+    if [[ -z "$path" || ! -d "$path/.git" ]]; then
+        ac_error "post: unknown project or not a git repo: '$project'"
+        return 2
+    fi
+    if last=$(ac_post_last_sha "$project"); then
+        range="$last..HEAD"
+    else
+        range="HEAD~10..HEAD"
+        # shallow histories: fall back to root
+        git -C "$path" rev-parse -q --verify HEAD~10 >/dev/null 2>&1 || range="HEAD"
+    fi
+    log=$(git -C "$path" log --format='%h %s%n%b' "$range" 2>/dev/null || true)
+    if [[ -z "${log//[[:space:]]/}" ]]; then
+        ac_error "post: nothing to post for '$project' since ${last:-the beginning}"
+        return 3
+    fi
+    url=$(ac_post_repo_url "$project" "$path")
+    printf '=== MATERIAL (%s, %s) ===\n' "$project" "$range"
+    printf '%s\n' "$log" | ac_post_redact
+    [[ -n "$url" ]] && printf 'repo: %s\n' "$url"
+    printf '=== DRAFT ===\n'
+    subjects=$(git -C "$path" log --format='%s' "$range" 2>/dev/null || true)
+    draft="$project update:"
+    while IFS= read -r s; do
+        [[ -z "$s" ]] && continue
+        if [[ $(ac_post_x_len "$draft; $s ${url:+$url}") -le 280 ]]; then
+            if [[ "$draft" == "$project update:" ]]; then draft="$draft $s"
+            else draft="$draft; $s"; fi
+        fi
+    done <<< "$subjects"
+    [[ -n "$url" ]] && draft="$draft $url"
+    printf '%s\n' "$draft" | ac_post_redact
+}
