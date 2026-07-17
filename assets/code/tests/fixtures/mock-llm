@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# mock-llm — deterministic local-model stand-in (spec 2026-07-16).
+# Reads the prompt on stdin, emits canned output on stdout. Ignores argv
+# (a real runner gets -m <model_file>; the mock doesn't need it).
+# Modes via MOCK_LLM_MODE: ok (default) | slow | garbage | tries-network.
+# Also the designated test double for BizCrate v0.5's local tier.
+set -u
+prompt="$(cat)"
+case "${MOCK_LLM_MODE:-ok}" in
+    ok)      printf 'MOCK-OK(%s chars): deterministic summary\n' "${#prompt}" ;;
+    slow)    sleep 2; printf 'MOCK-SLOW: done\n' ;;
+    garbage) printf 'MOCK-GARBAGE: \001\002 not parseable \003\n' ;;
+    tries-network)
+        # positive sandbox proof: under PrivateNetwork=yes this MUST fail
+        if bash -c 'exec 3<>/dev/tcp/1.1.1.1/80' 2>/dev/null; then
+            printf 'NETWORK-REACHED\n'
+            exit 42
+        fi
+        printf 'NETWORK-BLOCKED\n' ;;
+    *)       echo "mock-llm: unknown MOCK_LLM_MODE '${MOCK_LLM_MODE}'" >&2; exit 2 ;;
+esac

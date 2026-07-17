@@ -104,3 +104,37 @@ ac_sandbox_run() {
         -p NoNewPrivileges=yes \
         -- "$@"
 }
+
+# ac_endpoint_run <name> [extra-args...]
+# Launch a kind:local endpoint from policy.json — prompt on stdin, completion
+# on stdout. Sandboxed by default (endpoint "sandbox": false opts out —
+# HUMAN-set, like all endpoint fields). vllm/api endpoints are remote and are
+# REFUSED here, not downgraded (bizcrate fail-closed stance).
+# MOCK_LLM_MODE passes through when set: systemd-run units do not inherit the
+# caller's environment, so it is carried explicitly via env(1).
+ac_endpoint_run() {
+    local name="${1:-}"
+    [[ -n "$name" ]] || { ac_error "endpoint: usage: ac_endpoint_run <name> [args...]"; return 2; }
+    shift
+    local kind
+    kind=$(ac_policy_get ".endpoints[\"$name\"].kind") \
+        || { ac_error "endpoint: no policy file — run: antcrate policy seed"; return 1; }
+    [[ -n "$kind" ]] || { ac_error "endpoint: unknown endpoint '$name'"; return 1; }
+    [[ "$kind" == "local" ]] \
+        || { ac_error "endpoint: '$name' is kind $kind — only local endpoints are launched"; return 1; }
+    local exec_bin model_file sandboxed
+    exec_bin=$(ac_policy_get ".endpoints[\"$name\"].exec")
+    [[ -n "$exec_bin" ]] || { ac_error "endpoint: '$name' has no exec"; return 1; }
+    model_file=$(ac_policy_get ".endpoints[\"$name\"].model_file")
+    sandboxed=$(ac_policy_get ".endpoints[\"$name\"].sandbox")
+    local -a cmd=()
+    [[ -n "${MOCK_LLM_MODE:-}" ]] && cmd+=( env "MOCK_LLM_MODE=$MOCK_LLM_MODE" )
+    cmd+=( "$exec_bin" )
+    [[ -n "$model_file" ]] && cmd+=( -m "${model_file/#\~/$HOME}" )
+    cmd+=( "$@" )
+    if [[ "$sandboxed" == "false" ]]; then
+        "${cmd[@]}"
+    else
+        ac_sandbox_run "${ANTCRATE_HOME:-$HOME/.antcrate}" -- "${cmd[@]}"
+    fi
+}
