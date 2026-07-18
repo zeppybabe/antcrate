@@ -172,3 +172,37 @@ ac_post_material() {
     [[ -n "$url" ]] && draft="$draft $url"
     printf '%s\n' "$draft" | ac_post_redact
 }
+
+# ac_post_open <project> <text> [handle] — the delivery step. Opens the compose
+# box pre-filled; NEVER interacts with the page. Human click on Post = publish gate.
+ac_post_open() {
+    local project="$1" text="$2" handle="${3:-}" path len acct profile last end range url
+    path=$(ac_registry_get "$project" path)
+    if [[ -z "$path" || ! -d "$path/.git" ]]; then
+        ac_error "post: unknown project or not a git repo: '$project'"
+        return 2
+    fi
+    ac_post_guard_text "$text" || return 1
+    len=$(ac_post_x_len "$text")
+    if (( len > 280 )); then
+        ac_error "post: text is $len chars (X limit 280, URLs count as 23)"
+        return 1
+    fi
+    acct=$(ac_post_account_resolve "$project" "$handle") || return 2
+    handle="${acct%%$'\t'*}"; profile="${acct##*$'\t'}"
+    last=$(ac_post_last_sha "$project" || true)
+    end=$(git -C "$path" rev-parse --short HEAD)
+    range="${last:-start}..$end"
+    url="https://x.com/intent/post?text=$(ac_post_urlencode "$text")"
+    if command -v "$ANTCRATE_BROWSER_CMD" >/dev/null 2>&1 \
+       || [[ -x "$ANTCRATE_BROWSER_CMD" ]]; then
+        ( nohup "$ANTCRATE_BROWSER_CMD" -P "$profile" --new-tab "$url" \
+            >/dev/null 2>&1 & ) || true
+        ac_info "post: opened compose for $handle (profile $profile) — click Post in the tab to publish"
+    else
+        ac_info "post: browser '$ANTCRATE_BROWSER_CMD' not found — open manually:"
+        printf '%s\n' "$url"
+    fi
+    ac_post_log_append "$project" "$handle" "$range" "$text"
+    ac_info "post: logged $range as opened ($(ac_post_log_file "$project"))"
+}
