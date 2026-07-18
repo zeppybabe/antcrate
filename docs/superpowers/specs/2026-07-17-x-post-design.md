@@ -41,8 +41,11 @@ Words-only, per CLI convention. `x` is a platform slot for later expansion.
 2. Read the update log (below) for the last posted commit; range is
    `<last>..HEAD` of the project's default branch (first post: last N=10 commits).
 3. Emit a `MATERIAL` block: commit subjects + bodies in range, project repo URL from
-   registry metadata — everything piped through the existing `--commit`
-   secret-pattern guard. Guard hits are redacted, never printed.
+   registry metadata — everything piped through a content secret guard. Guard hits
+   are redacted, never printed. *(As-built note, 2026-07-17: the existing `--commit`
+   guard is filename-based and inapplicable to commit-message content, so `post`
+   ships its own content-shape guard — `AC_POST_SECRET_ERE` in `lib/post.sh`. The
+   two guards are independent surfaces; keep both in mind when adding patterns.)*
 4. Emit a `DRAFT` block: mechanical fallback template
    (`<project> update: <subject-1>; <subject-2> … <repo-url>`), truncated to fit.
 5. Exit codes: `0` material available · `3` nothing new since last post ·
