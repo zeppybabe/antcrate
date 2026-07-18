@@ -60,6 +60,13 @@ src() {
     [[ "$output" == *"@ghost"* ]]
 }
 
+@test "account_resolve: malformed JSON rc 2" {
+    printf '%s' '{ not json' > "$ANTCRATE_X_ACCOUNTS"
+    run src "ac_post_account_resolve proj"
+    [ "$status" -eq 2 ]
+    [[ "$output" == *"malformed"* ]]
+}
+
 @test "log: last_sha rc 1 when no log" {
     run src "ac_post_last_sha proj"
     [ "$status" -eq 1 ]

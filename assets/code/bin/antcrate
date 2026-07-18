@@ -664,7 +664,7 @@ CI_SNAPSHOT="" CI_SOURCE=""
 HOOKSMOKE_ARGS=()
 PROFILE_RAW=""
 ENV_APPLY=""
-POST_TEXT="" POST_AS=""
+POST_TEXT="" POST_AS="" POST_OPEN=""
 HOOK_AUTO_DRY=""
 QUARANTINE_PROJECT="" QUARANTINE_TS=""
 RAG_QUERY="" RAG_LIMIT=""
@@ -836,7 +836,7 @@ while (( $# > 0 )); do
         --policy-init)       ACTION="policy_init"; shift ;;
         --post-x)      ACTION="post-x"; shift; NAME="${1:-}"; [[ $# -gt 0 ]] && shift ;;
         --post-x-log)  ACTION="post-x-log"; shift; NAME="${1:-}"; [[ $# -gt 0 ]] && shift ;;
-        --open)        shift; POST_TEXT="${1:-}"; [[ $# -gt 0 ]] && shift ;;
+        --open)        shift; POST_OPEN=1; POST_TEXT="${1:-}"; [[ $# -gt 0 ]] && shift ;;
         --as)          shift; POST_AS="${1:-}"; [[ $# -gt 0 ]] && shift ;;
         --duty)
             ACTION="duty"
@@ -1223,7 +1223,8 @@ case "$ACTION" in
     policy_init) ac_policy_seed ;;
     post-x)
         [[ -z "$NAME" ]] && { ac_error "post x requires <project>"; exit 2; }
-        if [[ -n "$POST_TEXT" ]]; then
+        [[ -n "$POST_OPEN" && -z "$POST_TEXT" ]] && { ac_error "post: --open requires non-empty text"; exit 2; }
+        if [[ -n "$POST_OPEN" ]]; then
             ac_post_open "$NAME" "$POST_TEXT" "$POST_AS"
         else
             ac_post_material "$NAME"

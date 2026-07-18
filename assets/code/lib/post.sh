@@ -32,6 +32,7 @@ ac_post_account_resolve() {
         ac_post_accounts_sample
         return 2
     fi
+    jq empty "$ANTCRATE_X_ACCOUNTS" >/dev/null 2>&1 || { ac_error "post: malformed JSON in $ANTCRATE_X_ACCOUNTS — fix the file by hand (human-only config)"; return 2; }
     if [[ -z "$handle" ]]; then
         handle=$(jq -r --arg p "$project" '.projects[$p] // empty' "$ANTCRATE_X_ACCOUNTS") || handle=""
         if [[ -z "$handle" ]]; then

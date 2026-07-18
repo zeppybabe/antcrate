@@ -93,3 +93,14 @@ src() {
     run "$BIN" post mastodon proj
     [ "$status" -eq 2 ]
 }
+
+@test "cli: post x --open with empty text rc 2, no material" {
+    src "ac_registry_upsert proj '$R' scripts ''"
+    run env ANTCRATE_HOME="$ANTCRATE_HOME" ANTCRATE_REGISTRY="$ANTCRATE_REGISTRY" \
+        ANTCRATE_POSTS_DIR="$ANTCRATE_POSTS_DIR" ANTCRATE_X_ACCOUNTS="$ANTCRATE_X_ACCOUNTS" \
+        ANTCRATE_BROWSER_CMD="$ANTCRATE_BROWSER_CMD" FAKEBROWSER_OUT="$FAKEBROWSER_OUT" \
+        "$BIN" post x proj --open ""
+    [ "$status" -eq 2 ]
+    [[ "$output" == *"non-empty"* ]]
+    [[ "$output" != *"=== MATERIAL"* ]]
+}
