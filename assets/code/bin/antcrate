@@ -42,6 +42,8 @@ LIB_DIR="$SCRIPT_DIR/../lib"
 # shellcheck disable=SC1091
 . "$LIB_DIR/registry.sh"
 # shellcheck disable=SC1091
+. "$LIB_DIR/post.sh"
+# shellcheck disable=SC1091
 . "$LIB_DIR/git_triage.sh"
 # shellcheck disable=SC1091
 . "$LIB_DIR/subbranch.sh"
@@ -153,6 +155,7 @@ Commands:
   mv <old> <new> · arc [-u] <p> · rm <p>            rename / (un)archive / remove — all backed up
   in <p> -- <cmd> · map <p> · watch [<p>] · scan [path] · fetch <url>
   list · diff <p> · logs [p [n]] · propose <name> "<intent>"
+  post x <p> [--open "<t>"]  X update: emit guarded material, or open pre-filled compose (--as @h overrides account)
 
 Non-interactive by default: no -y, no PREAPPROVED env. Destructive ops back up
 first and file a review duty (`antcrate duties`) when no human is present.
@@ -249,6 +252,11 @@ Commands:
   --policy                            show policy.json (models/budgets/classes/endpoints)
                                       word form: antcrate policy [seed]
   --policy-init                       seed policy.json if absent (idempotent)
+  --post-x <project> [--open "<t>"]   X update: no --open emits guarded material for manual
+               [--as <handle>]        posting; --open opens a pre-filled compose window and
+                                      logs it (--as @h overrides the configured account)
+                                      word form: antcrate post x <project> [--open "<t>"] [--as <h>]
+  --post-x-log <project>              show the post log for a project (word form: antcrate post x log <p>)
   --duty [--type <t>] "<text>"        append a human-only action to duties.md (checklist);
                                       types: policy|command|research|debug (untyped = policy)
   --duties                            numbered list of OPEN duties (typed tags shown)
@@ -621,6 +629,12 @@ elif [[ "${1:0:1}" != "-" ]]; then
                     seed) shift; set -- --policy-init "$@" ;;
                     *)    set -- --policy "$@" ;;
                 esac ;;
+        post)   case "${1:-}" in
+                    x)  shift
+                        if [[ "${1:-}" == "log" ]]; then shift; set -- --post-x-log "$@"
+                        else set -- --post-x "$@"; fi ;;
+                    *)  ac_error "post: unknown platform '${1:-}' (x)"; exit 2 ;;
+                esac ;;
         pp|commit|watch|scan|fetch|map|anchor|in|info|list|status|start|branch|link|ingest|backup|backups|restore|propose|proposals|diff|logs|ci|ghosts|deregister|cleanup|relocate|archive|unarchive|remove|rename|bootstrap|register|init|selftest|selfcheck|selfsrc|profile)
                 set -- "--$_sub" "$@" ;;
         *)      ac_error "unknown command: $_sub (try: antcrate help)"; exit 2 ;;
@@ -650,6 +664,7 @@ CI_SNAPSHOT="" CI_SOURCE=""
 HOOKSMOKE_ARGS=()
 PROFILE_RAW=""
 ENV_APPLY=""
+POST_TEXT="" POST_AS=""
 HOOK_AUTO_DRY=""
 QUARANTINE_PROJECT="" QUARANTINE_TS=""
 RAG_QUERY="" RAG_LIMIT=""
@@ -819,6 +834,10 @@ while (( $# > 0 )); do
         --proposals)         ACTION="proposals"; shift ;;
         --policy)            ACTION="policy"; shift ;;
         --policy-init)       ACTION="policy_init"; shift ;;
+        --post-x)      ACTION="post-x"; shift; NAME="${1:-}"; [[ $# -gt 0 ]] && shift ;;
+        --post-x-log)  ACTION="post-x-log"; shift; NAME="${1:-}"; [[ $# -gt 0 ]] && shift ;;
+        --open)        shift; POST_TEXT="${1:-}"; [[ $# -gt 0 ]] && shift ;;
+        --as)          shift; POST_AS="${1:-}"; [[ $# -gt 0 ]] && shift ;;
         --duty)
             ACTION="duty"
             shift
@@ -1202,6 +1221,16 @@ case "$ACTION" in
     proposals) ac_propose_list ;;
     policy)      ac_policy_show ;;
     policy_init) ac_policy_seed ;;
+    post-x)
+        [[ -z "$NAME" ]] && { ac_error "post x requires <project>"; exit 2; }
+        if [[ -n "$POST_TEXT" ]]; then
+            ac_post_open "$NAME" "$POST_TEXT" "$POST_AS"
+        else
+            ac_post_material "$NAME"
+        fi ;;
+    post-x-log)
+        [[ -z "$NAME" ]] && { ac_error "post x log requires <project>"; exit 2; }
+        ac_post_log_show "$NAME" ;;
     duty)
         [[ -z "$DUTY_TEXT" ]] && { ac_error "--duty requires \"<text>\""; exit 2; }
         if [[ -n "$DUTY_TYPE" ]]; then
