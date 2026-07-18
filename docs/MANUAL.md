@@ -379,7 +379,7 @@ Newest-first view of the project's update log. Exit 1 if nothing has been posted
 }
 ```
 
-`accounts.<handle>.profile` is the Firefox profile name passed to `-P`; `projects.<project>` is that project's default posting handle (override per call with `--as`). Missing file or unmapped project/handle prints this sample and exits 2.
+`accounts.<handle>.profile` is the Firefox profile name passed to `-P`; `projects.<project>` is that project's default posting handle (override per call with `--as`). A missing file prints this sample and exits 2; an unmapped project or unknown handle exits 2 with a plain error (no sample).
 
 `ANTCRATE_BROWSER_CMD` (default `firefox`) selects the browser binary; must accept `-P <profile> --new-tab <url>`.
 
