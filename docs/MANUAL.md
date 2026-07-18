@@ -353,6 +353,38 @@ Endpoints are **HUMAN-ONLY**: agents may read `.endpoints` and reference an endp
 **`antcrate --obsidian-mirror [project] [--with-docs]`**
 One-way mirror of the registry graph + per-project tree/ledger/docs into `<vault>/AntCrate/` (`ANTCRATE_OBSIDIAN_VAULT`). Read-only: AntCrate stays the source of truth and never reads back.
 
+### post — X update publishing
+
+Two modes, one command. `antcrate post x <project>` with no `--open` emits **MATERIAL**: a secret-guarded git log (every commit since the last post, or `HEAD~10..HEAD`/`HEAD` on a first post) plus a draft update string, printed for an AI or human to word by hand. `antcrate post x <project> --open "<text>"` is the **delivery** step: it opens a browser tab pre-filled at `x.com/intent/post` and the human clicks Post. This lib never scripts the X page — the human click is the deliberate publish gate, kept deliberately compliant with X's automation rules (site-scripting a post is prohibited there and a suspension trigger). An API/MCP delivery backend is a possible future opt-in, not this design.
+
+**`antcrate post x <project>`**
+Prints `=== MATERIAL (<project>, <range>) ===`, the redacted commit log for the range, the repo URL if known, then `=== DRAFT ===` and a redacted ≤280-char draft built from commit subjects. Exit 3 if there's nothing new since the last post (or ever, for a fresh project); exit 2 if `<project>` isn't registered or isn't a git repo.
+
+**`antcrate post x <project> --open "<text>" [--as <handle>]`**
+Guards `<text>` against credential-shaped content (refuses, exit 1, without echoing the match), then checks length with `ac_post_x_len` (URLs count as the t.co-wrapped 23 chars regardless of actual length; exit 1 with the computed count if over 280). Resolves the posting account — `<project>`'s default from `x-accounts.json`, or `--as @handle` to override — then launches `$ANTCRATE_BROWSER_CMD -P <profile> --new-tab https://x.com/intent/post?text=…`. If the browser command isn't found, prints the URL instead of failing. Either way it appends an update-log record and advances the project's range pointer. Exit 2 on config errors (missing `x-accounts.json`, unmapped project/handle) and on an unborn-HEAD repo (no commits yet — nothing to announce).
+
+**`antcrate post x log <project>`**
+Newest-first view of the project's update log. Exit 1 if nothing has been posted for it yet.
+
+**Update log** — `$ANTCRATE_POSTS_DIR/<project>.log` (default `~/.local/state/antcrate/posts/<project>.log`), append-only, tab-separated: `ISO8601Z<TAB>@handle<TAB>range<TAB>opened<TAB>text`. The `range` field (`<last-sha>..<new-sha>`, or `start..<sha>` for a first post) is both the audit trail and the pointer the next MATERIAL call resumes from.
+
+**Known v1 trade-off:** the range pointer advances at `--open` time, not at confirmed publish — so an abandoned compose tab (browser opened, human never clicks Post) still consumes that range, and the next MATERIAL call starts past it. There's no `--from` override yet; to re-post that range, hand-edit the last log record's range field back to the prior end before re-running `--open`.
+
+**`~/.config/antcrate/x-accounts.json`** is **HUMAN-ONLY** (rule #13, same standing as `~/.antcrate/config` and the intel-sources file): agents read it, never write it. Create it by hand:
+
+```json
+{
+  "accounts": { "@antcrate": { "profile": "x-antcrate" } },
+  "projects": { "antcrate": "@antcrate" }
+}
+```
+
+`accounts.<handle>.profile` is the Firefox profile name passed to `-P`; `projects.<project>` is that project's default posting handle (override per call with `--as`). Missing file or unmapped project/handle prints this sample and exits 2.
+
+`ANTCRATE_BROWSER_CMD` (default `firefox`) selects the browser binary; must accept `-P <profile> --new-tab <url>`.
+
+Exit codes: **0** material printed or compose opened + logged · **1** guard refusal (secret-shaped text) or over-length text (count included in the message) · **2** unknown/unregistered project, account-config error, or unborn-HEAD repo · **3** MATERIAL mode with nothing new to post.
+
 ### CI and self-development
 
 **`antcrate --ci [--snapshot] [--source <path>]`**
