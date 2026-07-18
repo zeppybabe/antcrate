@@ -122,3 +122,17 @@ JSON
     run src "ac_post_last_sha proj"
     [ "$status" -eq 0 ]
 }
+
+@test "open: empty repo (unborn HEAD) rc 2, no log created" {
+    E="$BATS_TEST_TMPDIR/empty"
+    mkdir -p "$E"
+    (
+        cd "$E"
+        git init -q -b master
+    )
+    src "ac_registry_upsert emptyproj '$E' scripts ''"
+    run src "ac_post_open emptyproj 'hello' ''"
+    [ "$status" -eq 2 ]
+    log=$(src "ac_post_log_file emptyproj")
+    [ ! -f "$log" ] || [ ! -s "$log" ]
+}

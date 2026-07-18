@@ -191,13 +191,13 @@ ac_post_open() {
     acct=$(ac_post_account_resolve "$project" "$handle") || return 2
     handle="${acct%%$'\t'*}"; profile="${acct##*$'\t'}"
     last=$(ac_post_last_sha "$project" || true)
-    end=$(git -C "$path" rev-parse --short HEAD)
+    end=$(git -C "$path" rev-parse --short HEAD 2>/dev/null) || { ac_error "post: '$project' has no commits yet — nothing to announce"; return 2; }
     range="${last:-start}..$end"
     url="https://x.com/intent/post?text=$(ac_post_urlencode "$text")"
     if command -v "$ANTCRATE_BROWSER_CMD" >/dev/null 2>&1 \
        || [[ -x "$ANTCRATE_BROWSER_CMD" ]]; then
         ( nohup "$ANTCRATE_BROWSER_CMD" -P "$profile" --new-tab "$url" \
-            >/dev/null 2>&1 & ) || true
+            >/dev/null 2>&1 & )
         ac_info "post: opened compose for $handle (profile $profile) — click Post in the tab to publish"
     else
         ac_info "post: browser '$ANTCRATE_BROWSER_CMD' not found — open manually:"
