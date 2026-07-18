@@ -124,13 +124,13 @@ ac_post_urlencode() { jq -rn --arg t "$1" '$t|@uri'; }
 
 # ac_post_repo_url <project> <path> — public https URL for the draft, or "".
 ac_post_repo_url() {
-    local url
+    local url suffix
     url=$(ac_registry_get "$1" git_remote); [[ -z "$url" ]] \
         && url=$(git -C "$2" remote get-url origin 2>/dev/null || true)
     [[ -z "$url" ]] && return 0
     url="${url%.git}"
     case "$url" in
-        git@*) url="https://${url#git@}"; url="${url/://}" ;;
+        git@*) suffix="${url#git@}"; suffix="${suffix/:/\/}"; url="https://$suffix" ;;
     esac
     printf '%s\n' "$url"
 }
@@ -147,7 +147,7 @@ ac_post_material() {
         range="$last..HEAD"
     else
         range="HEAD~10..HEAD"
-        # shallow histories: fall back to root
+        # fewer than 11 commits and no prior post: take everything
         git -C "$path" rev-parse -q --verify HEAD~10 >/dev/null 2>&1 || range="HEAD"
     fi
     log=$(git -C "$path" log --format='%h %s%n%b' "$range" 2>/dev/null || true)

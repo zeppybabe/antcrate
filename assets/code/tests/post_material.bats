@@ -92,3 +92,11 @@ src() {
     [[ "$output" != *"AKIAIOSFODNN7"* ]]
     [[ "$output" == *"[redacted: secret-pattern]"* ]]
 }
+
+@test "repo_url: SSH remote converted to HTTPS" {
+    src "ac_registry_upsert proj '$R' scripts ''"
+    git -C "$R" remote add origin git@github.com:someowner/somerepo.git
+    run src "ac_post_repo_url proj '$R'"
+    [ "$status" -eq 0 ]
+    [ "$output" = "https://github.com/someowner/somerepo" ]
+}
