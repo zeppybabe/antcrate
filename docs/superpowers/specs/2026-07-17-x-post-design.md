@@ -134,3 +134,15 @@ Two plain commands; no MCP server, no tokens, nothing resident.
 
 API/MCP `--send` backend · `pp` auto-draft hooks · threads, media, polls ·
 platforms other than X · post scheduling · engagement metrics.
+
+## As-built amendment (2026-07-18): drafts-folder delivery replaces web-intent
+
+Owner decision 2026-07-18: the web-intent browser delivery (`--open`, Firefox
+profiles, `x-accounts.json`) was **retired** the day after shipping, in favor of
+a simpler delivery with the same safety shape: `post x <project> --draft "<text>"`
+prepends the guarded, length-checked post to the project's **git-ignored
+`X-POSTS.md`** (newest first), and the human copies it into X — the paste is the
+publish gate. Same guard, same 280/URL=23 rule, same update log (status
+`drafted`, handle `-`; field order unchanged — antcrate-mcp parses it). Account
+config and browser plumbing deleted; multi-account is now free (paste from any
+logged-in account). The API/MCP `--send` backend remains the designated v2 slot.

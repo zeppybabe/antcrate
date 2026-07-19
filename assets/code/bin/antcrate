@@ -155,7 +155,7 @@ Commands:
   mv <old> <new> · arc [-u] <p> · rm <p>            rename / (un)archive / remove — all backed up
   in <p> -- <cmd> · map <p> · watch [<p>] · scan [path] · fetch <url>
   list · diff <p> · logs [p [n]] · propose <name> "<intent>"
-  post x <p> [--open "<t>"]  X update: emit guarded material, or open pre-filled compose (--as @h overrides account)
+  post x <p> [--draft "<t>"] X update: emit guarded material, or draft into the project's X-POSTS.md (copy-paste to X)
 
 Non-interactive by default: no -y, no PREAPPROVED env. Destructive ops back up
 first and file a review duty (`antcrate duties`) when no human is present.
@@ -252,10 +252,10 @@ Commands:
   --policy                            show policy.json (models/budgets/classes/endpoints)
                                       word form: antcrate policy [seed]
   --policy-init                       seed policy.json if absent (idempotent)
-  --post-x <project> [--open "<t>"]   X update: no --open emits guarded material for manual
-               [--as <handle>]        posting; --open opens a pre-filled compose window and
-                                      logs it (--as @h overrides the configured account)
-                                      word form: antcrate post x <project> [--open "<t>"] [--as <h>]
+  --post-x <project> [--draft "<t>"]  X update: no --draft emits guarded material to word a
+                                      post from; --draft prepends the text to the project's
+                                      git-ignored X-POSTS.md (copy-paste into X) and logs it
+                                      word form: antcrate post x <project> [--draft "<t>"]
   --post-x-log <project>              show the post log for a project (word form: antcrate post x log <p>)
   --duty [--type <t>] "<text>"        append a human-only action to duties.md (checklist);
                                       types: policy|command|research|debug (untyped = policy)
@@ -664,7 +664,7 @@ CI_SNAPSHOT="" CI_SOURCE=""
 HOOKSMOKE_ARGS=()
 PROFILE_RAW=""
 ENV_APPLY=""
-POST_TEXT="" POST_AS="" POST_OPEN=""
+POST_TEXT="" POST_DRAFT=""
 HOOK_AUTO_DRY=""
 QUARANTINE_PROJECT="" QUARANTINE_TS=""
 RAG_QUERY="" RAG_LIMIT=""
@@ -836,8 +836,7 @@ while (( $# > 0 )); do
         --policy-init)       ACTION="policy_init"; shift ;;
         --post-x)      ACTION="post-x"; shift; NAME="${1:-}"; [[ $# -gt 0 ]] && shift ;;
         --post-x-log)  ACTION="post-x-log"; shift; NAME="${1:-}"; [[ $# -gt 0 ]] && shift ;;
-        --open)        shift; POST_OPEN=1; POST_TEXT="${1:-}"; [[ $# -gt 0 ]] && shift ;;
-        --as)          shift; POST_AS="${1:-}"; [[ $# -gt 0 ]] && shift ;;
+        --draft)       shift; POST_DRAFT=1; POST_TEXT="${1:-}"; [[ $# -gt 0 ]] && shift ;;
         --duty)
             ACTION="duty"
             shift
@@ -1223,9 +1222,9 @@ case "$ACTION" in
     policy_init) ac_policy_seed ;;
     post-x)
         [[ -z "$NAME" ]] && { ac_error "post x requires <project>"; exit 2; }
-        [[ -n "$POST_OPEN" && -z "$POST_TEXT" ]] && { ac_error "post: --open requires non-empty text"; exit 2; }
-        if [[ -n "$POST_OPEN" ]]; then
-            ac_post_open "$NAME" "$POST_TEXT" "$POST_AS"
+        [[ -n "$POST_DRAFT" && -z "$POST_TEXT" ]] && { ac_error "post: --draft requires non-empty text"; exit 2; }
+        if [[ -n "$POST_DRAFT" ]]; then
+            ac_post_draft "$NAME" "$POST_TEXT"
         else
             ac_post_material "$NAME"
         fi ;;

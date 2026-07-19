@@ -1,27 +1,19 @@
 #!/usr/bin/env bats
-# tests for lib/post.sh — content guard, X length, urlencode
+# tests for lib/post.sh — content guard, X length
 
 setup() {
     export ANTCRATE_CANARY_DISABLE=1
     LIB="$BATS_TEST_DIRNAME/../lib"
     export ANTCRATE_HOME="$BATS_TEST_TMPDIR/.antcrate"
     export ANTCRATE_POSTS_DIR="$ANTCRATE_HOME/posts"
-    export ANTCRATE_X_ACCOUNTS="$BATS_TEST_TMPDIR/x-accounts.json"
     export ANTCRATE_LOG_LEVEL="error"
     mkdir -p "$ANTCRATE_HOME"
-    cat > "$ANTCRATE_X_ACCOUNTS" <<'JSON'
-{
-  "accounts": { "@antcrate": { "profile": "x-antcrate" } },
-  "projects": { "proj": "@antcrate" }
-}
-JSON
 }
 
 src() {
     bash -c '
         export ANTCRATE_HOME="'"$ANTCRATE_HOME"'"
         export ANTCRATE_POSTS_DIR="'"$ANTCRATE_POSTS_DIR"'"
-        export ANTCRATE_X_ACCOUNTS="'"$ANTCRATE_X_ACCOUNTS"'"
         export ANTCRATE_LOG_LEVEL="'"$ANTCRATE_LOG_LEVEL"'"
         . "'"$LIB"'/log.sh"
         . "'"$LIB"'/post.sh"
@@ -76,11 +68,6 @@ src() {
 @test "x_len: newline counts as 1" {
     run src "ac_post_x_len \$'a\nb'"
     [ "$output" = "3" ]
-}
-
-@test "urlencode: spaces, quotes, hash, newline" {
-    run src "ac_post_urlencode \$'a b\"#\nc'"
-    [ "$output" = "a%20b%22%23%0Ac" ]
 }
 
 @test "redact: JWT-shaped line is redacted (mawk-safe)" {

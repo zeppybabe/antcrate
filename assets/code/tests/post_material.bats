@@ -7,15 +7,8 @@ setup() {
     export ANTCRATE_HOME="$BATS_TEST_TMPDIR/.antcrate"
     export ANTCRATE_REGISTRY="$ANTCRATE_HOME/registry.json"
     export ANTCRATE_POSTS_DIR="$ANTCRATE_HOME/posts"
-    export ANTCRATE_X_ACCOUNTS="$BATS_TEST_TMPDIR/x-accounts.json"
     export ANTCRATE_LOG_LEVEL="error"
     mkdir -p "$ANTCRATE_HOME"
-    cat > "$ANTCRATE_X_ACCOUNTS" <<'JSON'
-{
-  "accounts": { "@antcrate": { "profile": "x-antcrate" } },
-  "projects": { "proj": "@antcrate" }
-}
-JSON
 
     # set up a real git repo for the project
     R="$BATS_TEST_TMPDIR/proj"
@@ -37,7 +30,6 @@ src() {
         export ANTCRATE_HOME="'"$ANTCRATE_HOME"'"
         export ANTCRATE_REGISTRY="'"$ANTCRATE_REGISTRY"'"
         export ANTCRATE_POSTS_DIR="'"$ANTCRATE_POSTS_DIR"'"
-        export ANTCRATE_X_ACCOUNTS="'"$ANTCRATE_X_ACCOUNTS"'"
         export ANTCRATE_LOG_LEVEL="'"$ANTCRATE_LOG_LEVEL"'"
         . "'"$LIB"'/log.sh"
         . "'"$LIB"'/registry.sh"

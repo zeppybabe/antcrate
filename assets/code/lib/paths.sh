@@ -42,6 +42,3 @@
 : "${ANTCRATE_CLEANUP_DIR:=$ANTCRATE_STATE_HOME/cleanup}"
 : "${ANTCRATE_FETCH_DIR:=$ANTCRATE_STATE_HOME/fetch}"
 : "${ANTCRATE_POSTS_DIR:=$ANTCRATE_STATE_HOME/posts}"
-# x-accounts.json is HUMAN-ONLY (Rule #13): libs read it, never write it.
-: "${ANTCRATE_X_ACCOUNTS:=$ANTCRATE_CONFIG_HOME/x-accounts.json}"
-: "${ANTCRATE_BROWSER_CMD:=firefox}"

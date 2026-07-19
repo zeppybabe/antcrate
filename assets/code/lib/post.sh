@@ -1,52 +1,15 @@
 #!/usr/bin/env bash
-# antcrate :: lib/post.sh — project update publishing on X (web-intent handoff, v1).
+# antcrate :: lib/post.sh — project update drafting for X (drafts-folder delivery, v1.1).
 #
-# Design: docs/superpowers/specs/2026-07-17-x-post-design.md
+# Design: docs/superpowers/specs/2026-07-17-x-post-design.md (+ 2026-07-18 pivot note)
 #  - material mode emits secret-guarded git material; an AI (or human) words the
-#    post; --open launches Firefox at x.com/intent/post pre-filled. The HUMAN
-#    click on Post is the publish gate — this lib never scripts the X page.
-#  - ~/.config/antcrate/x-accounts.json is HUMAN-ONLY (Rule #13): read, never write.
+#    post; --draft prepends it to the project's git-ignored X-POSTS.md. The HUMAN
+#    copies it into X — the paste is the publish gate; this lib never touches X.
+#  - The web-intent browser delivery (--open + x-accounts.json) was retired
+#    2026-07-18 by owner decision; see the ledger entry of that date.
 
 # Local defaults for standalone sourcing (house convention: libs redeclare paths.sh vars)
 : "${ANTCRATE_POSTS_DIR:=${XDG_STATE_HOME:-$HOME/.local/state}/antcrate/posts}"
-: "${ANTCRATE_X_ACCOUNTS:=${XDG_CONFIG_HOME:-$HOME/.config}/antcrate/x-accounts.json}"
-: "${ANTCRATE_BROWSER_CMD:=firefox}"
-
-# ac_post_accounts_sample — print a copyable sample config to stderr.
-ac_post_accounts_sample() {
-    cat >&2 <<'SAMPLE'
-post: create ~/.config/antcrate/x-accounts.json yourself (human-only file), e.g.:
-{
-  "accounts": { "@antcrate": { "profile": "x-antcrate" } },
-  "projects": { "antcrate": "@antcrate" }
-}
-SAMPLE
-}
-
-# ac_post_account_resolve <project> [handle] — stdout "handle<TAB>profile".
-# rc 2 on missing config / unmapped project / unknown handle.
-ac_post_account_resolve() {
-    local project="$1" handle="${2:-}" profile
-    if [[ ! -f "$ANTCRATE_X_ACCOUNTS" ]]; then
-        ac_error "post: missing $ANTCRATE_X_ACCOUNTS"
-        ac_post_accounts_sample
-        return 2
-    fi
-    jq empty "$ANTCRATE_X_ACCOUNTS" >/dev/null 2>&1 || { ac_error "post: malformed JSON in $ANTCRATE_X_ACCOUNTS — fix the file by hand (human-only config)"; return 2; }
-    if [[ -z "$handle" ]]; then
-        handle=$(jq -r --arg p "$project" '.projects[$p] // empty' "$ANTCRATE_X_ACCOUNTS") || handle=""
-        if [[ -z "$handle" ]]; then
-            ac_error "post: no default account for '$project' in x-accounts.json (use --as @handle or add a projects entry)"
-            return 2
-        fi
-    fi
-    profile=$(jq -r --arg h "$handle" '.accounts[$h].profile // empty' "$ANTCRATE_X_ACCOUNTS") || profile=""
-    if [[ -z "$profile" ]]; then
-        ac_error "post: account '$handle' has no profile in x-accounts.json"
-        return 2
-    fi
-    printf '%s\t%s\n' "$handle" "$profile"
-}
 
 # ac_post_log_file <project>
 ac_post_log_file() { printf '%s/%s.log\n' "$ANTCRATE_POSTS_DIR" "$1"; }
@@ -120,9 +83,6 @@ ac_post_x_len() {
       | sed -E 's#https?://[^[:space:]]+#XXXXXXXXXXXXXXXXXXXXXXX#g' \
       | wc -m | tr -d ' '
 }
-
-# ac_post_urlencode <text>
-ac_post_urlencode() { jq -rn --arg t "$1" '$t|@uri'; }
 
 # ac_post_repo_url <project> <path> — public https URL for the draft, or "".
 ac_post_repo_url() {
@@ -208,38 +168,4 @@ ac_post_draft() {
     mv "$tmp" "$f"
     ac_post_log_append "$project" "-" "$range" "$text" "drafted"
     ac_info "post: drafted $range → $f (copy the top block into X)"
-}
-
-# ac_post_open <project> <text> [handle] — the delivery step. Opens the compose
-# box pre-filled; NEVER interacts with the page. Human click on Post = publish gate.
-ac_post_open() {
-    local project="$1" text="$2" handle="${3:-}" path len acct profile last end range url
-    path=$(ac_registry_get "$project" path)
-    if [[ -z "$path" || ! -d "$path/.git" ]]; then
-        ac_error "post: unknown project or not a git repo: '$project'"
-        return 2
-    fi
-    ac_post_guard_text "$text" || return 1
-    len=$(ac_post_x_len "$text")
-    if (( len > 280 )); then
-        ac_error "post: text is $len chars (X limit 280, URLs count as 23)"
-        return 1
-    fi
-    acct=$(ac_post_account_resolve "$project" "$handle") || return 2
-    handle="${acct%%$'\t'*}"; profile="${acct##*$'\t'}"
-    last=$(ac_post_last_sha "$project" || true)
-    end=$(git -C "$path" rev-parse --short HEAD 2>/dev/null) || { ac_error "post: '$project' has no commits yet — nothing to announce"; return 2; }
-    range="${last:-start}..$end"
-    url="https://x.com/intent/post?text=$(ac_post_urlencode "$text")"
-    if command -v "$ANTCRATE_BROWSER_CMD" >/dev/null 2>&1 \
-       || [[ -x "$ANTCRATE_BROWSER_CMD" ]]; then
-        ( nohup "$ANTCRATE_BROWSER_CMD" -P "$profile" --new-tab "$url" \
-            >/dev/null 2>&1 & )
-        ac_info "post: opened compose for $handle (profile $profile) — click Post in the tab to publish"
-    else
-        ac_info "post: browser '$ANTCRATE_BROWSER_CMD' not found — open manually:"
-        printf '%s\n' "$url"
-    fi
-    ac_post_log_append "$project" "$handle" "$range" "$text"
-    ac_info "post: logged $range as opened ($(ac_post_log_file "$project"))"
 }
