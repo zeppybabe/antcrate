@@ -62,15 +62,16 @@ ac_post_last_sha() {
     printf '%s\n' "${range##*..}"
 }
 
-# ac_post_log_append <project> <handle> <range> <text> — append-only record.
+# ac_post_log_append <project> <handle> <range> <text> [status] — append-only record.
+# Field order is a stable contract (antcrate-mcp's antcrate_posts tool parses it).
 ac_post_log_append() {
-    local project="$1" handle="$2" range="$3" text="$4" f
+    local project="$1" handle="$2" range="$3" text="$4" status="${5:-drafted}" f
     f=$(ac_post_log_file "$project")
     mkdir -p "$ANTCRATE_POSTS_DIR"
     text="${text//$'\t'/ }"        # tabs are the field separator
     text="${text//$'\n'/\\n}"      # one record per line
-    printf '%s\t%s\t%s\topened\t%s\n' \
-        "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$handle" "$range" "$text" >> "$f"
+    printf '%s\t%s\t%s\t%s\t%s\n' \
+        "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$handle" "$range" "$status" "$text" >> "$f"
 }
 
 # ac_post_log_show <project> — newest first; rc 1 if no log yet.
@@ -172,6 +173,41 @@ ac_post_material() {
     done <<< "$subjects"
     [[ -n "$url" ]] && draft="$draft $url"
     printf '%s\n' "$draft" | ac_post_redact
+}
+
+# ac_post_draft <project> <text> — the delivery step. Prepends a copy-ready
+# entry to the project's git-ignored X-POSTS.md; the human pastes it into X.
+# The paste is the publish gate — this lib never touches X at all.
+ac_post_draft() {
+    local project="$1" text="$2" path len last end range f tmp today
+    path=$(ac_registry_get "$project" path)
+    if [[ -z "$path" || ! -d "$path/.git" ]]; then
+        ac_error "post: unknown project or not a git repo: '$project'"
+        return 2
+    fi
+    ac_post_guard_text "$text" || return 1
+    len=$(ac_post_x_len "$text")
+    if (( len > 280 )); then
+        ac_error "post: text is $len chars (X limit 280, URLs count as 23)"
+        return 1
+    fi
+    end=$(git -C "$path" rev-parse --short HEAD 2>/dev/null) || { ac_error "post: '$project' has no commits yet — nothing to announce"; return 2; }
+    last=$(ac_post_last_sha "$project" || true)
+    range="${last:-start}..$end"
+    # drafts stay out of the public repo: ensure the file is git-ignored
+    if ! git -C "$path" check-ignore -q X-POSTS.md 2>/dev/null; then
+        printf 'X-POSTS.md\n' >> "$path/.gitignore"
+    fi
+    f="$path/X-POSTS.md"
+    today=$(date -u +%Y-%m-%d)
+    tmp=$(mktemp)
+    {
+        printf '## %s — %s — drafted\n\n%s\n\n' "$today" "$range" "$text"
+        [[ -f "$f" ]] && cat "$f"
+    } > "$tmp"
+    mv "$tmp" "$f"
+    ac_post_log_append "$project" "-" "$range" "$text" "drafted"
+    ac_info "post: drafted $range → $f (copy the top block into X)"
 }
 
 # ac_post_open <project> <text> [handle] — the delivery step. Opens the compose
