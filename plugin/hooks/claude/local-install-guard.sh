@@ -7,9 +7,16 @@
 #     brew install, npm/pnpm/yarn global, gem install, cargo install, go install,
 #     sudo pip install
 #   - opaque download-and-run: `curl|wget … | sh/bash/python/...`, `sh -c "$(curl …)"`
+#   - two-step download-then-execute: saving a remote installer to a file and
+#     running it, either joined by an operator or as two separate tool calls
+#     (fetched paths are recorded in XDG state for 24h)
 #   - unsafe fetches: curl missing a fail-fast/transparency flag (-f/--fail)
 #
-# Escape hatch (audited): re-run with ANTCRATE_ALLOW_SYSTEM_INSTALL=1.
+# Escape hatch (audited): ANTCRATE_ALLOW_SYSTEM_INSTALL=1 must be in the
+# PROCESS ENV of the session — export it before starting, or set it in the tool
+# config. An inline `ANTCRATE_ALLOW_SYSTEM_INSTALL=1 <cmd>` prefix does NOT
+# work: this hook runs before the command and reads its own environment, so the
+# prefix has not taken effect yet. The block message says so when it sees one.
 # Global off-switch: ANTCRATE_INSTALL_GUARD_DISABLE=1.
 #
 # NOTE: no `set -e` — the guard must always exit with its own computed code.
@@ -43,7 +50,95 @@ block() {
     printf '    antcrate --tool-list               # what is available/installed\n' >&2
     printf '  If a system package is genuinely required, re-run (audited):\n' >&2
     printf '    ANTCRATE_ALLOW_SYSTEM_INSTALL=1 <your command>\n' >&2
+    # The hook reads its OWN environment; a VAR=1 prefix inside the command
+    # string sets a variable for the command, never for the guard that runs
+    # before it. Say so, or the next attempt is the identical one.
+    if [[ "$cmd" == *ANTCRATE_ALLOW_SYSTEM_INSTALL=* ]]; then
+        printf '  NOTE: an inline ANTCRATE_ALLOW_SYSTEM_INSTALL= prefix does not work —\n' >&2
+        printf '  the guard runs before your command, so the variable must already be in\n' >&2
+        printf '  the process env of the session (export it, or set it in the tool config).\n' >&2
+    fi
     exit 2
+}
+
+_abs() {  # token -> absolute path, one quote layer stripped, . and .. collapsed
+    local p="$1" part out=() joined=""
+    p="${p%\"}"; p="${p#\"}"; p="${p%\'}"; p="${p#\'}"
+    case "$p" in
+        '~'/*) p="$HOME/${p#\~/}" ;;
+        /*)    ;;
+        *)     p="$PWD/$p" ;;
+    esac
+    while IFS= read -r part; do
+        case "$part" in
+            ''|.) ;;
+            ..)   (( ${#out[@]} > 0 )) && out=("${out[@]:0:${#out[@]}-1}") ;;
+            *)    out+=("$part") ;;
+        esac
+    done < <(printf '%s\n' "${p//\//$'\n'}")
+    for part in "${out[@]+"${out[@]}"}"; do joined+="/$part"; done
+    printf '%s' "${joined:-/}"
+}
+
+# peel sudo / VAR=val and return the index of the real argv0
+_argv0_index() {
+    local -n _t="$1"
+    local i=0
+    while [ "${_t[$i]:-}" = "sudo" ] || [[ "${_t[$i]:-}" == *=* && "${_t[$i]:-}" != -* ]]; do
+        i=$((i + 1))
+    done
+    printf '%s' "$i"
+}
+
+_fetch_targets() {  # <segment> -> local paths this segment saves a REMOTE fetch to
+    local seg="$1" i j t argv0 url="" out="" bare_o=0 want=0
+    local -a toks
+    read -r -a toks <<< "$seg" || return 0
+    (( ${#toks[@]} == 0 )) && return 0
+    i="$(_argv0_index toks)"
+    argv0="${toks[$i]##*/}"
+    case "$argv0" in curl|wget) ;; *) return 0 ;; esac
+    for (( j = i + 1; j < ${#toks[@]}; j++ )); do
+        t="${toks[$j]}"
+        if [ "$want" = 1 ]; then want=0; out="$t"; continue; fi
+        case "$t" in
+            -o|--output|--output-document) want=1 ;;
+            -O) if [ "$argv0" = "curl" ]; then bare_o=1; else want=1; fi ;;
+            '>'|'>>') want=1 ;;
+            '>'*) out="${t#>}"; out="${out#>}" ;;
+            -*) ;;
+            *) [ -z "$url" ] && url="$t" ;;
+        esac
+    done
+    # only a genuinely remote source counts — local file copies are not installs
+    case "$url" in http://*|https://*|ftp://*) ;; *) return 0 ;; esac
+    if [ -n "$out" ]; then
+        _abs "$out"; printf '\n'
+    elif [ "$bare_o" = 1 ] || [ "$argv0" = "wget" ]; then
+        local bn="${url##*/}"; bn="${bn%%\?*}"
+        [ -n "$bn" ] && { _abs "$bn"; printf '\n'; }
+    fi
+    return 0
+}
+
+_exec_targets() {  # <segment> -> local script paths this segment would execute
+    local seg="$1" i j argv0 base
+    local -a toks
+    read -r -a toks <<< "$seg" || return 0
+    (( ${#toks[@]} == 0 )) && return 0
+    i="$(_argv0_index toks)"
+    argv0="${toks[$i]:-}"
+    base="${argv0##*/}"; base="${base#\\}"
+    case "$base" in
+        bash|sh|zsh|dash|ksh|python|python3|perl|ruby|node)
+            for (( j = i + 1; j < ${#toks[@]}; j++ )); do
+                case "${toks[$j]}" in -*) continue ;; esac
+                _abs "${toks[$j]}"; printf '\n'; break
+            done ;;
+        *)
+            case "$argv0" in */*|./*) _abs "$argv0"; printf '\n' ;; esac ;;
+    esac
+    return 0
 }
 
 # Single-quoted spans never expand — strip them, but keep a copy of the raw
@@ -58,6 +153,55 @@ fi
 # sh -c / bash -c wrapping a curl|wget fetch
 if printf '%s' "$cmd" | grep -Eq '\b(bash|sh|zsh|dash|ksh)[[:space:]]+-c\b.*(curl|wget)\b'; then
     block "executing a shell -c that fetches code with curl/wget"
+fi
+
+# --- two-step download-then-execute ------------------------------------------
+# `fetch | sh` is caught above. Saving the installer first and running it after
+# reaches the same place, whether the steps are joined by && in one command or
+# issued as two separate tool calls. The second shape needs a short-lived record
+# of what was fetched, kept in XDG state.
+_fetched_db="$_state/install-guard-fetched.tsv"
+_fetch_window=$(( 24 * 60 * 60 ))
+
+fetched=()
+executed=()
+while IFS= read -r seg; do
+    [ -z "$seg" ] && continue
+    while IFS= read -r p; do [ -n "$p" ] && fetched+=("$p"); done < <(_fetch_targets "$seg")
+    while IFS= read -r p; do [ -n "$p" ] && executed+=("$p"); done < <(_exec_targets "$seg")
+done < <(printf '%s\n' "$cmd" | tr '|;&' '\n')
+
+for x in "${executed[@]+"${executed[@]}"}"; do
+    for f in "${fetched[@]+"${fetched[@]}"}"; do
+        [ "$x" = "$f" ] && block "downloading a remote script and executing it in the same command"
+    done
+done
+
+if [ -n "${executed[*]+x}" ] && [ -f "$_fetched_db" ]; then
+    now="$(date +%s)"
+    while IFS=$'\t' read -r ts path; do
+        [ -z "${path:-}" ] && continue
+        [ -z "${ts//[0-9]/}" ] || continue
+        (( now - ts > _fetch_window )) && continue
+        for x in "${executed[@]+"${executed[@]}"}"; do
+            [ "$x" = "$path" ] && block "executing a script this session downloaded earlier ($path)"
+        done
+    done < "$_fetched_db"
+fi
+
+# nothing blocked — remember what was fetched so a later call is still seen
+if [ -n "${fetched[*]+x}" ]; then
+    if mkdir -p "$(dirname "$_fetched_db")" 2>/dev/null; then
+        now="$(date +%s)"
+        for f in "${fetched[@]}"; do
+            printf '%s\t%s\n' "$now" "$f" >> "$_fetched_db" 2>/dev/null || true
+        done
+        # bound the file: keep the newest 200 records
+        if [ "$(wc -l < "$_fetched_db" 2>/dev/null || echo 0)" -gt 200 ]; then
+            tail -n 200 "$_fetched_db" > "$_fetched_db.tmp" 2>/dev/null \
+                && mv "$_fetched_db.tmp" "$_fetched_db" 2>/dev/null || true
+        fi
+    fi
 fi
 
 # --- per-segment analysis: package managers + unsafe curl --------------------
