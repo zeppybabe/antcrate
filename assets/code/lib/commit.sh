@@ -23,12 +23,54 @@
 #    wrapper sub-steps use _AC_APPROVED, see ac_gate_confirm).
 #  - Then commits (Gateway Law step 6). Echoes new commit SHA to stdout.
 
-# ac_commit_secret_match <basename> — exit 0 if it matches a secret pattern
-
 # git.sh self-source: ac_is_git_repo used below; the load guard makes
 # re-sourcing free (bats tests source libs directly, without the wrapper preamble).
+# scan.sh brings ac_scan_gitleaks_bin for the content guard.
 # shellcheck disable=SC1091
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/git.sh"
+# shellcheck disable=SC1091
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/scan.sh"
+
+# ac_commit_unstage <repo> <pre_tree> — undo OUR staging, keep the user's.
+#
+# Audit 2026-07-24 (finding D). Both abort paths used to run `git reset HEAD`,
+# which unstages everything — including work the user had staged before ever
+# calling the wrapper. Someone who spent ten minutes in `git add -p` lost the
+# lot because a stray .env rode along. The wrapper may only undo what the
+# wrapper itself did.
+#
+# <pre_tree> is a tree object captured before staging; read-tree restores that
+# exact index content, blob for blob. Empty <pre_tree> means the snapshot was
+# impossible (unmerged index mid-conflict, where write-tree refuses) — then the
+# old reset is still the best available answer.
+ac_commit_unstage() {
+    local p="$1" pre_tree="$2"
+    if [[ -n "$pre_tree" ]] && git -C "$p" read-tree "$pre_tree" 2>/dev/null; then
+        return 0
+    fi
+    git -C "$p" reset HEAD >/dev/null 2>&1 || true
+}
+
+# ac_commit_content_leaks <repo> — 0 clean, 1 leaks (findings on stdout),
+# 2 gitleaks unavailable.
+#
+# Audit 2026-07-24 (finding E). ac_commit_secret_match only ever saw file
+# NAMES, so a key pasted into config.py committed clean while a harmless
+# empty .env was blocked. gitleaks was already pinned and installed with no
+# caller at all. Scanning the staged DIFF (not the tree) is deliberate: this
+# guard answers "does THIS commit introduce a secret", which is the question
+# a commit gate should ask. Pre-existing secrets elsewhere in the repo are
+# `antcrate scan`'s job.
+ac_commit_content_leaks() {
+    local p="$1" gl out rc
+    gl=$(ac_scan_gitleaks_bin) || return 2
+    out=$(git -C "$p" diff --cached | "$gl" stdin --no-banner --redact 2>&1); rc=$?
+    (( rc == 0 )) && return 0
+    printf '%s\n' "$out"
+    return 1
+}
+
+# ac_commit_secret_match <basename> — exit 0 if it matches a secret pattern
 ac_commit_secret_match() {
     local b="$1"
     case "$b" in
@@ -56,6 +98,10 @@ ac_commit_run() {
     [[ -d "$p" ]] || { ac_error "commit: path missing: $p"; return 1; }
     ac_is_git_repo "$p" || { ac_error "commit: not a git repo: $p"; return 1; }
 
+    # Snapshot whatever the user already had staged, so any abort below can put
+    # it back exactly (finding D). Empty on an unmerged index — see ac_commit_unstage.
+    local pre_tree; pre_tree=$(git -C "$p" write-tree 2>/dev/null) || pre_tree=""
+
     # stage
     case "$mode" in
         all)
@@ -70,7 +116,7 @@ ac_commit_run() {
                     # but its deletion may already be staged — that counts
                     if ! git -C "$p" diff --cached --name-only -- "$f" | grep -q .; then
                         ac_error "commit: failed to stage '$f'"
-                        git -C "$p" reset HEAD >/dev/null 2>&1 || true
+                        ac_commit_unstage "$p" "$pre_tree"
                         return 1
                     fi
                 fi
@@ -99,8 +145,21 @@ ac_commit_run() {
         local m
         for m in "${matched[@]}"; do printf '  %s\n' "$m" >&2; done
         ac_error "commit: aborting; unstaging now. Remove or .gitignore these and retry."
-        git -C "$p" reset HEAD >/dev/null 2>&1 || true
+        ac_commit_unstage "$p" "$pre_tree"
         return 2
+    fi
+
+    # content guard (finding E) — names cleared above, now the bytes.
+    local leaks cs=0
+    leaks=$(ac_commit_content_leaks "$p") || cs=$?
+    if (( cs == 1 )); then
+        ac_error "commit: secret CONTENT in staged diff (gitleaks, redacted):"
+        printf '%s\n' "$leaks" >&2
+        ac_error "commit: aborting; unstaging now. Remove the secret and retry."
+        ac_commit_unstage "$p" "$pre_tree"
+        return 2
+    elif (( cs == 2 )); then
+        ac_warn "commit: content scan SKIPPED (gitleaks unavailable — antcrate tool install gitleaks)"
     fi
 
     # preview (Gateway Law step 4)

@@ -203,3 +203,81 @@ src() {
     [ ! -f "$R/README.md" ]
     git -C "$R" show --name-only --pretty=format: HEAD | grep -q "README.md"
 }
+
+# ---------- finding D: an abort must not destroy pre-existing staging ----------
+#
+# Both abort paths used to run `git reset HEAD`, which unstages EVERYTHING —
+# including work the user staged (often via `git add -p`) before ever invoking
+# antcrate. The wrapper may only undo what the wrapper itself staged.
+
+@test "commit: secret-guard abort preserves the user's pre-existing staged work" {
+    src "ac_registry_upsert proj '$R' scripts ''"
+    echo "hand-staged work" > "$R/notes.txt"
+    git -C "$R" add notes.txt
+    echo "KEY=abc" > "$R/.env"
+
+    run src "ac_commit_run proj 'msg' explicit .env"
+    [ "$status" -eq 2 ]
+    # the .env must be gone from the index, the user's notes.txt must survive
+    run git -C "$R" diff --cached --name-only
+    [[ "$output" == *"notes.txt"* ]]
+    [[ "$output" != *".env"* ]]
+}
+
+@test "commit: abort preserves partial (add -p style) staged CONTENT, not just filenames" {
+    src "ac_registry_upsert proj '$R' scripts ''"
+    printf 'staged-version\n' > "$R/work.txt"
+    git -C "$R" add work.txt
+    printf 'worktree-version\n' > "$R/work.txt"   # index now differs from worktree
+    echo "KEY=abc" > "$R/.env"
+
+    run src "ac_commit_run proj 'msg' explicit .env"
+    [ "$status" -eq 2 ]
+    # the exact staged blob must come back, not merely the path
+    run git -C "$R" show :work.txt
+    [ "$status" -eq 0 ]
+    [[ "$output" == "staged-version" ]]
+}
+
+@test "commit: failed explicit stage preserves pre-existing staged work" {
+    src "ac_registry_upsert proj '$R' scripts ''"
+    echo "hand-staged work" > "$R/notes.txt"
+    git -C "$R" add notes.txt
+
+    run src "ac_commit_run proj 'msg' explicit does-not-exist.txt"
+    [ "$status" -eq 1 ]
+    run git -C "$R" diff --cached --name-only
+    [[ "$output" == *"notes.txt"* ]]
+}
+
+# ---------- finding E: secrets in file CONTENT, not just in file NAMES ----------
+#
+# The basename guard only ever saw names. A key pasted into config.py committed
+# clean. The literals below are assembled at runtime on purpose: a contiguous
+# key in this file would be caught by the very guard it tests, blocking our own
+# commits of this test file.
+
+@test "commit: refuses a secret pasted INTO an innocently-named source file" {
+    command -v gitleaks >/dev/null 2>&1 || skip "gitleaks unavailable"
+    src "ac_registry_upsert proj '$R' scripts ''"
+    { printf 'AWS_KEY = "%s%s"\n' 'AKIA' 'Z3MHW7QK2NRDPLXV'
+      printf 'TOKEN = "%s%s"\n'   'ghp_' '9fK2mQ7xR4tZ1wY8vB3nC6jH0sL5dG2aE7pU'
+    } > "$R/config.py"
+
+    run src "ac_commit_run proj 'feat: config' explicit config.py"
+    [ "$status" -eq 2 ]
+    [[ "$output" == *"secret"* ]]
+    # nothing may be committed, and the index must be clean of it
+    run git -C "$R" diff --cached --name-only
+    [[ "$output" != *"config.py"* ]]
+}
+
+@test "commit: ordinary source content still commits (content guard is not trigger-happy)" {
+    command -v gitleaks >/dev/null 2>&1 || skip "gitleaks unavailable"
+    src "ac_registry_upsert proj '$R' scripts ''"
+    printf 'def main():\n    return "hello"\n' > "$R/app.py"
+
+    run src "ac_commit_run proj 'feat: app' explicit app.py"
+    [ "$status" -eq 0 ]
+    git -C "$R" show --name-only --pretty=format: HEAD | grep -q "app.py"
+}
