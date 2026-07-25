@@ -166,3 +166,32 @@ EOF
     [[ "$output" == *"MOCK-OK"* ]]
     grep -q -- 'ReadWritePaths=' "$FAKE_LOG"
 }
+
+# The trust boundary the v2 data-egress work must preserve (duty 2026-07-17):
+# policy.json GOVERNS confinement, so it can never sit inside the set the
+# confined payload can write. If it did, a compromised payload could rewrite
+# its own endpoint's exec/sandbox fields and get unsandboxed execution on the
+# next human launch. v1 holds this by convention (scratch dir, not the state
+# tree); this pins it so a future writable-set widening fails loudly.
+@test "endpoint_run: policy.json is never inside the sandbox writable set" {
+    _policy_with "{\"mock\": {\"kind\":\"local\",\"exec\":\"$MOCK\"}}"
+    run src_capable "ac_endpoint_run mock </dev/null"
+    [ "$status" -eq 0 ]
+    policy_file="$ANTCRATE_HOME/anycrate/policy.json"
+    [ -f "$policy_file" ]
+    # every granted writable path, from the recorded systemd-run argv
+    while read -r wp; do
+        [ -n "$wp" ] || continue
+        [ "$wp" != "/" ]
+        # the policy file must not be the path itself, nor under it
+        [ "$policy_file" != "$wp" ]
+        case "$policy_file" in "$wp"/*) false ;; esac
+    done < <(tr ' ' '\n' < "$FAKE_LOG" | sed -n 's/^ReadWritePaths=//p')
+}
+
+@test "endpoint_run: the writable set is granted at all (guards the test above)" {
+    # Without this, the loop above would pass vacuously on an empty set.
+    _policy_with "{\"mock\": {\"kind\":\"local\",\"exec\":\"$MOCK\"}}"
+    run src_capable "ac_endpoint_run mock </dev/null"
+    [ -n "$(tr ' ' '\n' < "$FAKE_LOG" | sed -n 's/^ReadWritePaths=//p')" ]
+}
