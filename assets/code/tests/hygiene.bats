@@ -187,3 +187,42 @@ src() {
     run bash "$BIN" deregister
     [ "$status" -eq 2 ]
 }
+
+# The ghost dead-end (observed 2026-07-25 on coolapp): the owner removed the
+# tree first, then `antcrate rm` refused with "project path missing" and named
+# no alternative. `deregister` was the right channel the whole time, and the
+# error is the only place the user is looking.
+@test "remove: a ghost is refused with a pointer to deregister" {
+    jq -n --arg p "$ANTCRATE_ROOT/gone" \
+        '{projects:{ghosty:{path:$p,parent:"webapps",linked_nodes:[],git_remote:""}}}' \
+        > "$ANTCRATE_REGISTRY"
+    run bash -c "
+        export ANTCRATE_HOME='$ANTCRATE_HOME'
+        export ANTCRATE_ROOT='$ANTCRATE_ROOT'
+        export ANTCRATE_REGISTRY='$ANTCRATE_REGISTRY'
+        export ANTCRATE_LOG_LEVEL='error'
+        . '$LIB/log.sh'
+        . '$LIB/registry.sh'
+        . '$LIB/devops.sh'
+        ac_devops_remove ghosty
+    "
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"deregister"* ]]
+}
+
+@test "remove: the pointer names the project, so it is copy-pasteable" {
+    jq -n --arg p "$ANTCRATE_ROOT/gone" \
+        '{projects:{ghosty:{path:$p,parent:"webapps",linked_nodes:[],git_remote:""}}}' \
+        > "$ANTCRATE_REGISTRY"
+    run bash -c "
+        export ANTCRATE_HOME='$ANTCRATE_HOME'
+        export ANTCRATE_ROOT='$ANTCRATE_ROOT'
+        export ANTCRATE_REGISTRY='$ANTCRATE_REGISTRY'
+        export ANTCRATE_LOG_LEVEL='error'
+        . '$LIB/log.sh'
+        . '$LIB/registry.sh'
+        . '$LIB/devops.sh'
+        ac_devops_remove ghosty
+    "
+    [[ "$output" == *"antcrate deregister ghosty"* ]]
+}

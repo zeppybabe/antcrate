@@ -181,7 +181,16 @@ ac_devops_remove() {
     [[ -z "$project" ]] && { ac_error "remove: requires <project>"; return 2; }
     if ! ac_registry_has "$project"; then ac_error "remove: unknown project '$project'"; return 1; fi
     local p; p=$(ac_registry_get "$project" path)
-    [[ -d "$p" ]] || { ac_error "remove: project path missing: $p"; return 1; }
+    # A registered project whose tree is already gone is a GHOST, and remove is
+    # the wrong channel for it — remove backs the tree up before deleting, so it
+    # has nothing to work with. deregister is the sanctioned channel (it captures
+    # the entry and refuses whenever the path still exists). Say so here: the
+    # error is the only place the user is looking.
+    if [[ ! -d "$p" ]]; then
+        ac_error "remove: project path missing: $p"
+        ac_error "'$project' is a ghost (registered, tree already gone). Drop the entry with: antcrate deregister $project"
+        return 1
+    fi
 
     printf '\n' >&2
     printf '  ====================================================\n' >&2
