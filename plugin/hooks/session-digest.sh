@@ -52,8 +52,12 @@ if [ -r "$duties_file" ]; then
     open_lines="$(grep -c -- '- \[ \]' "$duties_file" 2>/dev/null || true)"
     open_lines="${open_lines:-0}"
     if [ "$open_lines" -gt 0 ] 2>/dev/null; then
+        # Only the FIRST date on each open-duty line — the duty's own leading
+        # date, not any ISO-shaped substring buried in its body text — then
+        # the minimum across those first-dates.
         oldest="$(grep -- '- \[ \]' "$duties_file" 2>/dev/null \
-            | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}' | sort | head -n 1)"
+            | awk 'match($0, /[0-9]{4}-[0-9]{2}-[0-9]{2}/) { print substr($0, RSTART, RLENGTH) }' \
+            | sort | head -n 1)"
         if [ -n "$oldest" ]; then
             parts+=("$open_lines duties open (oldest $oldest)")
         else
