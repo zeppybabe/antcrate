@@ -413,6 +413,21 @@ ac_devops_audit_status_line() {
     fi
 }
 
+# ac_devops_ci_tools_bin — where `antcrate tool install` puts the pinned check
+# tools. Same default as lib/tooling.sh and lib/health.sh, recomputed here so
+# ci does not depend on tooling.sh being sourced.
+ac_devops_ci_tools_bin() {
+    printf '%s\n' "${ANTCRATE_TOOLS_BIN:-${ANTCRATE_DATA_HOME:-$HOME/.local/share/antcrate}/tools/bin}"
+}
+
+# A missing check tool is a FAILURE, never a skip: a PASS that verified nothing
+# is worse than no run at all, because it is quoted as evidence afterwards.
+ac_devops_ci_missing_tool() {
+    local name="$1" tools_bin="$2"
+    printf '%s: MISSING — not on PATH and not in %s\n' "$name" "$tools_bin"
+    printf '%s: install it with: antcrate tool install %s\n' "$name" "$name"
+}
+
 ac_devops_ci() {
     local snap="" src_arg=""
     while (( $# > 0 )); do
@@ -424,6 +439,13 @@ ac_devops_ci() {
     done
     local src; src=$(ac_devops_ci_resolve_src "$src_arg") || return 2
     local rc=0
+    # The pinned toolchain (`antcrate tool install`) is deliberately NOT on the
+    # default PATH, and ~/.local/bin may hold stale symlinks into dead /tmp
+    # unpack dirs. Prepend it so ci uses the pinned versions; local -x keeps the
+    # override inside this call.
+    local tools_bin; tools_bin=$(ac_devops_ci_tools_bin)
+    local -x PATH="$PATH"
+    [[ -d "$tools_bin" ]] && PATH="$tools_bin:$PATH"
     printf '\n=== shellcheck ===\n'
     if command -v shellcheck >/dev/null 2>&1; then
         if shellcheck -x "$src"/lib/*.sh "$src/bin/antcrate" "$src/bin/antcrated" "$src/install.sh"; then
@@ -433,7 +455,8 @@ ac_devops_ci() {
             rc=1
         fi
     else
-        ac_warn "ci: shellcheck not on PATH — skipping"
+        ac_devops_ci_missing_tool shellcheck "$tools_bin"
+        rc=1
     fi
     printf '\n=== bats selftest ===\n'
     if command -v bats >/dev/null 2>&1; then
@@ -444,7 +467,8 @@ ac_devops_ci() {
             rc=1
         fi
     else
-        ac_warn "ci: bats not on PATH — skipping"
+        ac_devops_ci_missing_tool bats "$tools_bin"
+        rc=1
     fi
     printf '\n=== ci result: '
     if (( rc == 0 )); then printf 'PASS ===\n'; else printf 'FAIL ===\n'; fi
