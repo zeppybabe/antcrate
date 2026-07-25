@@ -29,18 +29,20 @@ ac_plugin_build() {
         esac
     done
 
-    # ANTCRATE_SELFSRC conventionally names the assets/code dir itself (see
-    # devops.sh's default and safety.sh's zone derivation), not the repo
-    # root — mirror safety.sh's dirname-twice unwrap so plugin src/dst land
-    # next to each other under the repo root regardless of which form the
-    # caller's config uses.
-    local selfsrc skill_root src dst
+    # ANTCRATE_SELFSRC is accepted in either of two forms, both seen in this
+    # codebase: naming the assets/code dir itself (devops.sh's default,
+    # safety.sh's zone derivation, and this machine's real
+    # ~/.config/antcrate/config), or naming the repo root directly (the form
+    # used by this generator's own Step 5 doc example). Detect which form we
+    # were given so both resolve to the same assets_code/skill_root pair —
+    # get one wrong and src or dst silently point at a nonexistent path.
+    local selfsrc skill_root assets_code src dst
     selfsrc="${ANTCRATE_SELFSRC:-$HOME/.claude/skills/antcrate/assets/code}"
     case "$selfsrc" in
-        */assets/code) skill_root=$(dirname "$(dirname "$selfsrc")") ;;
-        *)             skill_root="$selfsrc" ;;
+        */assets/code) skill_root=$(dirname "$(dirname "$selfsrc")"); assets_code="$selfsrc" ;;
+        *)              skill_root="$selfsrc";                        assets_code="$selfsrc/assets/code" ;;
     esac
-    src="${ANTCRATE_PLUGIN_SRC:-$selfsrc/hooks/claude}"
+    src="${ANTCRATE_PLUGIN_SRC:-$assets_code/hooks/claude}"
     dst="${ANTCRATE_PLUGIN_DST:-$skill_root/plugin/hooks/claude}"
 
     [ -d "$src" ] || { ac_error "self plugin: source dir missing: $src"; return 2; }
