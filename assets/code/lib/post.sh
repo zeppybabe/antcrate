@@ -9,6 +9,11 @@
 #    2026-07-18 by owner decision; see the ledger entry of that date.
 
 # Local defaults for standalone sourcing (house convention: libs redeclare paths.sh vars)
+
+# git.sh self-source: ac_is_git_repo used below; the load guard makes
+# re-sourcing free (bats tests source libs directly, without the wrapper preamble).
+# shellcheck disable=SC1091
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/git.sh"
 : "${ANTCRATE_POSTS_DIR:=${XDG_STATE_HOME:-$HOME/.local/state}/antcrate/posts}"
 
 # ac_post_log_file <project>
@@ -101,7 +106,7 @@ ac_post_repo_url() {
 ac_post_material() {
     local project="$1" path last range log url subjects draft s
     path=$(ac_registry_get "$project" path)
-    if [[ -z "$path" || ! -d "$path/.git" ]]; then
+    if [[ -z "$path" ]] || ! ac_is_git_repo "$path"; then
         ac_error "post: unknown project or not a git repo: '$project'"
         return 2
     fi
@@ -139,9 +144,9 @@ ac_post_material() {
 # entry to the project's git-ignored X-POSTS.md; the human pastes it into X.
 # The paste is the publish gate — this lib never touches X at all.
 ac_post_draft() {
-    local project="$1" text="$2" path len last end range f tmp today
+    local project="$1" text="$2" path len last end range f gi tmp today
     path=$(ac_registry_get "$project" path)
-    if [[ -z "$path" || ! -d "$path/.git" ]]; then
+    if [[ -z "$path" ]] || ! ac_is_git_repo "$path"; then
         ac_error "post: unknown project or not a git repo: '$project'"
         return 2
     fi
@@ -156,7 +161,16 @@ ac_post_draft() {
     range="${last:-start}..$end"
     # drafts stay out of the public repo: ensure the file is git-ignored
     if ! git -C "$path" check-ignore -q X-POSTS.md 2>/dev/null; then
-        printf 'X-POSTS.md\n' >> "$path/.gitignore"
+        # Terminate the existing last line first. A .gitignore that does not
+        # end in a newline would otherwise absorb the new rule
+        # ("node_modulesX-POSTS.md"): the previous rule breaks AND X-POSTS.md
+        # is never ignored — drafts become committable in a public repo, which
+        # is the one guarantee the drafts pivot rests on (audit 2026-07-24).
+        # $(tail -c 1) strips a trailing newline, so it is empty exactly when
+        # the file already ends in one.
+        gi="$path/.gitignore"
+        [[ -s "$gi" && -n "$(tail -c 1 "$gi")" ]] && printf '\n' >> "$gi"
+        printf 'X-POSTS.md\n' >> "$gi"
     fi
     f="$path/X-POSTS.md"
     today=$(date -u +%Y-%m-%d)

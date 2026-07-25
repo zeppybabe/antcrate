@@ -830,3 +830,38 @@ run_hook_from_repo() {
     # Audit log entry still written (audit runs in the file-only section).
     grep -q '"action":"hook-debug"' "$ANTCRATE_HOME/hooks.log"
 }
+
+# ---------- worktrees (audit 2026-07-24) ----------
+
+@test "hooks_dir: a linked worktree resolves to the SHARED hooks dir" {
+    # Before the audit, ac_hooks_dir was gated behind [[ -d $p/.git ]] and
+    # refused worktrees outright; the fallback would then have built
+    # "$wt/.git/hooks" — a path through a FILE, which never exists.
+    ( cd "$R" && echo x > f && git add f && git commit -qm init )
+    ( cd "$R" && git worktree add -q -b wt "$BATS_TEST_TMPDIR/wt" )
+    out=$(src "ac_hooks_dir '$BATS_TEST_TMPDIR/wt'")
+    [ "$out" = "$R/.git/hooks" ]
+    [ -d "$out" ]
+}
+
+@test "hooks: an installed hook actually fires and logs from inside a worktree" {
+    src "ac_registry_upsert proj '$R' scripts ''"
+    ( cd "$R" && echo x > f && git add f && git commit -qm init )
+    run src "ac_hook_install proj pre-commit-secrets"
+    [ "$status" -eq 0 ]
+    ( cd "$R" && git worktree add -q -b wt "$BATS_TEST_TMPDIR/wt" )
+    # a clean commit inside the worktree must pass the hook and write its log
+    run bash -c "cd '$BATS_TEST_TMPDIR/wt' && echo ok > safe.txt && git add safe.txt && git commit -qm 'clean commit'"
+    [ "$status" -eq 0 ]
+    log=$(cd "$BATS_TEST_TMPDIR/wt" && git rev-parse --git-path antcrate-hook.log)
+    [ -f "$log" ]
+}
+
+@test "hooks: the secrets hook still BLOCKS from inside a worktree" {
+    src "ac_registry_upsert proj '$R' scripts ''"
+    ( cd "$R" && echo x > f && git add f && git commit -qm init )
+    src "ac_hook_install proj pre-commit-secrets"
+    ( cd "$R" && git worktree add -q -b wt "$BATS_TEST_TMPDIR/wt" )
+    run bash -c "cd '$BATS_TEST_TMPDIR/wt' && echo k > id_rsa && git add -f id_rsa && git commit -qm 'oops'"
+    [ "$status" -ne 0 ]
+}

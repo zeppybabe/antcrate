@@ -17,6 +17,11 @@
 # compat.sh self-source: shims used below; guard makes re-sourcing free
 # (bats tests source libs directly, without the wrapper preamble).
 # shellcheck disable=SC1091
+
+# git.sh self-source: ac_is_git_repo used below; the load guard makes
+# re-sourcing free (bats tests source libs directly, without the wrapper preamble).
+# shellcheck disable=SC1091
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/git.sh"
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/compat.sh"
 
 : "${ANTCRATE_HOME:=$HOME/.antcrate}"
@@ -72,7 +77,7 @@ ac_selfcheck() {
 
     # git checks need a live source path
     if [[ -n "$path" ]]; then
-        if [[ -d "$path/.git" ]]; then
+        if ac_is_git_repo "$path"; then
             _sc_line "git repo" "ok" "(branch $(git -C "$path" rev-parse --abbrev-ref HEAD 2>/dev/null))"
 
             local ahead

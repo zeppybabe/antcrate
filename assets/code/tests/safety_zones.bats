@@ -83,3 +83,29 @@ src() {
     [[ "$output" != *"$BOGUS"* ]]
     [[ "$output" == *"$SKILLROOT"* ]]
 }
+
+@test "override: ANTCRATE_ALLOW_OUTSIDE_ROOT=1 permits an out-of-zone op" {
+    run src 'ANTCRATE_ALLOW_OUTSIDE_ROOT=1; . "'"$LIB"'/safety.sh";
+             ac_safety_guard "rm" "/etc/nope"'
+    [ "$status" -eq 0 ]
+}
+
+@test "override: a non-1 value never opens the gate" {
+    for v in 0 "" yes 2 "1 " "01"; do
+        run src "ANTCRATE_ALLOW_OUTSIDE_ROOT='$v'; . '$LIB/safety.sh';
+                 ac_safety_guard 'rm' '/etc/nope'"
+        [ "$status" -eq 1 ]
+    done
+}
+
+@test "override: the value is never evaluated as arithmetic" {
+    # Audit 2026-07-24 finding C: `(( VAR == 1 ))` evaluates array subscripts,
+    # so a crafted value ran a command substitution while the branch still
+    # (correctly) reported "guarded" — a silent side effect inside the safety
+    # guard itself. String comparison cannot do that.
+    probe="$BATS_TEST_TMPDIR/arith_probe"
+    run src "ANTCRATE_ALLOW_OUTSIDE_ROOT='a[\$(touch $probe)]'; . '$LIB/safety.sh';
+             ac_safety_guard 'rm' '/etc/nope'"
+    [ "$status" -eq 1 ]
+    [ ! -e "$probe" ]
+}

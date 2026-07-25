@@ -22,6 +22,11 @@
 
 # ac_lifecycle_treatment <project>
 # Idempotent. Does not return nonzero on individual step failures.
+
+# git.sh self-source: ac_is_git_repo used below; the load guard makes
+# re-sourcing free (bats tests source libs directly, without the wrapper preamble).
+# shellcheck disable=SC1091
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/git.sh"
 ac_lifecycle_treatment() {
     local project="${1:-}"
     [[ -n "$project" ]] || return 0
@@ -35,7 +40,7 @@ ac_lifecycle_treatment() {
     ac_md_scaffold "$project" 2>/dev/null || ac_warn "lifecycle: md_scaffold failed for $project"
 
     # Hook autoinstall only makes sense when the project is a git repo.
-    if [[ -d "$p/.git" ]]; then
+    if ac_is_git_repo "$p"; then
         ac_hook_autoinstall "$project" >/dev/null 2>&1 \
             || ac_warn "lifecycle: hook_autoinstall failed for $project"
     fi

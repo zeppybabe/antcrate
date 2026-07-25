@@ -13,7 +13,10 @@ set -euo pipefail
 
 # __ANTCRATE_BYPASS_CHECK__
 
-LOG=".git/antcrate-hook.log"
+# git resolves this per-worktree: shared repos get .git/antcrate-hook.log,
+# a linked worktree gets .git/worktrees/<name>/ — where ".git/…" would be
+# a path through a FILE and the redirect below would fail (audit 2026-07-24).
+LOG="$(git rev-parse --git-path antcrate-hook.log)"
 TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
 if ! command -v __ANTCRATE_BIN__ >/dev/null 2>&1; then

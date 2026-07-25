@@ -37,6 +37,8 @@ ANTCRATE_BIN="$SCRIPT_DIR/antcrate"
 # shellcheck disable=SC1091
 . "$LIB_DIR/compat.sh"
 # shellcheck disable=SC1091
+. "$LIB_DIR/git.sh"
+# shellcheck disable=SC1091
 . "$LIB_DIR/log.sh"
 # shellcheck disable=SC1091
 . "$LIB_DIR/lock.sh"

@@ -24,6 +24,11 @@
 # Sourced by wrapper. Depends on profile.sh, hooks.sh, env_scan.sh, registry.sh, log.sh.
 
 # ac_hook_autoinstall <project> [--dry-run]
+
+# git.sh self-source: ac_is_git_repo used below; the load guard makes
+# re-sourcing free (bats tests source libs directly, without the wrapper preamble).
+# shellcheck disable=SC1091
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/git.sh"
 ac_hook_autoinstall() {
     local project="" dry=0
     while (( $# > 0 )); do
@@ -42,7 +47,7 @@ ac_hook_autoinstall() {
     local p
     p=$(ac_registry_get "$project" path)
     [[ -d "$p" ]] || { ac_error "hook-autoinstall: missing path: $p"; return 1; }
-    [[ -d "$p/.git" ]] || { ac_error "hook-autoinstall: not a git repo: $p (run --git-init first)"; return 1; }
+    ac_is_git_repo "$p" || { ac_error "hook-autoinstall: not a git repo: $p (run --git-init first)"; return 1; }
 
     # Pull profile signals.
     local stream

@@ -4,6 +4,11 @@
 # Uses the user's existing `gh auth` credentials (stored by gh in the system keychain
 # or ~/.config/gh/hosts.yml). Never reads or writes PATs in plaintext.
 
+# git.sh self-source: ac_is_git_repo used below; the load guard makes
+# re-sourcing free (bats tests source libs directly, without the wrapper preamble).
+# shellcheck disable=SC1091
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/git.sh"
+
 ac_gh_check() {
     if ! command -v gh >/dev/null 2>&1; then
         ac_error "gh: GitHub CLI not installed. Install: https://cli.github.com/"
@@ -34,7 +39,7 @@ ac_gh_init_repo() {
     local https_url="https://github.com/${user}/${project}.git"
 
     # ensure local repo has at least one commit
-    if [[ ! -d "$path/.git" ]]; then
+    if ! ac_is_git_repo "$path"; then
         git -C "$path" init -q
     fi
     if ! git -C "$path" rev-parse HEAD >/dev/null 2>&1; then

@@ -24,6 +24,11 @@
 #  - Then commits (Gateway Law step 6). Echoes new commit SHA to stdout.
 
 # ac_commit_secret_match <basename> — exit 0 if it matches a secret pattern
+
+# git.sh self-source: ac_is_git_repo used below; the load guard makes
+# re-sourcing free (bats tests source libs directly, without the wrapper preamble).
+# shellcheck disable=SC1091
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/git.sh"
 ac_commit_secret_match() {
     local b="$1"
     case "$b" in
@@ -49,7 +54,7 @@ ac_commit_run() {
     [[ -n "$mode" ]] || { ac_error "commit: must pass --all-tracked or -- <files...>"; return 1; }
     local p; p=$(ac_registry_get "$project" path)
     [[ -d "$p" ]] || { ac_error "commit: path missing: $p"; return 1; }
-    [[ -d "$p/.git" ]] || { ac_error "commit: not a git repo: $p"; return 1; }
+    ac_is_git_repo "$p" || { ac_error "commit: not a git repo: $p"; return 1; }
 
     # stage
     case "$mode" in

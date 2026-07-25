@@ -79,6 +79,28 @@ src() {
     [ "$(cat "$R/.gitignore")" = "$before" ]
 }
 
+@test "draft: .gitignore without a trailing newline is not corrupted" {
+    # Audit 2026-07-24 finding B: a bare `>>` fuses the new rule onto the last
+    # line of a newline-less .gitignore — the previous rule breaks AND
+    # X-POSTS.md is never ignored, i.e. drafts become committable in a public
+    # repo. That is exactly the guarantee the drafts pivot rests on.
+    src "ac_registry_upsert proj '$R' scripts ''"
+    printf 'build/\nnode_modules/' > "$R/.gitignore"   # NO trailing newline
+    src "ac_post_draft proj 'newline-less ignore file'"
+    ( cd "$R" && git check-ignore -q X-POSTS.md )
+    [ "$(grep -c '^X-POSTS.md$' "$R/.gitignore")" = "1" ]
+    [ "$(grep -c '^node_modules/$' "$R/.gitignore")" = "1" ]
+    ( cd "$R" && git check-ignore -q node_modules/ )
+}
+
+@test "draft: empty .gitignore gains no leading blank line" {
+    src "ac_registry_upsert proj '$R' scripts ''"
+    : > "$R/.gitignore"
+    src "ac_post_draft proj 'empty ignore file'"
+    [ "$(head -n 1 "$R/.gitignore")" = "X-POSTS.md" ]
+    ( cd "$R" && git check-ignore -q X-POSTS.md )
+}
+
 @test "draft: secret text refused, nothing written or logged" {
     src "ac_registry_upsert proj '$R' scripts ''"
     run src "ac_post_draft proj 'oops AKIAIOSFODNN7EXAMPLE'"

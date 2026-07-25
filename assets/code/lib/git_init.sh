@@ -22,6 +22,11 @@
 # if .git already exists, logs the fact and returns 0 without touching the
 # repo. If the project ships a .githooks/ directory, sets core.hooksPath to
 # enable the opt-in hook layer per HOOK_PLAN.
+
+# git.sh self-source: ac_is_git_repo used below; the load guard makes
+# re-sourcing free (bats tests source libs directly, without the wrapper preamble).
+# shellcheck disable=SC1091
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/git.sh"
 ac_git_init() {
     local project="${1:-}"
     [[ -n "$project" ]] || { ac_error "git_init: missing project name"; return 1; }
@@ -38,7 +43,7 @@ ac_git_init() {
     }
     [[ -d "$proj_path" ]] || { ac_error "git_init: project path missing on disk: $proj_path"; return 1; }
 
-    if [[ -d "$proj_path/.git" ]]; then
+    if ac_is_git_repo "$proj_path"; then
         ac_info "git_init: already a git repo: $proj_path"
         return 0
     fi

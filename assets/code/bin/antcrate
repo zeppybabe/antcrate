@@ -34,6 +34,8 @@ LIB_DIR="$SCRIPT_DIR/../lib"
 # shellcheck disable=SC1091
 . "$LIB_DIR/compat.sh"
 # shellcheck disable=SC1091
+. "$LIB_DIR/git.sh"
+# shellcheck disable=SC1091
 . "$LIB_DIR/log.sh"
 # shellcheck disable=SC1091
 . "$LIB_DIR/lock.sh"

@@ -12,6 +12,11 @@
 # Exit: 0 clean, 1 any finding.
 
 # Optional |-separated extended-regex; configured per-dev, never hardcoded here.
+
+# git.sh self-source: ac_is_git_repo used below; the load guard makes
+# re-sourcing free (bats tests source libs directly, without the wrapper preamble).
+# shellcheck disable=SC1091
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/git.sh"
 : "${ANTCRATE_SCAN_DEV_MARKERS:=}"
 
 # ac_scan_gitleaks_bin — print a usable gitleaks path, or return 1.
@@ -31,7 +36,7 @@ ac_scan_secrets() {
 # ac_scan_devtree <dir> — the dev/ records tree must be git-ignored. 0 clean, 1 tracked.
 ac_scan_devtree() {
     local dir="${1:-.}" tracked
-    [[ -d "$dir/.git" ]] || return 0   # not a git repo → nothing to check
+    ac_is_git_repo "$dir" || return 0   # not a git repo → nothing to check
     tracked=$(git -C "$dir" ls-files dev/ 2>/dev/null || true)
     [[ -z "$tracked" ]] && return 0
     printf 'scan: dev/ records are TRACKED by git (must be git-ignored):\n' >&2

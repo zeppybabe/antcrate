@@ -177,6 +177,8 @@ Print the GitHub HTTPS onboarding steps.
 **`antcrate --hooks <project>`**
 Read-only list of active git hooks; honors `core.hooksPath`, marks each hook `active`/`disabled`, flags AntCrate's own opt-in `.githooks`.
 
+Linked worktrees and submodules are first-class since the 2026-07-24 audit: every gated command uses `ac_is_git_repo` (`lib/git.sh`), which accepts a `.git` FILE, and every git-dir path goes through `ac_git_path` → `git rev-parse --git-path`. So hooks resolve to the shared common dir (one install covers all worktrees) while hook logs, audit logs, and bypass flags stay per-worktree.
+
 **`antcrate --hook-install <project> <template> [hook-name] [--force]`**
 Install a shipped template (`pre-commit-ci`, `pre-commit-secrets`, `pre-commit-stack-bash`, `pre-push-tests`). Idempotent; `--force` backs up then overwrites.
 

@@ -83,7 +83,12 @@ ac_gate_confirm() {
 # Override: ANTCRATE_ALLOW_OUTSIDE_ROOT=1 ac_safety_guard ...
 ac_safety_guard() {
     local op="$1" target="$2"
-    if (( ANTCRATE_ALLOW_OUTSIDE_ROOT == 1 )); then
+    # String comparison, not (( )): bash evaluates array subscripts inside an
+    # arithmetic context, so a value like 'a[$(cmd)]' RUNS cmd — a silent side
+    # effect inside the safety guard itself, fired even on the refusing branch
+    # (audit 2026-07-24). It also made "01" and "1 " open the gate. Exactly
+    # "1" opens it now, matching every other flag in the codebase.
+    if [[ "$ANTCRATE_ALLOW_OUTSIDE_ROOT" == "1" ]]; then
         ac_warn "safety: override active — $op on $target"
         return 0
     fi

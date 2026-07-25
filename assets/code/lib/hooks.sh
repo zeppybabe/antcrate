@@ -44,12 +44,17 @@
 # compat.sh self-source: shims used below; guard makes re-sourcing free
 # (bats tests source libs directly, without the wrapper preamble).
 # shellcheck disable=SC1091
+
+# git.sh self-source: ac_is_git_repo used below; the load guard makes
+# re-sourcing free (bats tests source libs directly, without the wrapper preamble).
+# shellcheck disable=SC1091
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/git.sh"
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/compat.sh"
 
 ac_hooks_dir() {
     local proj_path="$1"
     [[ -d "$proj_path" ]] || return 1
-    [[ -d "$proj_path/.git" ]] || return 1   # not a git repo
+    ac_is_git_repo "$proj_path" || return 1   # not a git repo
 
     local hp
     hp=$(git -C "$proj_path" config --get core.hooksPath 2>/dev/null || true)
@@ -60,7 +65,7 @@ ac_hooks_dir() {
             printf '%s/%s\n' "$proj_path" "$hp"
         fi
     else
-        printf '%s/.git/hooks\n' "$proj_path"
+        ac_git_path "$proj_path" hooks
     fi
 }
 
@@ -114,7 +119,7 @@ ac_hooks_log() {
     local p; p=$(ac_registry_get "$project" path)
     [[ -d "$p" ]] || { ac_error "hook-log: missing path: $p"; return 1; }
 
-    local logfile="$p/.git/antcrate-hook.log"
+    local logfile; logfile=$(ac_git_path "$p" antcrate-hook.log) || return 1
     if [[ ! -f "$logfile" ]]; then
         printf 'no hook log yet at %s\n' "$logfile"
         printf '(the shipped .githooks/pre-commit writes here on every run)\n'
@@ -226,7 +231,7 @@ ac_hook_install() {
     ac_registry_has "$project" || { ac_error "hook-install: unknown project '$project'"; return 1; }
     local p; p=$(ac_registry_get "$project" path)
     [[ -d "$p"      ]] || { ac_error "hook-install: missing path: $p"; return 1; }
-    [[ -d "$p/.git" ]] || { ac_error "hook-install: not a git repo: $p (use --git-init first)"; return 1; }
+    ac_is_git_repo "$p" || { ac_error "hook-install: not a git repo: $p (use --git-init first)"; return 1; }
 
     local tmpl
     tmpl=$(_ac_hook_template_path "$template") || {
@@ -294,7 +299,7 @@ _ac_hooks_audit_append() {
     local home="${ANTCRATE_HOME:-$HOME/.antcrate}"
     mkdir -p "$home" 2>/dev/null || true
     local global="$home/hooks.log"
-    local local_log="$proj_path/.git/antcrate-hook-audit.log"
+    local local_log; local_log=$(ac_git_path "$proj_path" antcrate-hook-audit.log) || local_log=""
 
     # JSONL — build with jq when available (safe quoting); fall back to printf
     # if jq is somehow missing (registry.sh already requires jq so this is belt-
@@ -346,7 +351,7 @@ ac_hook_remove() {
     ac_registry_has "$project" || { ac_error "hook-remove: unknown project '$project'"; return 1; }
     local p; p=$(ac_registry_get "$project" path)
     [[ -d "$p"      ]] || { ac_error "hook-remove: missing path: $p"; return 1; }
-    [[ -d "$p/.git" ]] || { ac_error "hook-remove: not a git repo: $p"; return 1; }
+    ac_is_git_repo "$p" || { ac_error "hook-remove: not a git repo: $p"; return 1; }
 
     local dir
     dir=$(ac_hooks_dir "$p") || return 1
@@ -421,7 +426,7 @@ ac_hook_debug() {
     ac_registry_has "$project" || { ac_error "hook-debug: unknown project '$project'"; return 1; }
     local p; p=$(ac_registry_get "$project" path)
     [[ -d "$p"      ]] || { ac_error "hook-debug: missing path: $p"; return 1; }
-    [[ -d "$p/.git" ]] || { ac_error "hook-debug: not a git repo: $p"; return 1; }
+    ac_is_git_repo "$p" || { ac_error "hook-debug: not a git repo: $p"; return 1; }
 
     local dir
     dir=$(ac_hooks_dir "$p") || return 1
@@ -534,7 +539,7 @@ ac_hook_debug() {
             printf '[stderr]\n'
             sed 's/^/  /' "$err_file"
         fi
-    } >> "$p/.git/antcrate-hook.log" 2>/dev/null || true
+    } >> "$(ac_git_path "$p" antcrate-hook.log)" 2>/dev/null || true
 
     # Audit. `backup` carries the stash refspec when --with-stash created one;
     # this gives a future --hook-audit consumer a single field to recover the
@@ -636,9 +641,9 @@ ac_hook_bypass() {
     ac_registry_has "$project" || { ac_error "hook-bypass: unknown project '$project'"; return 1; }
     local p; p=$(ac_registry_get "$project" path)
     [[ -d "$p"      ]] || { ac_error "hook-bypass: missing path: $p"; return 1; }
-    [[ -d "$p/.git" ]] || { ac_error "hook-bypass: not a git repo: $p"; return 1; }
+    ac_is_git_repo "$p" || { ac_error "hook-bypass: not a git repo: $p"; return 1; }
 
-    local flag="$p/.git/antcrate-hook-bypass"
+    local flag; flag=$(ac_git_path "$p" antcrate-hook-bypass) || return 1
     if [[ -f "$flag" ]]; then
         ac_error "hook-bypass: flag already present at $flag"
         ac_error "    a prior bypass is queued. consume it by running the hook (e.g. a commit), or"
@@ -694,8 +699,8 @@ ac_hook_audit() {
 
     local home="${ANTCRATE_HOME:-$HOME/.antcrate}"
     local global="$home/hooks.log"
-    local audit_log="$p/.git/antcrate-hook-audit.log"
-    local hook_log="$p/.git/antcrate-hook.log"
+    local audit_log; audit_log=$(ac_git_path "$p" antcrate-hook-audit.log) || audit_log=""
+    local hook_log; hook_log=$(ac_git_path "$p" antcrate-hook.log) || hook_log=""
 
     printf '=== antcrate hook-audit: %s ===\n' "$project"
     printf 'sinks resolved:\n'

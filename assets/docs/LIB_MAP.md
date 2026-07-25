@@ -13,6 +13,7 @@ Relocated verbatim from the orchestrator `SKILL.md` (three-tier skill cut, spec 
   - `schema.sh` — positional filename decoder
   - `scaffold.sh` — `--start` / `--branch` / `--link` / `--register`
   - `subbranch.sh` — atomic `--resume --expand` nesting (backup-protected)
+  - `git.sh` — `ac_is_git_repo`, the ONE git-working-tree predicate (worktree- and submodule-correct: `.git` is a file there, so the old per-site `[[ -d $p/.git ]]` refused valid repos). Anchored on `$p/.git` so it never walks up to an enclosing repo. Every gated command routes through it
   - `safety.sh` — path-zone guard + `ac_safety_guard_destructive` (rule #1 enforcement)
   - `backup.sh` — verified tar.gz + sha256 manifests, retention pruning, restore; `ac_backup_run` fans push to enabled targets per advertised scope (project = whole tree, dev = `<path>/dev`)
   - `targets.sh` — backup-target registry + dispatch (`backup_targets=` config key; hyphenated names map to underscore functions); `targets/local.sh` = the classic store behind the contract; `targets/git_mirror.sh` = private `<owner>/<project>-dev` companion (scope dev, gh-created, ALWAYS private; `ANTCRATE_MIRROR_PREFIX` local-path mode for tests/air-gapped hubs); pp auto-mirror via `ac_pp_mirror_maybe` (config `mirror_dev=` list, `--no-mirror` escape)

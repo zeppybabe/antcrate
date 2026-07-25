@@ -15,6 +15,11 @@
 #
 # Sourced by wrapper. Depends on registry.sh, safety.sh, backup.sh, address.sh.
 
+# git.sh self-source: ac_is_git_repo used below; the load guard makes
+# re-sourcing free (bats tests source libs directly, without the wrapper preamble).
+# shellcheck disable=SC1091
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/git.sh"
+
 : "${ANTCRATE_HOME:=$HOME/.antcrate}"
 : "${ANTCRATE_ROOT:=$HOME/projects}"
 : "${ANTCRATE_ARCHIVE_DIR:=$ANTCRATE_ROOT/.archive}"
@@ -270,7 +275,7 @@ ac_devops_diff() {
     [[ -z "$project" ]] && { ac_error "diff: requires <project>"; return 2; }
     if ! ac_registry_has "$project"; then ac_error "diff: unknown project '$project'"; return 1; fi
     local p; p=$(ac_registry_get "$project" path)
-    [[ -d "$p/.git" ]] || { ac_error "diff: not a git repo: $p"; return 1; }
+    ac_is_git_repo "$p" || { ac_error "diff: not a git repo: $p"; return 1; }
     printf '\n=== %s :: status ===\n' "$project"
     git -C "$p" status --short
     printf '\n=== %s :: diff (working tree) ===\n' "$project"

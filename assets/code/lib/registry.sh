@@ -14,6 +14,11 @@
 #   }
 # }
 
+# git.sh self-source: ac_is_git_repo used below; the load guard makes
+# re-sourcing free (bats tests source libs directly, without the wrapper preamble).
+# shellcheck disable=SC1091
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/git.sh"
+
 : "${ANTCRATE_HOME:=$HOME/.antcrate}"
 : "${ANTCRATE_REGISTRY:=$ANTCRATE_HOME/registry.json}"
 
@@ -155,7 +160,7 @@ ac_registry_info() {
 
     local proj_path
     proj_path=$(ac_registry_get "$project" path 2>/dev/null)
-    if [[ -n "$proj_path" && -d "$proj_path/.git" ]]; then
+    if [[ -n "$proj_path" ]] && ac_is_git_repo "$proj_path"; then
         local last_commit
         last_commit=$(git -C "$proj_path" log -1 --pretty='%h %s' 2>/dev/null || echo '(no commits)')
         printf 'last_commit: %s\n' "$last_commit"
