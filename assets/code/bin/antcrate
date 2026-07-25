@@ -36,6 +36,8 @@ LIB_DIR="$SCRIPT_DIR/../lib"
 # shellcheck disable=SC1091
 . "$LIB_DIR/git.sh"
 # shellcheck disable=SC1091
+. "$LIB_DIR/devsync.sh"
+# shellcheck disable=SC1091
 . "$LIB_DIR/log.sh"
 # shellcheck disable=SC1091
 . "$LIB_DIR/lock.sh"
@@ -416,6 +418,14 @@ cmd_pp() {
 
     # the bundled panel: full situational read before any action (Plan 2)
     ac_pp_panel "$project" "$p"
+
+    # Provision dev/ + the publication boundary BEFORE anything is staged.
+    # This ran after the push originally, which meant the auto-commit below
+    # swept an untracked CLAUDE.md into the public remote and the boundary
+    # landed one step too late to help (caught by pp_gate end-to-end, 2026-07-24).
+    if declare -F ac_dev_ensure >/dev/null 2>&1; then
+        ac_dev_ensure "$p" || ac_warn "pp: dev/ provisioning failed for $project"
+    fi
 
     if [[ -n "$(git -C "$p" status --porcelain 2>/dev/null)" ]]; then
         if ! ac_gate_confirm "Uncommitted changes in $project. Commit & push?"; then

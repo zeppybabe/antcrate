@@ -152,10 +152,14 @@ ac_pp_mirror_maybe() {
         ac_warn "mirror: git-mirror unavailable — dev/ not mirrored"
         return 0
     fi
-    # No dev/ tree is the ordinary case for most projects now that the mirror
-    # is default-on, so this is a silent skip. Under the old opt-in semantics
-    # it warned, because naming a project in mirror_dev and having no dev/ was
-    # a contradiction worth surfacing; today it would just be noise on every push.
+    # Provision dev/ and refresh dev/context/ before mirroring. A project with
+    # no dev/ used to be skipped here, which meant the publication boundary hid
+    # its records from the public tree while nothing backed them up (found
+    # 2026-07-24 on a live push of rfm-music and antcrate-mcp). Self-healing on
+    # every push is deliberate: no operator step, no tokens spent.
+    if declare -F ac_dev_ensure >/dev/null 2>&1; then
+        ac_dev_ensure "$p" || ac_warn "mirror: dev/ provisioning failed for $project"
+    fi
     [[ -d "$p/dev" ]] || return 0
     local sha
     if sha=$(target_git_mirror_push "$project" "$p/dev" 2>/dev/null); then

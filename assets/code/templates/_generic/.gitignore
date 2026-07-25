@@ -3,49 +3,22 @@
 node_modules/
 __pycache__/
 
-# --- antcrate publication boundary ---
-# Everything below is local-only dev material. It is NOT lost by being ignored:
-# `antcrate pp` mirrors the dev/ tree as real git history into the private
-# companion repo <project>-dev, which is created private and stays private.
-# Public tree = the product. Private -dev repo = how it got built.
-#
-# Added to the default scaffold 2026-07-24. Before that this file was four
-# lines and every new project shipped its agent context to the public remote.
-
 # Editor / OS noise
 *.swp
 *.swo
 *~
 .DS_Store
 
-# AI/agent working context — confidential. Anchored with a leading slash so
-# only the project root copy is ignored: a project that legitimately ships
-# docs/CLAUDE.md or a nested example keeps it.
-/CLAUDE.md
-/AGENTS.md
-/.claude/
-
-# antcrate dev records. The lifecycle scaffold regenerates these skeletons at
-# the project root, so anchor them too — otherwise a regenerated stub reaches
-# the public tree even though the real records live under dev/.
-dev/
-/ledger.md
-/state.md
-/state-archive.md
-/duties.md
-/composes.md
-
-# Drafted social posts (copy-paste is the publish gate; never commit them)
-X-POSTS.md
-
-# antcrate per-project runtime state (counters churn on every delegation)
-.antcrate/
-
-# Local-only secrets. .env* above covers most; these are the file types that
-# the commit guard blocks by name, kept here so they never reach the index.
+# Local-only secrets (mirrors lib/commit.sh ac_commit_secret_match)
 *.pem
 *.key
 *.p12
 *.pfx
 credentials.json
 .netrc
+
+# NOTE: antcrate keeps the rest of the publication boundary in
+# .git/info/exclude, never here. Naming those paths in a COMMITTED .gitignore
+# would itself be a public trace of the local tooling the boundary exists to
+# keep private. info/exclude protects identically and is never committed.
+# Provisioned automatically on every push (lib/devsync.sh, ac_dev_ensure).

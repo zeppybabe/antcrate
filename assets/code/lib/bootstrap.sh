@@ -27,6 +27,11 @@
 #
 # Sourced by wrapper. Depends on git_init.sh, commit.sh, gh.sh, registry.sh, log.sh.
 
+# devsync.sh self-source: ac_dev_ensure provisions the publication boundary
+# below; the load guard makes re-sourcing free.
+# shellcheck disable=SC1091
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/devsync.sh"
+
 # _ac_bootstrap_default_gitignore <out_path>
 # Writes a default .gitignore. NEVER overwrites — silently no-ops if the file
 # already exists. The patterns mirror lib/commit.sh's ac_commit_secret_match
@@ -81,34 +86,6 @@ build/
 .next/
 target/
 
-# --- antcrate publication boundary (added 2026-07-24) ---
-# Local-only dev material. NOT lost by being ignored: `antcrate pp` mirrors the
-# dev/ tree as real git history into the private companion repo <project>-dev.
-# Public tree = the product. Private -dev repo = how it got built.
-#
-# Anchored with a leading slash on purpose, so only the project-root copy is
-# ignored — a project that legitimately ships docs/CLAUDE.md keeps it.
-
-# AI/agent working context — confidential
-/CLAUDE.md
-/AGENTS.md
-/.claude/
-
-# antcrate dev records. The md-scaffold regenerates these skeletons at the
-# project root, so anchor them too: otherwise a regenerated stub reaches the
-# public tree even though the real records live under dev/.
-dev/
-/ledger.md
-/state.md
-/state-archive.md
-/duties.md
-/composes.md
-
-# Drafted social posts — copy-paste is the publish gate, never commit them
-X-POSTS.md
-
-# antcrate per-project runtime state (counters churn on every delegation)
-.antcrate/
 GITIGNORE
 }
 
@@ -157,6 +134,15 @@ ac_bootstrap() {
         ac_info "bootstrap: wrote default .gitignore"
     else
         ac_info "bootstrap: .gitignore already exists, leaving unchanged"
+    fi
+
+    # Step 2b: publication boundary + dev/ provisioning. Deliberately NOT part
+    # of the .gitignore above: those paths go to .git/info/exclude, because a
+    # committed .gitignore naming them is itself a public trace of the local
+    # tooling the boundary exists to keep private (owner ruling 2026-07-24).
+    # Runs before staging so the first commit can never carry dev context.
+    if declare -F ac_dev_ensure >/dev/null 2>&1; then
+        ac_dev_ensure "$proj_path" || ac_warn "bootstrap: dev/ provisioning failed"
     fi
 
     # Step 3: regen diagrams BEFORE staging so the committed tree.mmd reflects

@@ -137,18 +137,27 @@ src() {
 
 # ---------- publication boundary (2026-07-24) ----------
 #
-# Before this, the default .gitignore covered secrets and build junk but said
-# nothing about AI/agent context, so every scaffolded project shipped CLAUDE.md,
-# AGENTS.md and .claude/ straight to its public remote. These paths are not
-# lost by being ignored — `antcrate pp` mirrors dev/ into the private
-# <project>-dev companion. Pinned here so the boundary cannot silently regress.
+# The boundary lives in .git/info/exclude, NOT .gitignore. Owner ruling: signs
+# of AI/dev tooling belong in the private -dev companion, and a COMMITTED
+# .gitignore line reading "/CLAUDE.md" announces exactly what it conceals.
+# info/exclude protects identically and is never committed.
 
-@test "bootstrap: default .gitignore keeps agent context out of the public tree" {
+@test "bootstrap: publication boundary is provisioned into info/exclude" {
     src "ac_registry_upsert proj '$R' scripts ''"
     run src "ac_bootstrap proj 'initial'"
     [ "$status" -eq 0 ]
     for pat in '^/CLAUDE\.md$' '^/AGENTS\.md$' '^/\.claude/$' '^dev/$' '^X-POSTS\.md$'; do
-        grep -qE "$pat" "$R/.gitignore" || { echo "MISSING from .gitignore: $pat"; false; }
+        grep -qE "$pat" "$R/.git/info/exclude" || { echo "MISSING from info/exclude: $pat"; false; }
+    done
+}
+
+@test "bootstrap: the committed .gitignore carries NO AI trace" {
+    src "ac_registry_upsert proj '$R' scripts ''"
+    run src "ac_bootstrap proj 'initial'"
+    [ "$status" -eq 0 ]
+    for trace in CLAUDE AGENTS '\.claude' '\.cursor' copilot; do
+        run grep -qE "$trace" "$R/.gitignore"
+        [ "$status" -ne 0 ] || { echo "AI TRACE in committed .gitignore: $trace"; false; }
     done
 }
 
@@ -165,4 +174,15 @@ src() {
     echo "private context" > "$R/CLAUDE.md"
     run git -C "$R" check-ignore -q CLAUDE.md
     [ "$status" -eq 0 ]
+}
+
+@test "bootstrap: first commit never carries dev context" {
+    src "ac_registry_upsert proj '$R' scripts ''"
+    echo "private context" > "$R/CLAUDE.md"
+    mkdir -p "$R/.claude"; echo "agent" > "$R/.claude/a.md"
+    run src "ac_bootstrap proj 'initial'"
+    [ "$status" -eq 0 ]
+    run git -C "$R" log --name-only --format= -5
+    [[ "$output" != *"CLAUDE.md"* ]]
+    [[ "$output" != *".claude"* ]]
 }

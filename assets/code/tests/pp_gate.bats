@@ -138,3 +138,49 @@ mirror_setup() {   # ignore dev/ in the fixture repo (real projects always do)
     [ "$status" -eq 0 ]
     [[ "$output" != *"mirror    :"* ]]
 }
+
+# ── auto-provisioning (2026-07-24): the boundary must never outrun the mirror ──
+#
+# Regression guard for a failure found on a LIVE push, not in review: rfm-music
+# and antcrate-mcp pushed clean, printed no mirror line, and created no -dev
+# repo, because they keep their records at the repo root and had no dev/ tree.
+# The boundary hid those files from the public remote while nothing backed them
+# up. pp now provisions dev/ and syncs dev/context/ before mirroring.
+
+@test "pp: a project with NO dev/ still gets a mirror (auto-provisioned)" {
+    export ANTCRATE_CONFIG="$BATS_TEST_TMPDIR/config"
+    : > "$ANTCRATE_CONFIG"
+    export ANTCRATE_MIRROR_PREFIX="$BATS_TEST_TMPDIR/hub/"
+    export GIT_CONFIG_GLOBAL="$BATS_TEST_TMPDIR/gitconfig"
+    git config --file "$GIT_CONFIG_GLOBAL" user.name tester
+    git config --file "$GIT_CONFIG_GLOBAL" user.email t@example.com
+    git config --file "$GIT_CONFIG_GLOBAL" init.defaultBranch master
+    mkdir -p "$BATS_TEST_TMPDIR/hub"
+    # records at the ROOT, no dev/ anywhere — the exact broken shape
+    echo "project context" > "$R/CLAUDE.md"
+    [ ! -d "$R/dev" ]
+
+    run "$BIN" pp proj
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"mirror"*"proj-dev"* ]]
+    [ -d "$BATS_TEST_TMPDIR/hub/proj-dev.git" ]
+    # and the root context actually reached the companion
+    [ -f "$R/dev/context/CLAUDE.md" ]
+}
+
+@test "pp: auto-provisioning keeps the root CLAUDE.md out of the PUBLIC remote" {
+    export ANTCRATE_CONFIG="$BATS_TEST_TMPDIR/config"
+    : > "$ANTCRATE_CONFIG"
+    export ANTCRATE_MIRROR_PREFIX="$BATS_TEST_TMPDIR/hub/"
+    export GIT_CONFIG_GLOBAL="$BATS_TEST_TMPDIR/gitconfig"
+    git config --file "$GIT_CONFIG_GLOBAL" user.name tester
+    git config --file "$GIT_CONFIG_GLOBAL" user.email t@example.com
+    git config --file "$GIT_CONFIG_GLOBAL" init.defaultBranch master
+    mkdir -p "$BATS_TEST_TMPDIR/hub"
+    echo "project context" > "$R/CLAUDE.md"
+
+    run "$BIN" pp proj
+    [ "$status" -eq 0 ]
+    run git --git-dir="$REMOTE" log --name-only --format= -20
+    [[ "$output" != *"CLAUDE.md"* ]]
+}
