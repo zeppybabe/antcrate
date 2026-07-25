@@ -1059,6 +1059,14 @@ while (( $# > 0 )); do
     esac
 done
 
+# --draft is parsed in the global flag loop but belongs to exactly one action.
+# Accepting it anywhere else silently swallows a typo'd command (`antcrate
+# commit p --draft "…"` did nothing and said nothing).
+if [[ -n "$POST_DRAFT" && "$ACTION" != "post-x" ]]; then
+    ac_error "--draft applies to 'post x <project>' only (got action '$ACTION')"
+    exit 2
+fi
+
 # meta string → AC_META_VALUES array
 META_VALUES=()
 if [[ -n "$META" ]]; then

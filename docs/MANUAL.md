@@ -372,7 +372,9 @@ Newest-first view of the project's update log. Exit 1 if nothing has been drafte
 
 **Known trade-off:** the range pointer advances at `--draft` time, not at confirmed publish — a drafted-but-never-pasted entry still consumes its range. To re-draft a range, hand-edit the last log record's range field back to the prior end.
 
-Exit codes: **0** material printed or draft written + logged · **1** guard refusal (secret-shaped text) or over-length text (count included in the message) · **2** unknown/unregistered project or unborn-HEAD repo · **3** MATERIAL mode with nothing new to post.
+**Character counting — the ASCII stance.** `ac_post_x_len` counts *characters* (`wc -m`), after substituting each URL with the 23 characters t.co wraps it to. X's own rule is weighted: code points up to U+10FF (plus a few punctuation blocks) count as 1, and **everything else counts as 2** — so CJK, emoji and most symbols cost double there. AntCrate deliberately does not implement the weighted table: the counter is a pure-Bash pipeline that has to agree byte-for-byte across mawk/gawk/BSD awk, and per-code-point classification is exactly where this codebase has already been bitten (see the mawk interval-bound note above `AC_POST_SECRET_ERE`). The practical consequence: for Latin, Cyrillic, Greek, Hebrew and Arabic text the count is **exact**; for a post containing CJK or emoji it **under-counts**, and a draft that measures 280 here can be rejected by X. If you write such a post, budget roughly two characters for each non-Latin glyph, or paste it into X and check the counter before posting.
+
+Exit codes: **0** material printed or draft written + logged · **1** guard refusal (secret-shaped text) or over-length text (count included in the message) · **2** unknown/unregistered project, unborn-HEAD repo, or a range `git log` could not read · **3** MATERIAL mode with nothing new to post.
 
 ### CI and self-development
 

@@ -36,6 +36,10 @@ ac_post_log_append() {
     local project="$1" handle="$2" range="$3" text="$4" status="${5:-drafted}" f
     f=$(ac_post_log_file "$project")
     mkdir -p "$ANTCRATE_POSTS_DIR"
+    # Escape backslashes FIRST: without it a literal \n typed in the text is
+    # indistinguishable from the \n this writes for a real newline, so the log
+    # cannot be read back faithfully.
+    text="${text//\\/\\\\}"        # literal backslash -> \\
     text="${text//$'\t'/ }"        # tabs are the field separator
     text="${text//$'\n'/\\n}"      # one record per line
     printf '%s\t%s\t%s\t%s\t%s\n' \
@@ -61,7 +65,7 @@ ac_post_log_show() {
 # Assignment alternatives are duplicated in lower/Title/ALL-CAPS ([Pp]assword,
 # PASSWORD, etc.) rather than using a case-insensitive flag, since ERE has no
 # inline (?i) and grep/awk here don't share a portable case-fold option.
-AC_POST_SECRET_ERE='AKIA[0-9A-Z]{16}|ghp_[A-Za-z0-9]{36}|github_pat_[A-Za-z0-9_]{22,}|sk-[A-Za-z0-9_-]{20,}|xox[baprs]-[A-Za-z0-9-]{10,}|AIza[0-9A-Za-z_-]{35}|eyJ[A-Za-z0-9_-]+\.eyJ|-----BEGIN [A-Z ]*PRIVATE KEY-----|[Pp]assword[[:space:]]*[=:][[:space:]]*[^[:space:]]+|PASSWORD[[:space:]]*[=:][[:space:]]*[^[:space:]]+|[Aa]pi[_-]?[Kk]ey[[:space:]]*[=:][[:space:]]*[^[:space:]]+|API[_-]?KEY[[:space:]]*[=:][[:space:]]*[^[:space:]]+|[Ss]ecret[[:space:]]*[=:][[:space:]]*[^[:space:]]+|SECRET[[:space:]]*[=:][[:space:]]*[^[:space:]]+|[Tt]oken[[:space:]]*[=:][[:space:]]*[^[:space:]]+|TOKEN[[:space:]]*[=:][[:space:]]*[^[:space:]]+'
+AC_POST_SECRET_ERE='AKIA[0-9A-Z]{16}|ghp_[A-Za-z0-9]{36}|github_pat_[A-Za-z0-9_]{22,}|glpat-[A-Za-z0-9_-]{20,}|npm_[A-Za-z0-9]{36}|aws[_-]?secret[_-]?access[_-]?key[[:space:]]*[=:][[:space:]]*[^[:space:]]+|AWS[_-]?SECRET[_-]?ACCESS[_-]?KEY[[:space:]]*[=:][[:space:]]*[^[:space:]]+|sk-[A-Za-z0-9_-]{20,}|xox[baprs]-[A-Za-z0-9-]{10,}|AIza[0-9A-Za-z_-]{35}|eyJ[A-Za-z0-9_-]+\.eyJ|-----BEGIN [A-Z ]*PRIVATE KEY-----|[Pp]assword[[:space:]]*[=:][[:space:]]*[^[:space:]]+|PASSWORD[[:space:]]*[=:][[:space:]]*[^[:space:]]+|[Aa]pi[_-]?[Kk]ey[[:space:]]*[=:][[:space:]]*[^[:space:]]+|API[_-]?KEY[[:space:]]*[=:][[:space:]]*[^[:space:]]+|[Ss]ecret[[:space:]]*[=:][[:space:]]*[^[:space:]]+|SECRET[[:space:]]*[=:][[:space:]]*[^[:space:]]+|[Tt]oken[[:space:]]*[=:][[:space:]]*[^[:space:]]+|TOKEN[[:space:]]*[=:][[:space:]]*[^[:space:]]+'
 
 # ac_post_guard_text <text> — refuse on any credential shape. Never echoes the hit.
 ac_post_guard_text() {
@@ -83,6 +87,13 @@ ac_post_redact() {
 }
 
 # ac_post_x_len <text> — X counting: every URL is 23 chars (t.co wrapping).
+#
+# Counts CHARACTERS, not X's weighted units. X counts code points above U+10FF
+# (CJK, emoji, most symbols) as 2. Implementing that table would need
+# per-code-point classification agreeing across mawk/gawk/BSD awk — the exact
+# ground this lib already has scars from (see the mawk note above
+# AC_POST_SECRET_ERE). So: exact for Latin/Cyrillic/Greek/Hebrew/Arabic,
+# under-counts for CJK and emoji. Documented stance, docs/MANUAL.md.
 ac_post_x_len() {
     printf '%s' "$1" \
       | sed -E 's#https?://[^[:space:]]+#XXXXXXXXXXXXXXXXXXXXXXX#g' \
@@ -97,6 +108,14 @@ ac_post_repo_url() {
     [[ -z "$url" ]] && return 0
     url="${url%.git}"
     case "$url" in
+        # ssh://[user@]host[:port]/path — strip scheme, credentials and port
+        ssh://*)
+            suffix="${url#ssh://}"
+            suffix="${suffix#*@}"
+            case "$suffix" in
+                *:*/*) suffix="${suffix%%:*}/${suffix#*/}" ;;   # host:port/path
+            esac
+            url="https://$suffix" ;;
         git@*) suffix="${url#git@}"; suffix="${suffix/:/\/}"; url="https://$suffix" ;;
     esac
     printf '%s\n' "$url"
@@ -117,7 +136,13 @@ ac_post_material() {
         # fewer than 11 commits and no prior post: take everything
         git -C "$path" rev-parse -q --verify HEAD~10 >/dev/null 2>&1 || range="HEAD"
     fi
-    log=$(git -C "$path" log --format='%h %s%n%b' "$range" 2>/dev/null || true)
+    # A failing `git log` and a genuinely empty range both produce no output.
+    # Conflating them reports "nothing to post" for a bad range (e.g. a logged
+    # end-sha that no longer exists after a rebase), which reads as success.
+    if ! log=$(git -C "$path" log --format='%h %s%n%b' "$range" 2>&1); then
+        ac_error "post: git could not read range '$range' in '$project' — $log"
+        return 2
+    fi
     if [[ -z "${log//[[:space:]]/}" ]]; then
         ac_error "post: nothing to post for '$project' since ${last:-the beginning}"
         return 3
