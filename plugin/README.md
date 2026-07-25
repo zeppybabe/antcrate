@@ -38,15 +38,33 @@ tool skips that check, never stalls the session.
 ## Not wired by default
 
 `cost-anticipator.sh` and `session-budget-guard.sh` ship in `hooks/claude/` but
-are deliberately unwired. Both parse the session transcript and can block
-`Skill`, `Agent` and `Read` calls; a misfire stalls the session's own work. To
-enable, add to the `PreToolUse` array in `hooks/hooks.json`:
+are deliberately unwired. Both parse the session transcript and can block tool
+calls; a misfire stalls the session's own work. Their matchers differ and must
+not be merged into one entry:
+
+- `cost-anticipator.sh` is the *predictive* half — it estimates the cost of an
+  expensive call before it runs, so it only needs to see `Skill`, `Agent` and
+  `Read` (its own header pins `matcher: Skill|Agent|Read`).
+- `session-budget-guard.sh` is the *reactive* half — it gates the whole session
+  on context-window health and, once past the hard limit, blocks everything
+  except a wrap-up whitelist. Its header pins `matcher: *`, and its body
+  `case`-dispatches on `tool_name` across `Read|Grep|Glob`, `Edit|Write|MultiEdit`,
+  `Bash`, and a default `*)` branch. Wiring it under `Skill|Agent|Read` instead
+  of `*` would mean it never sees `Bash`/`Edit`/`Write` calls — the hard-limit
+  gate, the entire point of the hook, would never engage.
+
+To enable, add **two** entries to the `PreToolUse` array in `hooks/hooks.json`:
 
 ```json
 {
   "matcher": "Skill|Agent|Read",
   "hooks": [
-    { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/hooks/claude/cost-anticipator.sh" },
+    { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/hooks/claude/cost-anticipator.sh" }
+  ]
+},
+{
+  "matcher": "*",
+  "hooks": [
     { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/hooks/claude/session-budget-guard.sh" }
   ]
 }

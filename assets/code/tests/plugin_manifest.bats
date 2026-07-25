@@ -15,6 +15,21 @@ wired_commands() {
         | sed "s|\${CLAUDE_PLUGIN_ROOT}|$PLUGIN|g"
 }
 
+# The v1 wiring is exactly 7 command lines (3 PreToolUse/Bash + 1
+# PreToolUse/Read + 1 PostToolUse/activity-emitter + 1 PostToolUse/shellcheck
+# + 1 SessionStart). A broken jq/sed extraction (bad key, wrong filter, typo
+# in $HOOKS_JSON) makes `wired_commands` print nothing at all, which would
+# otherwise make every `while read` loop over it run zero iterations and pass
+# vacuously instead of failing. Asserting the exact count turns that failure
+# mode into a loud, specific one. Update this number deliberately (alongside
+# the README's "Not wired by default" instructions) if the v1 wiring shape
+# ever changes.
+assert_wired_count() {
+    local count
+    count="$(wired_commands | grep -c .)"
+    [ "$count" -eq 7 ] || { echo "expected 7 wired commands, got $count"; false; }
+}
+
 @test "marketplace.json parses and names the plugin" {
     run jq -e '.plugins | map(.name) | index("antcrate")' "$MKT"
     [ "$status" -eq 0 ]
@@ -31,6 +46,7 @@ wired_commands() {
 }
 
 @test "every wired command resolves to an executable file" {
+    assert_wired_count
     while IFS= read -r c; do
         [ -n "$c" ] || continue
         [ -f "$c" ] || { echo "missing: $c"; false; }
@@ -39,6 +55,7 @@ wired_commands() {
 }
 
 @test "every wired command uses \${CLAUDE_PLUGIN_ROOT}, never \$HOME or an absolute path" {
+    assert_wired_count
     run jq -r '.hooks | to_entries[] | .value[] | .hooks[] | .command' "$HOOKS_JSON"
     [[ "$output" != *"\$HOME"* ]]
     [[ "$output" != *"/home/"* ]]
