@@ -6,16 +6,55 @@
 # in one reviewable place. See docs/specs/2026-05-31-harness-enforcement-layer.md.
 #
 # Env-aware so fixture tests can point ANTCRATE_HOME / ANTCRATE_REGISTRY at a
-# tmpdir. In production both default to ~/.antcrate.
+# tmpdir. In production the registry resolves under the XDG data home
+# (~/.local/share/antcrate), with the pre-migration ~/.antcrate as fallback.
 
-# Control-plane root — itself critical (hard-blocked).
+# XDG homes, resolved exactly as lib/paths.sh does. Kept as a private helper so
+# the control plane and the registry cannot drift apart again.
+_zones_data_home() {
+    printf '%s\n' "${ANTCRATE_DATA_HOME:-${XDG_DATA_HOME:-$HOME/.local/share}/antcrate}"
+}
+_zones_state_home() {
+    printf '%s\n' "${ANTCRATE_STATE_HOME:-${XDG_STATE_HOME:-$HOME/.local/state}/antcrate}"
+}
+_zones_config_home() {
+    printf '%s\n' "${ANTCRATE_CONFIG_HOME:-${XDG_CONFIG_HOME:-$HOME/.config}/antcrate}"
+}
+
+# Control-plane roots — themselves critical (hard-blocked). One per line.
+# Covers state (daemon lock, backups, policy), data (registry, intel,
+# templates), config (rule #13 human-only file), and the legacy pre-XDG home
+# which may still hold a stub or logs.
 zones_control_plane() {
+    _zones_state_home
+    _zones_data_home
+    _zones_config_home
     printf '%s\n' "${ANTCRATE_HOME:-$HOME/.antcrate}"
 }
 
-# Registry file path.
+# Registry file path. Resolution order matches lib/paths.sh:30 —
+# ANTCRATE_REGISTRY, then the data home, then legacy ~/.antcrate as a last
+# resort. ANTCRATE_HOME means the STATE home and is never consulted for the
+# registry: conflating the two is what made this guard read a stub.
+#
+# The legacy fallback only applies when the data home is the *default*
+# ($HOME/.local/share/antcrate): if the caller explicitly set
+# ANTCRATE_DATA_HOME or XDG_DATA_HOME, that override wins outright, even
+# before anything has been written under it — an explicit relocation is not
+# grounds to silently prefer the pre-migration stub.
 _zones_registry() {
-    printf '%s\n' "${ANTCRATE_REGISTRY:-${ANTCRATE_HOME:-$HOME/.antcrate}/registry.json}"
+    if [ -n "${ANTCRATE_REGISTRY:-}" ]; then
+        printf '%s\n' "$ANTCRATE_REGISTRY"; return 0
+    fi
+    local xdg legacy
+    xdg="$(_zones_data_home)/registry.json"
+    legacy="$HOME/.antcrate/registry.json"
+    if [ -n "${ANTCRATE_DATA_HOME:-}" ] || [ -n "${XDG_DATA_HOME:-}" ] \
+        || [ -r "$xdg" ] || [ ! -r "$legacy" ]; then
+        printf '%s\n' "$xdg"
+    else
+        printf '%s\n' "$legacy"
+    fi
 }
 
 # Registered project roots, one per line. Returns non-zero (and prints nothing)

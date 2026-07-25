@@ -14,7 +14,10 @@
 #      ANTCRATE_BIN (default: antcrate on PATH, else $ANTCRATE_SELFSRC/bin/antcrate)
 set -uo pipefail
 
-REGISTRY="${ANTCRATE_REGISTRY:-$HOME/.antcrate/registry.json}"
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=/dev/null
+. "$HERE/_zones.sh"
+REGISTRY="$(_zones_registry)"
 [ -f "$REGISTRY" ] || exit 0
 
 payload="$(cat)"
