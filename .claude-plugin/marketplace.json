@@ -1,0 +1,11 @@
+{
+  "name": "antcrate",
+  "owner": { "name": "zeppybabe" },
+  "plugins": [
+    {
+      "name": "antcrate",
+      "source": "./plugin",
+      "description": "AntCrate's Gateway Law perimeter for Claude Code: blocks destructive Bash outside the sanctioned channels, keeps secret values out of the transcript, and injects open duties and unread intel at session start."
+    }
+  ]
+}
