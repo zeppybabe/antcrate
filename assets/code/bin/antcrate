@@ -133,6 +133,8 @@ LIB_DIR="$SCRIPT_DIR/../lib"
 . "$LIB_DIR/rag.sh"
 # shellcheck disable=SC1091
 . "$LIB_DIR/health.sh"
+# shellcheck disable=SC1091
+. "$LIB_DIR/plugin.sh"
 
 # ANTCRATE_HOME / ANTCRATE_ROOT and all other path vars are set by paths.sh
 # (sourced first), which honors $XDG_*_HOME and defaults to ~/Projects.
@@ -151,7 +153,7 @@ Commands:
   bak <p> [ls|restore [--at <ts>]]                  backups
   duty [add ["-…"]|done N|clear|ls]                 human-action checklist (duties)
   hook <ls|log|install|rm|debug|smoke|render|bypass|audit|auto> <p>
-  self <check|test|ci|src|edit|install>             antcrate itself
+  self <check|test|ci|plugin|src|edit|install>      antcrate itself
   tool <install|ls|path>                            pinned local dev tools (no root)
   gc <p> | gc ghosts                                cleanup candidates / ghost registry entries
   rag q <p> "<query>" [n]                           BM25 retrieval, self-healing index — query before you grep
@@ -174,7 +176,7 @@ Compact form (audit 2026-07-10; leading legacy --flags RETIRED same day — the
 --flag names below are the internal canonical map, invoke via the words):
   st · pp <p> · new <n> -d <dom> · reg <n> <path> · commit <p> -m "…"
   bak <p> [ls|restore] · duty [add|done N|clear|ls] · duties
-  hook <sub> <p> · self <check|test|ci|src|edit|install> · tool <install|ls|path>
+  hook <sub> <p> · self <check|test|ci|plugin|src|edit|install> · tool <install|ls|path>
   gc <p>|ghosts · mv <old> <new> · arc [-u] <p> · rm <p>
   rag <init|index|q> <p> ["<query>" [n]]  deterministic FTS5/BM25 retrieval for agents
   intel <pull|ls|ack|st>  Anthropic-source change feed; ack all|<id> = bulk review close
@@ -629,7 +631,8 @@ elif [[ "${1:0:1}" != "-" ]]; then
                     src)     shift; set -- --selfsrc "$@" ;;
                     edit)    shift; set -- --selfedit "$@" ;;
                     install) shift; set -- --selfinstall "$@" ;;
-                    *)       ac_error "self: unknown sub '${1:-}' (check|test|ci|src|edit|install)"; exit 2 ;;
+                    plugin)  shift; set -- --plugin-build "$@" ;;
+                    *)       ac_error "self: unknown sub '${1:-}' (check|test|ci|plugin|src|edit|install)"; exit 2 ;;
                 esac ;;
         tool)   case "${1:-}" in
                     ls)      shift; set -- --tool-list "$@" ;;
@@ -673,6 +676,7 @@ INTEL_SOURCE="" INTEL_QUIET="" INTEL_JSON="" INTEL_SHA="" INTEL_KIND="" PP_NO_MI
 DUTY_TEXT="" DUTY_N="" DUTY_TYPE=""
 FETCH_URL="" FETCH_NAME=""
 CI_SNAPSHOT="" CI_SOURCE=""
+PLUGIN_CHECK=""
 HOOKSMOKE_ARGS=()
 PROFILE_RAW=""
 ENV_APPLY=""
@@ -943,6 +947,9 @@ while (( $# > 0 )); do
                     --source)   CI_SOURCE="${2:-}"; shift 2 ;;
                 esac
             done ;;
+        --plugin-build)
+            ACTION="plugin-build"; shift
+            if [[ "${1:-}" == "--check" ]]; then PLUGIN_CHECK="--check"; shift; fi ;;
         --hook-smoke)
             ACTION="hook-smoke"; NAME="${2:-}"
             if [[ $# -ge 2 ]]; then shift 2; else shift; fi
@@ -1327,6 +1334,7 @@ case "$ACTION" in
         [[ -n "$CI_SNAPSHOT" ]] && CI_ARGS+=(--snapshot)
         [[ -n "$CI_SOURCE" ]]   && CI_ARGS+=(--source "$CI_SOURCE")
         ac_devops_ci "${CI_ARGS[@]+"${CI_ARGS[@]}"}" ;;
+    plugin-build) ac_plugin_build ${PLUGIN_CHECK:+"$PLUGIN_CHECK"} ;;
     hook-smoke)
         [[ -z "$NAME" ]] && { ac_error "--hook-smoke requires <hook-script>"; exit 2; }
         ac_hook_smoke "$NAME" "${HOOKSMOKE_ARGS[@]+"${HOOKSMOKE_ARGS[@]}"}" ;;
