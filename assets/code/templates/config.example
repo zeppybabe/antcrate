@@ -27,8 +27,23 @@
 # silent no-op.
 # backup_targets=local,git-mirror
 
-# Projects whose dev/ auto-mirrors after every successful `antcrate pp` push
-# (comma list of project names; `pp <p> --no-mirror` skips once).
+# dev/ auto-mirror after every successful `antcrate pp` push.
+#
+# DEFAULT-ON since 2026-07-24: every project mirrors its dev/ tree to a private
+# <project>-dev companion, no config needed. This is what makes the default
+# .gitignore's publication boundary safe — CLAUDE.md, AGENTS.md, .claude/ and
+# dev/ are kept out of the public tree, and the mirror is where they go instead.
+# `pp <p> --no-mirror` skips a single push.
+#
+# Opt a project out entirely:
+# mirror_dev_exclude=someproject
+#
+# Turn the default off globally, falling back to the legacy opt-in allowlist:
+# mirror_dev_all=0
+#
+# LEGACY allowlist. Still honoured, but it can only ADD now, never subtract —
+# a config written under the old opt-in semantics cannot silently suppress a
+# mirror you now expect by default. Safe to delete.
 # mirror_dev=antcrate
 
 # GitHub owner for the companion repos (default: the gh-authenticated login).

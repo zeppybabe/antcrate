@@ -81,12 +81,53 @@ mirror_setup() {   # ignore dev/ in the fixture repo (real projects always do)
     [ ! -d "$BATS_TEST_TMPDIR/hub/proj-dev.git" ]
 }
 
-@test "pp: project not in mirror_dev list is never mirrored" {
+# ── mirror is DEFAULT-ON (2026-07-24, owner directive) ─────────────────────
+#
+# Was an opt-in allowlist. The publication boundary now keeps CLAUDE.md, dev/
+# and friends out of every public tree by default — and without a mirror that
+# material has no home at all, so the boundary quietly became a delete.
+# Default-on gives every project its private <project>-dev companion.
+# The test below formerly asserted the opposite ("not in the list is never
+# mirrored"); it is inverted on purpose, not broken.
+
+@test "pp: a project absent from mirror_dev STILL mirrors (default-on)" {
     mirror_setup
     printf 'mirror_dev=otherproj\n' > "$ANTCRATE_CONFIG"
     run "$BIN" pp proj
     [ "$status" -eq 0 ]
+    [ -d "$BATS_TEST_TMPDIR/hub/proj-dev.git" ]
+}
+
+@test "pp: mirrors dev/ with no mirror config present at all" {
+    mirror_setup
+    : > "$ANTCRATE_CONFIG"          # no mirror_dev key of any kind
+    run "$BIN" pp proj
+    [ "$status" -eq 0 ]
+    [ -d "$BATS_TEST_TMPDIR/hub/proj-dev.git" ]
+}
+
+@test "pp: mirror_dev_exclude opts a single project out" {
+    mirror_setup
+    printf 'mirror_dev_exclude=proj\n' > "$ANTCRATE_CONFIG"
+    run "$BIN" pp proj
+    [ "$status" -eq 0 ]
     [ ! -d "$BATS_TEST_TMPDIR/hub/proj-dev.git" ]
+}
+
+@test "pp: mirror_dev_all=0 restores the legacy opt-in allowlist" {
+    mirror_setup
+    printf 'mirror_dev_all=0\nmirror_dev=otherproj\n' > "$ANTCRATE_CONFIG"
+    run "$BIN" pp proj
+    [ "$status" -eq 0 ]
+    [ ! -d "$BATS_TEST_TMPDIR/hub/proj-dev.git" ]
+}
+
+@test "pp: mirror_dev_all=0 still mirrors a project named in the allowlist" {
+    mirror_setup
+    printf 'mirror_dev_all=0\nmirror_dev=proj\n' > "$ANTCRATE_CONFIG"
+    run "$BIN" pp proj
+    [ "$status" -eq 0 ]
+    [ -d "$BATS_TEST_TMPDIR/hub/proj-dev.git" ]
 }
 
 @test "pp: mirror failure warns but never fails the public push" {

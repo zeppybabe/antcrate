@@ -134,3 +134,35 @@ src() {
     out=$(git -C "$R" ls-files)
     grep -q '^only.txt$' <<< "$out"
 }
+
+# ---------- publication boundary (2026-07-24) ----------
+#
+# Before this, the default .gitignore covered secrets and build junk but said
+# nothing about AI/agent context, so every scaffolded project shipped CLAUDE.md,
+# AGENTS.md and .claude/ straight to its public remote. These paths are not
+# lost by being ignored — `antcrate pp` mirrors dev/ into the private
+# <project>-dev companion. Pinned here so the boundary cannot silently regress.
+
+@test "bootstrap: default .gitignore keeps agent context out of the public tree" {
+    src "ac_registry_upsert proj '$R' scripts ''"
+    run src "ac_bootstrap proj 'initial'"
+    [ "$status" -eq 0 ]
+    for pat in '^/CLAUDE\.md$' '^/AGENTS\.md$' '^/\.claude/$' '^dev/$' '^X-POSTS\.md$'; do
+        grep -qE "$pat" "$R/.gitignore" || { echo "MISSING from .gitignore: $pat"; false; }
+    done
+}
+
+@test "bootstrap: agent-context ignores are anchored, not global" {
+    src "ac_registry_upsert proj '$R' scripts ''"
+    run src "ac_bootstrap proj 'initial'"
+    [ "$status" -eq 0 ]
+    # a project that legitimately ships docs/CLAUDE.md must keep it
+    mkdir -p "$R/docs"
+    echo "public doc" > "$R/docs/CLAUDE.md"
+    run git -C "$R" check-ignore -q docs/CLAUDE.md
+    [ "$status" -ne 0 ]
+    # ...while the root copy stays ignored
+    echo "private context" > "$R/CLAUDE.md"
+    run git -C "$R" check-ignore -q CLAUDE.md
+    [ "$status" -eq 0 ]
+}

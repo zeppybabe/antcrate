@@ -80,6 +80,35 @@ dist/
 build/
 .next/
 target/
+
+# --- antcrate publication boundary (added 2026-07-24) ---
+# Local-only dev material. NOT lost by being ignored: `antcrate pp` mirrors the
+# dev/ tree as real git history into the private companion repo <project>-dev.
+# Public tree = the product. Private -dev repo = how it got built.
+#
+# Anchored with a leading slash on purpose, so only the project-root copy is
+# ignored — a project that legitimately ships docs/CLAUDE.md keeps it.
+
+# AI/agent working context — confidential
+/CLAUDE.md
+/AGENTS.md
+/.claude/
+
+# antcrate dev records. The md-scaffold regenerates these skeletons at the
+# project root, so anchor them too: otherwise a regenerated stub reaches the
+# public tree even though the real records live under dev/.
+dev/
+/ledger.md
+/state.md
+/state-archive.md
+/duties.md
+/composes.md
+
+# Drafted social posts — copy-paste is the publish gate, never commit them
+X-POSTS.md
+
+# antcrate per-project runtime state (counters churn on every delegation)
+.antcrate/
 GITIGNORE
 }
 

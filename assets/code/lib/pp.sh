@@ -104,15 +104,40 @@ ac_pp_panel() {
 
 # ── dev/ mirror on pp (G2, 2026-07-12) ──────────────────────────────────────
 
-# _ac_pp_mirror_on <project> — 0 when the project is in config `mirror_dev=a,b`
-# (rule-#13 human-only key: enabling the mirror creates a private companion
-# repo, so it never happens without the human writing it into config)
+# _ac_pp_mirror_on <project> — 0 when this project's dev/ should be mirrored.
+#
+# DEFAULT-ON since 2026-07-24 (owner directive). Previously an opt-in allowlist,
+# on the reasoning that creating a private companion repo should need a human
+# keystroke. What that missed: the publication boundary now keeps CLAUDE.md,
+# AGENTS.md, .claude/ and dev/ out of every project's public tree by default.
+# Without a mirror, that material has no home at all — the boundary silently
+# becomes a delete. Default-on is what makes the boundary safe to impose.
+#
+# Config keys, all rule-#13 human-only (agents read, never write):
+#   mirror_dev_exclude=a,b   opt specific projects out (highest precedence)
+#   mirror_dev_all=0         turn the default off globally, restoring the
+#                            legacy allowlist below
+#   mirror_dev=a,b           LEGACY allowlist. Still honoured, but it can only
+#                            ADD now, never subtract — a config written under
+#                            the old semantics cannot silently suppress a
+#                            mirror the owner now expects by default.
 _ac_pp_mirror_on() {
-    local list=""
+    local project="$1" all="" excl="" list=""
     if [[ -f "${ANTCRATE_CONFIG:-}" ]]; then
-        list=$(grep -E '^mirror_dev=' "$ANTCRATE_CONFIG" 2>/dev/null | tail -1 | cut -d= -f2) || true
+        all=$(grep  -E '^mirror_dev_all='     "$ANTCRATE_CONFIG" 2>/dev/null | tail -1 | cut -d= -f2) || true
+        excl=$(grep -E '^mirror_dev_exclude=' "$ANTCRATE_CONFIG" 2>/dev/null | tail -1 | cut -d= -f2) || true
     fi
-    [[ ",$list," == *",$1,"* ]]
+    # explicit opt-out wins over everything
+    [[ ",$excl," == *",$project,"* ]] && return 1
+    # string comparison, never (( )): an arithmetic context evaluates array
+    # subscripts, so a crafted value would execute (audit 2026-07-24, finding C)
+    if [[ "$all" == "0" ]]; then
+        [[ -f "${ANTCRATE_CONFIG:-}" ]] &&
+            list=$(grep -E '^mirror_dev=' "$ANTCRATE_CONFIG" 2>/dev/null | tail -1 | cut -d= -f2) || true
+        [[ ",$list," == *",$project,"* ]] && return 0
+        return 1
+    fi
+    return 0
 }
 
 # ac_pp_mirror_maybe <project> <path> [--no-mirror] — runs AFTER a successful
@@ -127,10 +152,11 @@ ac_pp_mirror_maybe() {
         ac_warn "mirror: git-mirror unavailable — dev/ not mirrored"
         return 0
     fi
-    if [[ ! -d "$p/dev" ]]; then
-        ac_warn "mirror: $project has mirror_dev on but no dev/ directory"
-        return 0
-    fi
+    # No dev/ tree is the ordinary case for most projects now that the mirror
+    # is default-on, so this is a silent skip. Under the old opt-in semantics
+    # it warned, because naming a project in mirror_dev and having no dev/ was
+    # a contradiction worth surfacing; today it would just be noise on every push.
+    [[ -d "$p/dev" ]] || return 0
     local sha
     if sha=$(target_git_mirror_push "$project" "$p/dev" 2>/dev/null); then
         printf 'mirror    : dev/ -> %s-dev @ %s\n' "$project" "${sha:0:7}"
