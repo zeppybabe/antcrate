@@ -96,7 +96,24 @@ _neutralize_heredocs() {  # blank heredoc BODIES — text between <<MARKER and t
     printf '%s' "$out"
 }
 
-_resolve() {  # normalize a token into an absolute-ish path for matching
+_normalize() {  # collapse . and .. LEXICALLY, plus duplicate/trailing slashes.
+                # Deliberately no filesystem access and no symlink resolution:
+                # registry roots are stored unresolved, so resolving here would
+                # make the prefix match disagree with them. Without this,
+                # a/../a defeats _under and the whole zone check falls open.
+    local p="$1" part out=() joined=""
+    while IFS= read -r part; do
+        case "$part" in
+            ''|.) ;;
+            ..)   (( ${#out[@]} > 0 )) && out=("${out[@]:0:${#out[@]}-1}") ;;
+            *)    out+=("$part") ;;
+        esac
+    done < <(printf '%s\n' "${p//\//$'\n'}")
+    for part in "${out[@]+"${out[@]}"}"; do joined+="/$part"; done
+    printf '%s' "${joined:-/}"
+}
+
+_resolve() {  # normalize a token into an absolute path for matching
     local p="$1" tilde='~'
     p="${p%\"}"; p="${p#\"}"; p="${p%\'}"; p="${p#\'}"   # strip one layer of quotes
     if [ "${p:0:1}" = "$tilde" ]; then
@@ -104,7 +121,7 @@ _resolve() {  # normalize a token into an absolute-ish path for matching
     elif [ "${p:0:1}" != "/" ]; then
         p="$PWD/$p"
     fi
-    printf '%s' "$p"
+    _normalize "$p"
 }
 
 _under() {  # _under <path> <prefix>: true if path == prefix or under prefix/
@@ -150,6 +167,79 @@ _is_root_exact() {
     return 1
 }
 
+_is_wrapper() {  # privilege / no-op prefixes that hide the real argv0, plus the
+                 # builtin escapes (\rm, command rm, exec rm) and VAR=val prefixes
+    local w="${1##*/}"; w="${w#\\}"
+    case "$w" in
+        sudo|doas|env|nohup|nice|time|stdbuf|command|builtin|exec) return 0 ;;
+        -*) return 1 ;;
+        *=*) return 0 ;;
+    esac
+    return 1
+}
+
+_qtokens() {  # quote-aware tokenizer: one token per line, one layer of quotes
+              # stripped, and unquoted ; | & && || emitted as their own tokens.
+              # Needed because the segment scanner below runs on a string whose
+              # quoted operators have already been blanked — an inner command
+              # must be recovered from the RAW text to stay segmentable.
+    local s="$1" i n ch q="" tok="" started=0
+    n="${#s}"
+    for (( i = 0; i < n; i++ )); do
+        ch="${s:i:1}"
+        if [ -n "$q" ]; then
+            if [ "$ch" = "$q" ]; then q=""; else tok+="$ch"; fi
+            continue
+        fi
+        case "$ch" in
+            "'"|'"') q="$ch"; started=1 ;;
+            ' '|$'\t'|$'\n')
+                [ "$started" = 1 ] && { printf '%s\n' "$tok"; tok=""; started=0; } ;;
+            ';'|'|'|'&')
+                [ "$started" = 1 ] && { printf '%s\n' "$tok"; tok=""; started=0; }
+                if [ "${s:i+1:1}" = "$ch" ]; then
+                    i=$((i + 1)); printf '%s%s\n' "$ch" "$ch"
+                else
+                    printf '%s\n' "$ch"
+                fi ;;
+            *) tok+="$ch"; started=1 ;;   # backslash kept: \rm must stay visible
+        esac
+    done
+    [ "$started" = 1 ] && printf '%s\n' "$tok"
+    return 0
+}
+
+_inner_cmds() {  # emit every command string hidden inside a shell -c or an eval
+    local raw="$1" t w at_start=1 argv0="" want_c=0 in_eval=0 evalbuf=""
+    while IFS= read -r t; do
+        case "$t" in
+            ';'|'&'|'|'|'&&'|'||')
+                [ "$in_eval" = 1 ] && [ -n "$evalbuf" ] && printf '%s\n' "$evalbuf"
+                evalbuf=""; in_eval=0; want_c=0; at_start=1; argv0=""
+                continue ;;
+        esac
+        if [ "$at_start" = 1 ]; then
+            _is_wrapper "$t" && continue
+            w="${t##*/}"; w="${w#\\}"
+            at_start=0; argv0="$w"
+            [ "$w" = "eval" ] && in_eval=1
+            continue
+        fi
+        if [ "$in_eval" = 1 ]; then
+            evalbuf="${evalbuf:+$evalbuf }$t"
+            continue
+        fi
+        if [ "$want_c" = 1 ]; then
+            printf '%s\n' "$t"; want_c=0; continue
+        fi
+        case "$argv0" in
+            bash|sh|zsh|dash|ksh) [ "$t" = "-c" ] && want_c=1 ;;
+        esac
+    done < <(_qtokens "$raw")
+    [ "$in_eval" = 1 ] && [ -n "$evalbuf" ] && printf '%s\n' "$evalbuf"
+    return 0
+}
+
 # verdict: 0 allow, 1 warn, 2 block. Strongest wins; keep its message.
 verdict=0
 msg=""
@@ -158,17 +248,26 @@ bump() {
     if [ "$lvl" -gt "$verdict" ]; then verdict="$lvl"; msg="$*"; fi
 }
 
-# --- whole-command dangerous signatures --------------------------------------
+# --- command analysis --------------------------------------------------------
 
-if printf '%s' "$cmd" | grep -qE ':\(\)\s*\{[^}]*:\|:[^}]*\}\s*;\s*:'; then
-    bump 2 "dangerous fork-bomb signature"
-fi
+# _scan_command <raw> [depth] — analyse one command string, recursing first into
+# any command hidden inside a shell -c / eval so indirection cannot launder a
+# blocked operation. Verdict accumulates in the globals via bump().
+_scan_command() {
+    local raw="$1" depth="${2:-0}" inner scan segments seg
+    (( depth > 4 )) && return 0
 
-# --- per-segment analysis ----------------------------------------------------
+    while IFS= read -r inner; do
+        [ -n "$inner" ] && _scan_command "$inner" $(( depth + 1 ))
+    done < <(_inner_cmds "$raw")
+
+    if printf '%s' "$raw" | grep -qE ':\(\)\s*\{[^}]*:\|:[^}]*\}\s*;\s*:'; then
+        bump 2 "dangerous fork-bomb signature"
+    fi
 
 # Neutralize operators inside quotes first, then split on ; && || | &
 # (single & = background). Redirects (>) stay in-segment.
-scan="$(_neutralize_quoted "$cmd")"
+scan="$(_neutralize_quoted "$raw")"
 scan="$(_neutralize_heredocs "$scan")"
 segments="$(printf '%s' "$scan" | sed -E 's/(\|\||&&|[;&|])/\n/g')"
 
@@ -181,15 +280,13 @@ while IFS= read -r seg; do
     read -r -a toks <<< "$seg"
     [ "${#toks[@]}" -eq 0 ] && continue
 
-    # strip a leading privilege/wrapper prefix
+    # strip leading privilege/no-op wrappers, builtin escapes and VAR=val prefixes
     while [ "${#toks[@]}" -gt 1 ]; do
-        case "${toks[0]##*/}" in
-            sudo|doas|env|nohup|nice) toks=("${toks[@]:1}") ;;
-            *) break ;;
-        esac
+        _is_wrapper "${toks[0]}" || break
+        toks=("${toks[@]:1}")
     done
 
-    base="${toks[0]##*/}"
+    base="${toks[0]##*/}"; base="${base#\\}"
 
     # redirects landing in the critical zone (covers > /dev/..., > registry)
     expect_target=0
@@ -249,8 +346,102 @@ while IFS= read -r seg; do
             fi ;;
     esac
 
-    # rm — zone-classified deletion
-    if [ "$base" = "rm" ]; then
+    # find with a destructive action — same effect as a recursive rm, different argv0
+    if [ "$base" = "find" ]; then
+        destructive=0
+        want_exec=0
+        paths=()
+        seen_flag=0
+        for t in "${toks[@]:1}"; do
+            if [ "$want_exec" -eq 1 ]; then
+                want_exec=0
+                case "${t##*/}" in rm|unlink|shred|truncate|dd|mv) destructive=1 ;; esac
+            fi
+            case "$t" in
+                -delete) destructive=1 ;;
+                -exec|-execdir|-ok|-okdir) want_exec=1; seen_flag=1 ;;
+                -*) seen_flag=1 ;;
+                *) [ "$seen_flag" -eq 0 ] && paths+=("$t") ;;
+            esac
+        done
+        if [ "$destructive" -eq 1 ]; then
+            [ "${#paths[@]}" -eq 0 ] && paths=(".")
+            for t in "${paths[@]}"; do
+                rp="$(_resolve "$t")"
+                if _is_critical "$rp"; then
+                    bump 2 "critical-zone delete via find: $rp"
+                elif [ "$registry_ok" -eq 1 ] && _under_root "$rp" >/dev/null; then
+                    bump 2 "recursive delete inside a project tree via find: $rp"
+                elif [ "$registry_ok" -eq 1 ]; then
+                    bump 1 "neutral-zone delete via find: $rp"
+                fi
+            done
+        fi
+    fi
+
+    # git clean -f — untracked-file wipe; as destructive as rm -r inside a tree
+    if [ "$base" = "git" ]; then
+        is_clean=0; forced=0; dry=0
+        paths=()
+        expect_dir=0
+        gitdir=""
+        for t in "${toks[@]:1}"; do
+            if [ "$expect_dir" -eq 1 ]; then expect_dir=0; gitdir="$t"; continue; fi
+            case "$t" in
+                -C) expect_dir=1 ;;
+                clean) is_clean=1 ;;
+                -n|--dry-run) dry=1 ;;
+                --force) forced=1 ;;
+                -*) [ "$is_clean" -eq 1 ] && case "$t" in *f*) forced=1 ;; esac
+                    case "$t" in *n*) [[ "$t" != --* ]] && dry=1 ;; esac ;;
+                *) [ "$is_clean" -eq 1 ] && paths+=("$t") ;;
+            esac
+        done
+        if [ "$is_clean" -eq 1 ] && [ "$forced" -eq 1 ] && [ "$dry" -eq 0 ]; then
+            [ "${#paths[@]}" -eq 0 ] && paths=("${gitdir:-.}")
+            for t in "${paths[@]}"; do
+                rp="$(_resolve "$t")"
+                if _is_critical "$rp"; then
+                    bump 2 "critical-zone wipe: git clean on $rp"
+                elif [ "$registry_ok" -eq 1 ] && _under_root "$rp" >/dev/null; then
+                    bump 2 "untracked-file wipe inside a project tree: git clean on $rp"
+                fi
+            done
+        fi
+    fi
+
+    # rsync --delete — deletes in the DESTINATION (last non-flag operand)
+    if [ "$base" = "rsync" ]; then
+        deleting=0
+        nf=()
+        for t in "${toks[@]:1}"; do
+            case "$t" in
+                --delete|--delete-*|--del) deleting=1 ;;
+                -*) ;;
+                *) nf+=("$t") ;;
+            esac
+        done
+        if [ "$deleting" -eq 1 ] && [ "${#nf[@]}" -gt 0 ]; then
+            rp="$(_resolve "${nf[$(( ${#nf[@]} - 1 ))]}")"
+            if _is_critical "$rp"; then
+                bump 2 "critical-zone delete via rsync --delete: $rp"
+            elif [ "$registry_ok" -eq 1 ] && _under_root "$rp" >/dev/null; then
+                bump 2 "recursive delete inside a project tree via rsync --delete: $rp"
+            fi
+        fi
+    fi
+
+    # truncate — destroys file contents in place without ever calling rm
+    if [ "$base" = "truncate" ]; then
+        for t in "${toks[@]:1}"; do
+            case "$t" in -*) continue ;; esac
+            rp="$(_resolve "$t")"
+            _is_critical "$rp" && bump 2 "critical-zone truncate: $rp"
+        done
+    fi
+
+    # rm and its single-purpose equivalents — zone-classified deletion
+    if [ "$base" = "rm" ] || [ "$base" = "unlink" ] || [ "$base" = "shred" ]; then
         recursive=0
         targets=()
         for t in "${toks[@]:1}"; do
@@ -305,6 +496,9 @@ while IFS= read -r seg; do
         done
     fi
 done <<< "$segments"
+}
+
+_scan_command "$cmd" 0
 
 # --- emit --------------------------------------------------------------------
 
