@@ -74,6 +74,7 @@ assert_wired_count() {
 }
 
 @test "the budget pair ships in the tree but stays UNWIRED" {
+    assert_wired_count
     [ -f "$PLUGIN/hooks/claude/cost-anticipator.sh" ]
     [ -f "$PLUGIN/hooks/claude/session-budget-guard.sh" ]
     out="$(wired_commands)"

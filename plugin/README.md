@@ -35,6 +35,27 @@ Blocking hooks communicate by exit code: `2` blocks the call and returns stderr
 to the model, `0` allows. Every hook fails open — a missing state file or absent
 tool skips that check, never stalls the session.
 
+## Known limits
+
+`gateway-guard.sh` is a **token-level classifier**, not a command-semantics
+analyzer. It matches argv0 and flag patterns; it does not evaluate what a
+command actually does. Known bypass classes (verified live against this
+branch — not a regression, the guard is byte-identical to its pre-plugin
+state, but worth knowing before you rely on it):
+
+- Indirection: `bash -c 'rm -rf <project>/src'`, `\rm -rf /etc`,
+  `command rm -rf …`.
+- Equivalent tools the guard doesn't pattern-match: `find … -delete`,
+  `find … -exec rm -f {} +`, `git -C … clean -xfd`, `rsync -a --delete`,
+  `truncate -s 0`.
+- Path normalization: `rm -rf /home/alexk/.local/share/../share/antcrate`
+  (no `..` collapsing before the critical-zone check).
+
+Treat the guard as a speed bump against direct, literal destructive
+commands — not a sandbox. It does not substitute for backups, review, or the
+`antcrate` wrapper's own gates. Hardening these classes is tracked as future
+work; see the duty log.
+
 ## Not wired by default
 
 `cost-anticipator.sh` and `session-budget-guard.sh` ship in `hooks/claude/` but

@@ -7,11 +7,18 @@
 # blocks (exit 2) naming a cheaper path; past soft warns. Reads ONLY
 # policy.json + the transcript — never invokes antcrate. Fails OPEN.
 # Agents MUST NOT set ANTCRATE_COST_GUARD_DISABLE (AGENTS.md).
+#
+# Env: ANTCRATE_POLICY_FILE (default: resolved via _zones_policy_file — XDG
+#      state home first, legacy ~/.antcrate/anycrate/policy.json last)
 set -uo pipefail
 
 [ "${ANTCRATE_COST_GUARD_DISABLE:-0}" = "1" ] && exit 0
 
-POLICY="${ANTCRATE_POLICY_FILE:-$HOME/.antcrate/anycrate/policy.json}"
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=/dev/null
+. "$HERE/_zones.sh"
+
+POLICY="$(_zones_policy_file)"
 SKILLS_DIR="${ANTCRATE_COST_SKILLS_DIR:-$HOME/.claude/skills}"
 [ -r "$POLICY" ] || exit 0                                   # fail open
 

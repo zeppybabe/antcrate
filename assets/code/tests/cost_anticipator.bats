@@ -72,6 +72,21 @@ payload_skill() { jq -cn --arg t "$T" --arg s "$1" '{transcript_path:$t,tool_nam
     [ "$status" -eq 2 ]
 }
 
+@test "anticipator: default resolution finds policy.json under the XDG state home when ANTCRATE_POLICY_FILE is unset" {
+    # Pins the fix for the pre-XDG default: before it, POLICY defaulted to
+    # ~/.antcrate/anycrate/policy.json, a path nothing on a real XDG machine
+    # writes, so the hook silently failed open forever. Only the XDG state
+    # path holds a policy.json here — no ANTCRATE_POLICY_FILE override.
+    unset ANTCRATE_POLICY_FILE
+    export HOME="$BATS_TEST_TMPDIR/xdghome"
+    mkdir -p "$HOME/.local/state/antcrate/anycrate"
+    jq -n '{budgets:{default:{soft:100000,hard:140000}}}' \
+        > "$HOME/.local/state/antcrate/anycrate/policy.json"
+    mk_transcript 999999 "claude-mystery-9"
+    run bash -c "printf '%s' '{\"transcript_path\":\"'$T'\",\"tool_name\":\"Skill\",\"tool_input\":{\"skill\":\"smallskill\"}}' | '$HOOK'"
+    [ "$status" -eq 2 ]
+}
+
 @test "anticipator: fail-open on missing policy file" {
     rm -f "$ANTCRATE_POLICY_FILE"
     mk_transcript 999999 "claude-fable-5"

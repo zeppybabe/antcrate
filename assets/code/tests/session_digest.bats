@@ -34,6 +34,21 @@ EOF
     [[ "$output" == *"oldest 2026-07-17"* ]]
 }
 
+@test "duties signal survives ANTCRATE_SELFSRC in both the repo-root and assets/code forms" {
+    unset ANTCRATE_DUTIES_FILE
+    root="$BATS_TEST_TMPDIR/selfsrc-root"
+    mkdir -p "$root/dev"
+    printf ' 1. - [ ] 2026-07-17 — [command] duty found via selfsrc resolution\n' > "$root/dev/duties.md"
+
+    ANTCRATE_SELFSRC="$root" run digest
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"1 duties open (oldest 2026-07-17)"* ]]
+
+    ANTCRATE_SELFSRC="$root/assets/code" run digest
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"1 duties open (oldest 2026-07-17)"* ]]
+}
+
 @test "picks the duty's own leading date, not a date embedded in another duty's body text" {
     cat > "$ANTCRATE_DUTIES_FILE" <<'EOF'
 - [ ] 2026-07-17 — [command] real oldest open duty, no embedded dates
@@ -53,6 +68,30 @@ EOF
     printf '%s\n' '{"source":"b","sha256":"bbb"}' > "$ANTCRATE_INTEL_DIR/acked.jsonl"
     run digest
     [[ "$output" == *"2 intel unread"* ]]
+}
+
+@test "an explicit XDG_DATA_HOME relocation wins over a legacy registry stub, even when the relocated dir is empty" {
+    # Pins parity with hooks/claude/_zones.sh's _zones_registry: an explicit
+    # ANTCRATE_DATA_HOME/XDG_DATA_HOME override wins outright, even before
+    # anything has been written under it. Before the fix, this hook fell
+    # through to the legacy stub instead, so two AntCrate surfaces would read
+    # different registries.
+    unset ANTCRATE_DATA_HOME
+    export XDG_DATA_HOME="$BATS_TEST_TMPDIR/relocated"
+    mkdir -p "$XDG_DATA_HOME"
+
+    P="$BATS_TEST_TMPDIR/proj"
+    mkdir -p "$P"
+    ( cd "$P" && git init -q -b master \
+        && git config user.email t@e.x && git config user.name t \
+        && echo one > a.txt && git add a.txt && git commit -qm init \
+        && echo two > a.txt )
+    mkdir -p "$HOME/.antcrate"
+    jq -n --arg p "$P" '{projects:{proj:{path:$p}}}' > "$HOME/.antcrate/registry.json"
+
+    run digest
+    [ "$status" -eq 0 ]
+    [[ "$output" != *"dirty"* ]]
 }
 
 @test "reports a dirty registered project by name" {

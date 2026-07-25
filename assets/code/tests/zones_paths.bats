@@ -11,6 +11,7 @@ setup() {
     jq -n '{projects:{live:{path:"/tmp/live",parent:"x",linked_nodes:[],git_remote:""}}}' \
         > "$HOME/.local/share/antcrate/registry.json"
     unset ANTCRATE_REGISTRY ANTCRATE_HOME ANTCRATE_DATA_HOME XDG_DATA_HOME
+    unset ANTCRATE_POLICY_FILE ANTCRATE_STATE_HOME XDG_STATE_HOME
 }
 
 zsrc() { bash -c '. "'"$ZONES"'"; '"$1"; }
@@ -52,6 +53,46 @@ zsrc() { bash -c '. "'"$ZONES"'"; '"$1"; }
     rm -f "$HOME/.local/share/antcrate/registry.json"
     run zsrc '_zones_registry'
     [ "$output" = "$HOME/.antcrate/registry.json" ]
+}
+
+@test "policy: XDG state path wins when no legacy policy.json exists" {
+    run zsrc '_zones_policy_file'
+    [ "$status" -eq 0 ]
+    [ "$output" = "$HOME/.local/state/antcrate/anycrate/policy.json" ]
+}
+
+@test "policy: ANTCRATE_POLICY_FILE overrides everything" {
+    export ANTCRATE_POLICY_FILE="$BATS_TEST_TMPDIR/custom-policy.json"
+    run zsrc '_zones_policy_file'
+    [ "$output" = "$BATS_TEST_TMPDIR/custom-policy.json" ]
+}
+
+@test "policy: ANTCRATE_STATE_HOME is honored ahead of XDG_STATE_HOME" {
+    export ANTCRATE_STATE_HOME="$BATS_TEST_TMPDIR/sh"
+    export XDG_STATE_HOME="$BATS_TEST_TMPDIR/xdgstate"
+    run zsrc '_zones_policy_file'
+    [ "$output" = "$BATS_TEST_TMPDIR/sh/anycrate/policy.json" ]
+}
+
+@test "policy: XDG_STATE_HOME is honored when ANTCRATE_STATE_HOME is unset" {
+    export XDG_STATE_HOME="$BATS_TEST_TMPDIR/xdgstate"
+    run zsrc '_zones_policy_file'
+    [ "$output" = "$BATS_TEST_TMPDIR/xdgstate/antcrate/anycrate/policy.json" ]
+}
+
+@test "policy: falls back to legacy ~/.antcrate/anycrate/policy.json when no XDG policy file exists" {
+    mkdir -p "$HOME/.antcrate/anycrate"
+    printf '{}\n' > "$HOME/.antcrate/anycrate/policy.json"
+    run zsrc '_zones_policy_file'
+    [ "$output" = "$HOME/.antcrate/anycrate/policy.json" ]
+}
+
+@test "policy: XDG state relocation wins over a legacy policy.json, even when the relocated dir is empty" {
+    mkdir -p "$HOME/.antcrate/anycrate"
+    printf '{}\n' > "$HOME/.antcrate/anycrate/policy.json"
+    export XDG_STATE_HOME="$BATS_TEST_TMPDIR/relocated"
+    run zsrc '_zones_policy_file'
+    [ "$output" = "$BATS_TEST_TMPDIR/relocated/antcrate/anycrate/policy.json" ]
 }
 
 @test "control plane: covers state, data and config homes" {

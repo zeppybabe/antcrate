@@ -10,7 +10,8 @@
 # exit 0, and the wrapper call is best-effort. A broken emitter must degrade
 # to "the tree just doesn't light up", not to a stuck session.
 #
-# Env: ANTCRATE_REGISTRY (default ~/.antcrate/registry.json)
+# Env: ANTCRATE_REGISTRY (default: resolved via _zones_registry — XDG data
+#      home first, legacy ~/.antcrate/registry.json last)
 #      ANTCRATE_BIN (default: antcrate on PATH, else $ANTCRATE_SELFSRC/bin/antcrate)
 set -uo pipefail
 

@@ -38,6 +38,21 @@ run_hook() { printf '%s' "{\"transcript_path\":\"$T\",\"session_id\":\"s1\",\"to
     run run_hook; [ "$status" -eq 2 ]
 }
 
+@test "gate: default resolution finds policy.json under the XDG state home when ANTCRATE_POLICY_FILE is unset" {
+    # Pins the fix for the pre-XDG default: before it, POLICY defaulted to
+    # ~/.antcrate/anycrate/policy.json, which does not exist on a real XDG
+    # machine, so fable's real 400k hard budget was silently never read and
+    # this context would BLOCK under the conservative builtin 140k instead.
+    unset ANTCRATE_POLICY_FILE
+    export HOME="$BATS_TEST_TMPDIR/xdghome"
+    mkdir -p "$HOME/.local/state/antcrate/anycrate"
+    jq -n '{budgets:{default:{soft:100000,hard:140000},fable:{soft:250000,hard:400000}}}' \
+        > "$HOME/.local/state/antcrate/anycrate/policy.json"
+    mk 176000 "claude-fable-5"
+    run run_hook
+    [ "$status" -eq 0 ]
+}
+
 @test "gate: 251k on fable WARNS (fable soft 250k) and allows" {
     mk 251000 "claude-fable-5"; run run_hook
     [ "$status" -eq 0 ]

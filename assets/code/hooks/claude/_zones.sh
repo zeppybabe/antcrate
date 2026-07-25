@@ -37,6 +37,12 @@ zones_control_plane() {
 # resort. ANTCRATE_HOME means the STATE home and is never consulted for the
 # registry: conflating the two is what made this guard read a stub.
 #
+# plugin/hooks/session-digest.sh carries a hand-written copy of this exact
+# resolution order (it cannot source this file — hooks.json wires it as a
+# standalone script). That copy must move together with this function, or
+# _zones_registry and session-digest.sh will disagree on which registry.json
+# is live.
+#
 # The legacy fallback only applies when the data home is the *default*
 # ($HOME/.local/share/antcrate): if the caller explicitly set
 # ANTCRATE_DATA_HOME or XDG_DATA_HOME, that override wins outright, even
@@ -50,6 +56,29 @@ _zones_registry() {
     xdg="$(_zones_data_home)/registry.json"
     legacy="$HOME/.antcrate/registry.json"
     if [ -n "${ANTCRATE_DATA_HOME:-}" ] || [ -n "${XDG_DATA_HOME:-}" ] \
+        || [ -r "$xdg" ] || [ ! -r "$legacy" ]; then
+        printf '%s\n' "$xdg"
+    else
+        printf '%s\n' "$legacy"
+    fi
+}
+
+# Policy file path — same resolution shape as _zones_registry above, but for
+# lib/policy.sh's policy.json. That file resolves under ANTCRATE_HOME, which
+# lib/paths.sh aliases to the STATE home; a standalone hook has no paths.sh,
+# so it must reproduce the STATE-home math itself or its default silently
+# points at a path nothing ever writes. Order: ANTCRATE_POLICY_FILE, then the
+# XDG state home, then legacy ~/.antcrate/anycrate/policy.json as a last
+# resort. An explicit ANTCRATE_STATE_HOME/XDG_STATE_HOME wins outright, same
+# relocation rule as the registry.
+_zones_policy_file() {
+    if [ -n "${ANTCRATE_POLICY_FILE:-}" ]; then
+        printf '%s\n' "$ANTCRATE_POLICY_FILE"; return 0
+    fi
+    local xdg legacy
+    xdg="$(_zones_state_home)/anycrate/policy.json"
+    legacy="$HOME/.antcrate/anycrate/policy.json"
+    if [ -n "${ANTCRATE_STATE_HOME:-}" ] || [ -n "${XDG_STATE_HOME:-}" ] \
         || [ -r "$xdg" ] || [ ! -r "$legacy" ]; then
         printf '%s\n' "$xdg"
     else

@@ -10,9 +10,16 @@
 # files). Fails OPEN: a health guard must never brick the session it guards.
 #
 # NOTE: no `set -e` — the guard must always exit with its own computed code.
+#
+# Env: ANTCRATE_POLICY_FILE (default: resolved via _zones_policy_file — XDG
+#      state home first, legacy ~/.antcrate/anycrate/policy.json last)
 set -uo pipefail
 
 [ "${ANTCRATE_SESSION_GATE_DISABLE:-0}" = "1" ] && exit 0
+
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=/dev/null
+. "$HERE/_zones.sh"
 
 GATE_DIR="${ANTCRATE_SESSION_GATE_DIR:-$HOME/.antcrate/session-gate}"
 
@@ -36,7 +43,7 @@ case "$context" in *[!0-9]*) exit 0 ;; esac               # fail open
 # ---- per-model budgets (spec 2026-06-11 Unit 5) ------------------------------
 # env override (human-only) > policy.budgets.<model> > policy.budgets.default
 # > builtin 100k/140k. Fable raise: user directive 2026-06-11, evidence-backed.
-POLICY="${ANTCRATE_POLICY_FILE:-$HOME/.antcrate/anycrate/policy.json}"
+POLICY="$(_zones_policy_file)"
 case "$model_id" in
     *fable*) mkey=fable ;; *opus*) mkey=opus ;; *sonnet*) mkey=sonnet ;; *haiku*) mkey=haiku ;;
     *) mkey=default ;;

@@ -26,10 +26,18 @@ cat >/dev/null 2>&1 || true          # drain the payload; we do not need it
 command -v jq >/dev/null 2>&1 || exit 0
 
 # ---- path resolution (mirrors lib/paths.sh and hooks/claude/_zones.sh) ------
+# This registry-resolution block is a THIRD COPY of hooks/claude/_zones.sh's
+# _zones_registry — that file's copy must move together with this one (and
+# vice versa), or AntCrate surfaces will disagree on which registry.json is
+# live. See the comment on _zones_registry in assets/code/hooks/claude/_zones.sh.
 data_home="${ANTCRATE_DATA_HOME:-${XDG_DATA_HOME:-$HOME/.local/share}/antcrate}"
 registry="${ANTCRATE_REGISTRY:-}"
 if [ -z "$registry" ]; then
-    if [ -r "$data_home/registry.json" ] || [ ! -r "$HOME/.antcrate/registry.json" ]; then
+    # An explicit ANTCRATE_DATA_HOME/XDG_DATA_HOME wins outright, even before
+    # anything has been written under it — an explicit relocation is not
+    # grounds to silently prefer the pre-migration stub.
+    if [ -n "${ANTCRATE_DATA_HOME:-}" ] || [ -n "${XDG_DATA_HOME:-}" ] \
+        || [ -r "$data_home/registry.json" ] || [ ! -r "$HOME/.antcrate/registry.json" ]; then
         registry="$data_home/registry.json"
     else
         registry="$HOME/.antcrate/registry.json"
@@ -39,9 +47,19 @@ intel_dir="${ANTCRATE_INTEL_DIR:-$data_home/intel}"
 
 duties_file="${ANTCRATE_DUTIES_FILE:-}"
 if [ -z "$duties_file" ]; then
+    # ANTCRATE_SELFSRC is accepted in either of two forms, mirroring
+    # lib/plugin.sh's ac_plugin_build: naming assets/code itself (this
+    # machine's real ~/.config/antcrate/config) or naming the repo root
+    # directly. duties.md always lives under the repo root, so normalize
+    # to skill_root before looking for it — get this wrong and the assets/code
+    # form silently finds no duties file and the signal goes quiet.
     selfsrc="${ANTCRATE_SELFSRC:-$HOME/.claude/skills/antcrate}"
-    if   [ -f "$selfsrc/dev/duties.md" ]; then duties_file="$selfsrc/dev/duties.md"
-    else duties_file="$selfsrc/duties.md"
+    case "$selfsrc" in
+        */assets/code) skill_root="$(dirname "$(dirname "$selfsrc")")" ;;
+        *)              skill_root="$selfsrc" ;;
+    esac
+    if   [ -f "$skill_root/dev/duties.md" ]; then duties_file="$skill_root/dev/duties.md"
+    else duties_file="$skill_root/duties.md"
     fi
 fi
 
