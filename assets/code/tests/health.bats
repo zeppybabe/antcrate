@@ -25,6 +25,11 @@ run_health() {
     # AC_OS pinned to linux: these tests exercise the systemd branch and the
     # apt-flavored hints; darwin variants live in run_health_darwin below
     bash -c "
+        # The wrapper-drift check reads these two; a value inherited from the
+        # surrounding session (self ci exports ANTCRATE_SELFSRC) would make the
+        # doctor compare THIS machine's real install and the result would swing
+        # with it. Every runner starts from a known-empty pair.
+        unset ANTCRATE_SELFSRC ANTCRATE_DATA_HOME
         export PATH='$HEALTH_PATH'
         export AC_OS=linux
         export ANTCRATE_HOME='$ANTCRATE_HOME' ANTCRATE_CONFIG='$ANTCRATE_CONFIG'
@@ -123,6 +128,7 @@ run_health() {
 
 run_health_darwin() {
     bash -c "
+        unset ANTCRATE_SELFSRC ANTCRATE_DATA_HOME
         export PATH='$HEALTH_PATH'
         export AC_OS=darwin
         export ANTCRATE_HOME='$ANTCRATE_HOME' ANTCRATE_CONFIG='$ANTCRATE_CONFIG'
@@ -172,4 +178,101 @@ run_health_darwin() {
     echo '{}' > "$ANTCRATE_HOME/anycrate/policy.json"
     run run_health "ac_health_checks"
     [[ "$output" == *$'opt\tpolicy\tok'* ]]
+}
+
+# ---- installed-wrapper drift (audit 2026-07-25, finding D) ----
+#
+# `st` reported "selfsrc: OK" and "health: OK" while ~/.local/bin/antcrate was
+# fifteen commits behind source — including the commit that stopped `self ci`
+# from PASSING with both of its gates skipped. The stale copy is what actually
+# runs, so the gap has to be visible on the line the owner reads.
+
+# Own runner: these need ANTCRATE_SELFSRC and ANTCRATE_DATA_HOME, which the
+# shared run_health deliberately leaves unset.
+run_drift() {
+    bash -c "
+        # The wrapper-drift check reads these two; a value inherited from the
+        # surrounding session (self ci exports ANTCRATE_SELFSRC) would make the
+        # doctor compare THIS machine's real install and the result would swing
+        # with it. Every runner starts from a known-empty pair.
+        unset ANTCRATE_SELFSRC ANTCRATE_DATA_HOME
+        export PATH='$HEALTH_PATH'
+        export AC_OS=linux
+        export ANTCRATE_HOME='$ANTCRATE_HOME' ANTCRATE_CONFIG='$ANTCRATE_CONFIG'
+        export ANTCRATE_ROOT='$ANTCRATE_ROOT' ANTCRATE_REGISTRY='$ANTCRATE_REGISTRY'
+        export ANTCRATE_BIN_DIR='$ANTCRATE_BIN_DIR' ANTCRATE_TOOLS_BIN='$ANTCRATE_TOOLS_BIN'
+        export ANTCRATE_DATA_HOME='$DRIFT_DATA' ANTCRATE_SELFSRC='$DRIFT_SRC'
+        export ANTCRATE_LOG_LEVEL='$ANTCRATE_LOG_LEVEL'
+        . '$LIB/log.sh'; . '$LIB/health.sh'
+        $1
+    "
+}
+
+# A source tree and a matching install of it, as install.sh would produce:
+# libs copied verbatim, binaries copied with the single LIB_DIR line rewritten.
+mk_installed_pair() {
+    DRIFT_SRC="$BATS_TEST_TMPDIR/selfsrc"
+    DRIFT_DATA="$BATS_TEST_TMPDIR/data"
+    mkdir -p "$DRIFT_SRC/lib" "$DRIFT_SRC/bin" "$DRIFT_DATA/lib"
+    printf '#!/usr/bin/env bash\n: one\n' > "$DRIFT_SRC/lib/one.sh"
+    printf '#!/usr/bin/env bash\n: two\n' > "$DRIFT_SRC/lib/two.sh"
+    printf '#!/usr/bin/env bash\nLIB_DIR="$SCRIPT_DIR/../lib"\n' > "$DRIFT_SRC/bin/antcrate"
+    printf '#!/usr/bin/env bash\nLIB_DIR="$SCRIPT_DIR/../lib"\n' > "$DRIFT_SRC/bin/antcrated"
+    cp "$DRIFT_SRC/lib/one.sh" "$DRIFT_SRC/lib/two.sh" "$DRIFT_DATA/lib/"
+    local b
+    for b in antcrate antcrated; do
+        sed "s|LIB_DIR=\"\$SCRIPT_DIR/../lib\"|LIB_DIR=\"$DRIFT_DATA/lib\"|" \
+            "$DRIFT_SRC/bin/$b" > "$ANTCRATE_BIN_DIR/$b"
+        chmod +x "$ANTCRATE_BIN_DIR/$b"
+    done
+}
+
+@test "wrapper drift: a current install reports no drift" {
+    mk_installed_pair
+    run run_drift 'ac_health_wrapper_drift'
+    [ "$status" -eq 0 ]
+    [ -z "$output" ]
+}
+
+@test "wrapper drift: a current install keeps the wrapper row ok" {
+    mk_installed_pair
+    run run_drift 'ac_health_checks'
+    [[ "$output" == *$'req\twrapper\tok'* ]]
+}
+
+@test "wrapper drift: an out-of-date lib is reported" {
+    mk_installed_pair
+    printf '#!/usr/bin/env bash\n: one CHANGED\n' > "$DRIFT_SRC/lib/one.sh"
+    run run_drift 'ac_health_wrapper_drift'
+    [[ "$output" == *"1 lib"* ]]
+}
+
+@test "wrapper drift: an out-of-date binary is reported" {
+    mk_installed_pair
+    printf '#!/usr/bin/env bash\nLIB_DIR="$SCRIPT_DIR/../lib"\n: NEW\n' > "$DRIFT_SRC/bin/antcrate"
+    run run_drift 'ac_health_wrapper_drift'
+    [[ "$output" == *"1 binary"* ]]
+}
+
+@test "wrapper drift: a retired lib still installed is reported" {
+    mk_installed_pair
+    printf '#!/usr/bin/env bash\n: gone\n' > "$DRIFT_DATA/lib/retired.sh"
+    run run_drift 'ac_health_wrapper_drift'
+    [[ "$output" == *"retired lib still installed"* ]]
+}
+
+@test "wrapper drift: drift turns the wrapper row into a miss with a fix" {
+    mk_installed_pair
+    printf '#!/usr/bin/env bash\n: one CHANGED\n' > "$DRIFT_SRC/lib/one.sh"
+    run run_drift 'ac_health_checks'
+    [[ "$output" == *$'req\twrapper\tmiss'* ]]
+    [[ "$output" == *"antcrate self install"* ]]
+}
+
+# Without ANTCRATE_SELFSRC there is nothing to compare against; the check must
+# stay quiet rather than invent drift.
+@test "wrapper drift: no selfsrc means no drift claim" {
+    run run_health 'ac_health_wrapper_drift'
+    [ "$status" -eq 0 ]
+    [ -z "$output" ]
 }

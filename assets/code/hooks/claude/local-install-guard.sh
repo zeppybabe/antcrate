@@ -24,9 +24,21 @@ set -uo pipefail
 
 [ "${ANTCRATE_INSTALL_GUARD_DISABLE:-0}" = "1" ] && exit 0
 
+# shellcheck source=/dev/null
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_lex.sh"
+
 payload="$(cat)"
 cmd="$(printf '%s' "$payload" | jq -r '.tool_input.command // empty' 2>/dev/null)"
 [ -z "$cmd" ] && exit 0
+
+# Fold backslash-newline continuations before ANY analysis (audit 2026-07-25,
+# finding A). Two distinct effects here: the opaque-pipe checks below are
+# grep -E, which is line-oriented and so could never match a `curl … \` +
+# `| bash` split across lines; and a multi-line `curl \` + `-fsSL url -o f`
+# otherwise reached the per-segment pass as a bare `curl` with no flags at all,
+# which fired the "unsafe curl (no -f/--fail)" block on a command that HAS it.
+cmd_raw="$cmd"                      # audit log keeps the command as issued
+cmd="$(ac_lex_join_continuations "$cmd")"
 
 # XDG state log for audited bypasses (resolve without sourcing paths.sh).
 _state="${ANTCRATE_STATE_HOME:-${XDG_STATE_HOME:-$HOME/.local/state}/antcrate}"
@@ -40,10 +52,10 @@ _log() {  # <verdict> <reason>
 block() {
     local reason="$1"
     if [ "${ANTCRATE_ALLOW_SYSTEM_INSTALL:-0}" = "1" ]; then
-        _log "BYPASS" "$reason :: $cmd"
+        _log "BYPASS" "$reason :: ${cmd_raw:-$cmd}"
         exit 0
     fi
-    _log "BLOCK" "$reason :: $cmd"
+    _log "BLOCK" "$reason :: ${cmd_raw:-$cmd}"
     printf 'local-install-guard: BLOCKED — %s\n' "$reason" >&2
     printf '  AntCrate gates system-wide and opaque installs. Prefer local + pinned:\n' >&2
     printf '    antcrate --tool-install <tool>     # no root, sha256-verified\n' >&2
@@ -91,7 +103,9 @@ _argv0_index() {
 }
 
 _fetch_targets() {  # <segment> -> local paths this segment saves a REMOTE fetch to
-    local seg="$1" i j t argv0 url="" out="" bare_o=0 want=0
+    # `outp`, not `out`: _abs uses `out` as an ARRAY, and a string of that name
+    # here made shellcheck read the two as one variable (SC2178/SC2128).
+    local seg="$1" i j t argv0 url="" outp="" bare_o=0 want=0
     local -a toks
     read -r -a toks <<< "$seg" || return 0
     (( ${#toks[@]} == 0 )) && return 0
@@ -100,20 +114,20 @@ _fetch_targets() {  # <segment> -> local paths this segment saves a REMOTE fetch
     case "$argv0" in curl|wget) ;; *) return 0 ;; esac
     for (( j = i + 1; j < ${#toks[@]}; j++ )); do
         t="${toks[$j]}"
-        if [ "$want" = 1 ]; then want=0; out="$t"; continue; fi
+        if [ "$want" = 1 ]; then want=0; outp="$t"; continue; fi
         case "$t" in
             -o|--output|--output-document) want=1 ;;
             -O) if [ "$argv0" = "curl" ]; then bare_o=1; else want=1; fi ;;
             '>'|'>>') want=1 ;;
-            '>'*) out="${t#>}"; out="${out#>}" ;;
+            '>'*) outp="${t#>}"; outp="${outp#>}" ;;
             -*) ;;
             *) [ -z "$url" ] && url="$t" ;;
         esac
     done
     # only a genuinely remote source counts — local file copies are not installs
     case "$url" in http://*|https://*|ftp://*) ;; *) return 0 ;; esac
-    if [ -n "$out" ]; then
-        _abs "$out"; printf '\n'
+    if [ -n "$outp" ]; then
+        _abs "$outp"; printf '\n'
     elif [ "$bare_o" = 1 ] || [ "$argv0" = "wget" ]; then
         local bn="${url##*/}"; bn="${bn%%\?*}"
         [ -n "$bn" ] && { _abs "$bn"; printf '\n'; }
@@ -136,7 +150,9 @@ _exec_targets() {  # <segment> -> local script paths this segment would execute
                 _abs "${toks[$j]}"; printf '\n'; break
             done ;;
         *)
-            case "$argv0" in */*|./*) _abs "$argv0"; printf '\n' ;; esac ;;
+            # `./x` is already covered by `*/*` — listing it too was dead
+            # (SC2221/SC2222), not a second case.
+            case "$argv0" in */*) _abs "$argv0"; printf '\n' ;; esac ;;
     esac
     return 0
 }

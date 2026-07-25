@@ -170,3 +170,103 @@ guard() {
     run guard "rm -rf $ANTCRATE_ROOT/myproj/../../elsewhere/tmpdir"
     [ "$status" -ne 2 ]
 }
+
+# ---- 5. backslash-newline continuation (audit 2026-07-25, finding A) ----
+#
+# bash joins `cmd \<newline>args` into ONE command; a line-oriented scanner saw
+# two, so the operands landed in a segment whose argv0 was a path fragment and
+# no rule matched. Reproduced live before the fix: `rm -rf \` + `/etc` drew
+# "WARN neutral-zone delete: <cwd>/\" instead of a block.
+
+@test "continuation: critical-zone delete split across lines is blocked" {
+    run guard "$(printf 'rm -rf \\\n/etc')"
+    [ "$status" -eq 2 ]
+    [[ "$output" == *"critical-zone delete: /etc"* ]]
+}
+
+@test "continuation: registered-root delete split across lines is blocked" {
+    run guard "$(printf 'rm -rf \\\n%s' "$ROOT")"
+    [ "$status" -eq 2 ]
+    [[ "$output" == *"registered project root"* ]]
+}
+
+@test "continuation: recursive delete inside a tree, split across lines, is blocked" {
+    run guard "$(printf 'rm -rf \\\n%s/src' "$ROOT")"
+    [ "$status" -eq 2 ]
+}
+
+@test "continuation: tab-indented continuation line is blocked" {
+    run guard "$(printf 'rm -rf \\\n\t/etc')"
+    [ "$status" -eq 2 ]
+}
+
+@test "continuation: interpreter indirection split across lines is blocked" {
+    run guard "$(printf 'bash -c \\\n"rm -rf /etc"')"
+    [ "$status" -eq 2 ]
+}
+
+# An ESCAPED backslash does not continue the line — folding it anyway would
+# glue two genuinely separate commands together.
+@test "continuation: an escaped trailing backslash is not a continuation" {
+    run guard "$(printf 'echo one \\\\\nls /etc')"
+    [ "$status" -ne 2 ]
+}
+
+# Ordering guard: heredoc bodies are neutralised BEFORE the fold. Fold first and
+# a body line ending in a backslash hides the closing marker, swallowing every
+# following command as heredoc data — which would be a NEW bypass.
+@test "continuation: a heredoc body backslash does not swallow the next command" {
+    run guard "$(printf 'cat <<EOF\nx \\\nEOF\nrm -rf /etc\n')"
+    [ "$status" -eq 2 ]
+    [[ "$output" == *"critical-zone delete: /etc"* ]]
+}
+
+@test "continuation: heredoc bodies are still treated as data" {
+    run guard "$(printf 'cat <<EOF\nrm -rf /etc\nEOF\n')"
+    [ "$status" -ne 2 ]
+}
+
+# ---- 6. xargs (audit 2026-07-25, finding B) ----
+#
+# `… | xargs rm -rf` was read as an invocation of "xargs" and drew no verdict at
+# all, while find -delete, rsync --delete, git clean -f, truncate and shred were
+# each covered.
+
+@test "xargs: a literal critical-zone operand is blocked" {
+    run guard "find . | xargs rm -rf /etc"
+    [ "$status" -eq 2 ]
+    [[ "$output" == *"critical-zone delete: /etc"* ]]
+}
+
+@test "xargs: a literal registered-root operand is blocked" {
+    run guard "echo x | xargs rm -rf $ROOT"
+    [ "$status" -eq 2 ]
+}
+
+@test "xargs: stdin-fed deletion warns rather than passing silently" {
+    run guard "find . -name '*.log' | xargs rm -rf"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"via xargs"* ]]
+}
+
+@test "xargs: option values are skipped when finding the inner command" {
+    run guard "echo x | xargs -n 1 -P 4 rm -rf /etc"
+    [ "$status" -eq 2 ]
+}
+
+@test "xargs: the dangerous-argv0 catalogue applies to the inner command" {
+    run guard "echo x | xargs dd of=/dev/sda"
+    [ "$status" -eq 2 ]
+    [[ "$output" == *"dangerous command: dd"* ]]
+}
+
+@test "xargs: a harmless inner command is still silent" {
+    run guard "echo x | xargs echo"
+    [ "$status" -eq 0 ]
+    [ -z "$output" ]
+}
+
+@test "xargs: bare xargs with no inner command does not crash" {
+    run guard "echo x | xargs"
+    [ "$status" -eq 0 ]
+}

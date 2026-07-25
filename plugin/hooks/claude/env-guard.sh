@@ -20,6 +20,9 @@ set -uo pipefail
 
 [ "${ANTCRATE_ENV_GUARD_DISABLE:-0}" = "1" ] && exit 0
 
+# shellcheck source=/dev/null
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_lex.sh"
+
 payload="$(cat)"
 cmd="$(printf '%s' "$payload" | jq -r '.tool_input.command // empty' 2>/dev/null)"
 fpath="$(printf '%s' "$payload" | jq -r '.tool_input.file_path // empty' 2>/dev/null)"
@@ -68,6 +71,9 @@ fi
 
 # Single-quoted spans never expand — drop them before analysis.
 stripped="$(printf '%s' "$cmd" | sed "s/'[^']*'//g")"
+# Fold backslash-newline continuations, or `cat \` + `.env` reads as two
+# commands and neither one matches a rule (audit 2026-07-25, finding A).
+stripped="$(ac_lex_join_continuations "$stripped")"
 
 # Walk pipeline/list segments.
 while IFS= read -r seg; do

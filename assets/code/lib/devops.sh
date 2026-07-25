@@ -455,9 +455,20 @@ ac_devops_ci() {
     local tools_bin; tools_bin=$(ac_devops_ci_tools_bin)
     local -x PATH="$PATH"
     [[ -d "$tools_bin" ]] && PATH="$tools_bin:$PATH"
+    # The hook tree is shipped, security-critical shell that ci never linted
+    # (audit 2026-07-25, finding C): $src/hooks/claude is the source of truth
+    # for the plugin's guards, and plugin/hooks holds the hand-written
+    # session-digest.sh, which sits outside $src entirely. The generated copies
+    # under plugin/hooks/claude are covered by the `self plugin --check` drift
+    # test, so linting the source of truth covers both.
+    local -a sc_targets=("$src"/lib/*.sh "$src/bin/antcrate" "$src/bin/antcrated" "$src/install.sh")
+    local hf
+    for hf in "$src"/hooks/claude/*.sh "${src%/assets/code}"/plugin/hooks/*.sh; do
+        [[ -f "$hf" ]] && sc_targets+=("$hf")
+    done
     printf '\n=== shellcheck ===\n'
     if command -v shellcheck >/dev/null 2>&1; then
-        if shellcheck -x "$src"/lib/*.sh "$src/bin/antcrate" "$src/bin/antcrated" "$src/install.sh"; then
+        if shellcheck -x "${sc_targets[@]}"; then
             printf 'shellcheck: clean\n'
         else
             printf 'shellcheck: FAILED\n'

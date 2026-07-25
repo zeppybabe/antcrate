@@ -60,6 +60,8 @@ First-run setup: creates `~/.antcrate/`, writes the default config, reports miss
 **`antcrate --status`**
 One-screen summary: root, state dir, registry path, daemon state, pipe state, project count, self-source health, unread intel count, audit cadence (`last/due`), open duties count.
 
+The doctor's `wrapper` row reports not just that a wrapper is installed but whether it MATCHES `ANTCRATE_SELFSRC` — libs compared byte-for-byte, binaries with the single `LIB_DIR` line rewritten the way `install.sh` writes it, plus a count of retired libs still present in the install. Drift turns the row into a miss carrying `antcrate self install`. Added after a stale install silently ran an obsolete `self ci` that reported PASS with both of its gates skipped (audit 2026-07-25, finding D).
+
 **`antcrate --list`**
 Compact tab-separated project list.
 
@@ -379,7 +381,7 @@ Exit codes: **0** material printed or draft written + logged · **1** guard refu
 ### CI and self-development
 
 **`antcrate --ci [--snapshot] [--source <path>]`**
-Three fail-fast stages: shellcheck on all `.sh`, full bats suite, cmake build + ctest. Every PASS records `{ts, bats, sha, branch}` to `~/.antcrate/ci-baseline.json`; `--snapshot` also sets the audit baseline; `--source` runs CI against an alternate tree (e.g. a git worktree).
+Three fail-fast stages: shellcheck, full bats suite, cmake build + ctest. Every PASS records `{ts, bats, sha, branch}` to `~/.antcrate/ci-baseline.json`; `--snapshot` also sets the audit baseline; `--source` runs CI against an alternate tree (e.g. a git worktree). A check tool that is missing after `$ANTCRATE_TOOLS_BIN` is prepended is a hard FAIL, never a skip — a PASS that verified nothing is worse than no run, because it gets quoted as evidence afterwards. The shellcheck stage covers `lib/*.sh`, both binaries, `install.sh`, the hook source tree `hooks/claude/*.sh` and the hand-written `plugin/hooks/*.sh`; the generated copies under `plugin/hooks/claude/` are covered instead by `self plugin --check` (audit 2026-07-25, finding C).
 
 **`antcrate --selfsrc`** / **`antcrate --selfedit <relpath>`**
 Print the skill source root; resolve a file under it (pipe into `$EDITOR`).

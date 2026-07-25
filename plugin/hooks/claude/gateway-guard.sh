@@ -18,6 +18,8 @@ set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=/dev/null
 . "$HERE/_zones.sh"
+# shellcheck source=/dev/null
+. "$HERE/_lex.sh"
 
 payload="$(cat)"
 cmd="$(printf '%s' "$payload" | jq -r '.tool_input.command // empty' 2>/dev/null)"
@@ -140,12 +142,12 @@ _is_safe_dev() {  # ubiquitous harmless pseudo-devices — safe as redirect/op t
 }
 
 _is_critical() {
-    local path="$1" c
+    local path="$1" c cp
     _is_safe_dev "$path" && return 1
     # user-temp carve-out: only the control plane stays critical there
     for c in "${SAFE_TMP[@]+"${SAFE_TMP[@]}"}"; do
         if _under "$path" "$c"; then
-            for c in "${CP[@]+"${CP[@]}"}"; do _under "$path" "$c" && return 0; done
+            for cp in "${CP[@]+"${CP[@]}"}"; do _under "$path" "$cp" && return 0; done
             return 1
         fi
     done
@@ -257,9 +259,12 @@ _scan_command() {
     local raw="$1" depth="${2:-0}" inner scan segments seg
     (( depth > 4 )) && return 0
 
+    # Inner-command extraction runs on the RAW text (it must see quoting), so it
+    # needs its own fold: `bash -c \` + `'rm -rf /etc'` otherwise hands the
+    # tokenizer a lone backslash as the -c argument and loses the payload.
     while IFS= read -r inner; do
         [ -n "$inner" ] && _scan_command "$inner" $(( depth + 1 ))
-    done < <(_inner_cmds "$raw")
+    done < <(_inner_cmds "$(ac_lex_join_continuations "$raw")")
 
     if printf '%s' "$raw" | grep -qE ':\(\)\s*\{[^}]*:\|:[^}]*\}\s*;\s*:'; then
         bump 2 "dangerous fork-bomb signature"
@@ -269,6 +274,9 @@ _scan_command() {
 # (single & = background). Redirects (>) stay in-segment.
 scan="$(_neutralize_quoted "$raw")"
 scan="$(_neutralize_heredocs "$scan")"
+# AFTER the heredoc pass, never before: folding a body line onto its closing
+# marker would hide the marker and swallow the rest of the command as data.
+scan="$(ac_lex_join_continuations "$scan")"
 segments="$(printf '%s' "$scan" | sed -E 's/(\|\||&&|[;&|])/\n/g')"
 
 while IFS= read -r seg; do
@@ -287,6 +295,35 @@ while IFS= read -r seg; do
     done
 
     base="${toks[0]##*/}"; base="${base#\\}"
+
+    # xargs — the real command sits after xargs' own options. Without this the
+    # single most common deletion shape in a pipeline, `… | xargs rm -rf`, was
+    # classified as an invocation of "xargs" and drew no verdict at all, while
+    # find -delete, rsync --delete, git clean -f, truncate and shred were all
+    # covered (audit 2026-07-25, finding B). Expose the inner argv so every rule
+    # below judges the deletion, not the launcher.
+    via_xargs=0
+    if [ "$base" = "xargs" ]; then
+        via_xargs=1
+        k=1
+        while (( k < ${#toks[@]} )); do
+            case "${toks[$k]}" in
+                --) k=$((k + 1)); break ;;
+                # options that take a separate value
+                -n|-P|-I|-i|-s|-L|-a|-d|-E|--max-args|--max-procs|--replace|--arg-file|--delimiter|--max-lines|--eof)
+                    k=$((k + 2)) ;;
+                -*) k=$((k + 1)) ;;
+                *)  break ;;
+            esac
+        done
+        toks=("${toks[@]:$k}")
+        [ "${#toks[@]}" -eq 0 ] && continue
+        while [ "${#toks[@]}" -gt 1 ]; do
+            _is_wrapper "${toks[0]}" || break
+            toks=("${toks[@]:1}")
+        done
+        base="${toks[0]##*/}"; base="${base#\\}"
+    fi
 
     # redirects landing in the critical zone (covers > /dev/..., > registry)
     expect_target=0
@@ -468,6 +505,14 @@ while IFS= read -r seg; do
             fi
             # registry_ok==0 + non-critical → fail open (no verdict)
         done
+        # `… | xargs rm -rf` with no literal operand: the paths arrive on stdin,
+        # so nothing here can classify them. Unknown targets are exactly the
+        # case the zone rules exist for, so this cannot be silent — but it also
+        # cannot be proven to touch a protected path, so it warns rather than
+        # blocks, matching the neutral-zone destructive tier.
+        if [ "$via_xargs" -eq 1 ] && [ "${#targets[@]}" -eq 0 ]; then
+            bump 1 "$base via xargs — targets read from stdin, not classifiable"
+        fi
     fi
 
     # mv — moving a critical path or a whole registered root

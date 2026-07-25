@@ -162,3 +162,26 @@ read_guard() {
     ANTCRATE_ENV_GUARD_DISABLE=1 run bash_guard "env"
     [ "$status" -eq 0 ]
 }
+
+# ---- backslash-newline continuation (audit 2026-07-25, finding A) ----
+#
+# Same root cause as gateway-guard's: `cat \` + `.env` is ONE command to bash
+# and was two to this guard, so neither line matched a rule. Verified allowed
+# (rc 0, silent) before the fix.
+
+@test "continuation: reading a secret file split across lines is blocked" {
+    run bash_guard "$(printf 'cat \\\n.env')"
+    [ "$status" -eq 2 ]
+    [[ "$output" == *"reading secret file"* ]]
+}
+
+@test "continuation: printing a secret var split across lines is blocked" {
+    run bash_guard "$(printf 'echo \\\n$API_KEY')"
+    [ "$status" -eq 2 ]
+    [[ "$output" == *"secret variable"* ]]
+}
+
+@test "continuation: a benign multi-line command is still allowed" {
+    run bash_guard "$(printf 'echo one \\\ntwo')"
+    [ "$status" -eq 0 ]
+}

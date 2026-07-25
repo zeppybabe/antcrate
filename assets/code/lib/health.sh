@@ -18,6 +18,58 @@
 #   level: req|opt   status: ok|miss|skip (skip = not applicable on this host)
 _ac_health_row() { printf '%s\t%s\t%s\t%s\t%s\n' "$1" "$2" "$3" "$4" "$5"; }
 
+# ac_health_wrapper_drift — describe how the INSTALLED wrapper differs from
+# ANTCRATE_SELFSRC, or print nothing when they agree.
+#
+# Audit 2026-07-25 (finding D). `st` reported `selfsrc: OK` and `health: OK`
+# while ~/.local/bin/antcrate was fifteen commits behind the source — including
+# 9ff7641, the commit that stopped ci from PASSING with both of its gates
+# skipped. So `antcrate self ci` printed PASS having verified nothing, and no
+# surface anywhere said why. A fix that cannot reach the installed copy is not
+# yet a fix, and the gap has to be visible on the one line the owner reads.
+#
+# install.sh copies libs verbatim and rewrites exactly one line of each binary
+# (LIB_DIR), so comparison is a byte compare with that single substitution
+# applied. Retired libs still present in the install count too: dead code that
+# still loads is drift in the dangerous direction.
+ac_health_wrapper_drift() {
+    # ANTCRATE_SELFSRC read directly, not via ac_devops_selfsrc: health.sh
+    # self-sources compat.sh alone, and a doctor check that only works when
+    # another lib happens to be loaded is a check that goes quiet by accident.
+    local src="${ANTCRATE_SELFSRC:-}" lib_dir n_lib=0 n_bin=0 n_extra=0 f base
+    [[ -n "$src" && -d "$src/lib" ]] || return 0
+    lib_dir="${ANTCRATE_DATA_HOME:-$HOME/.local/share/antcrate}/lib"
+    [[ -d "$lib_dir" ]] || { printf 'no installed lib dir'; return 0; }
+
+    for f in "$src"/lib/*.sh; do
+        [[ -f "$f" ]] || continue
+        base=$(basename "$f")
+        cmp -s "$f" "$lib_dir/$base" || n_lib=$((n_lib + 1))
+    done
+    for f in "$lib_dir"/*.sh; do
+        [[ -f "$f" ]] || continue
+        base=$(basename "$f")
+        [[ -f "$src/lib/$base" ]] || n_extra=$((n_extra + 1))
+    done
+    local b
+    for b in antcrate antcrated; do
+        [[ -f "$src/bin/$b" ]] || continue
+        sed "s|LIB_DIR=\"\$SCRIPT_DIR/../lib\"|LIB_DIR=\"$lib_dir\"|" "$src/bin/$b" \
+            | cmp -s - "$ANTCRATE_BIN_DIR/$b" || n_bin=$((n_bin + 1))
+    done
+
+    local parts=()
+    (( n_bin ))   && parts+=("$n_bin binary")
+    (( n_lib ))   && parts+=("$n_lib lib")
+    (( n_extra )) && parts+=("$n_extra retired lib still installed")
+    (( ${#parts[@]} == 0 )) && return 0
+    local out="" p
+    for p in "${parts[@]}"; do
+        if [[ -z "$out" ]]; then out="$p"; else out="$out, $p"; fi
+    done
+    printf '%s' "$out"
+}
+
 ac_health_checks() {
     # ── required: without these, antcrate itself misbehaves ────────────────
     case ":$PATH:" in
@@ -29,7 +81,13 @@ ac_health_checks() {
     esac
 
     if [[ -x "$ANTCRATE_BIN_DIR/antcrate" ]]; then
-        _ac_health_row req wrapper ok "installed" -
+        local stale; stale=$(ac_health_wrapper_drift)
+        if [[ -z "$stale" ]]; then
+            _ac_health_row req wrapper ok "installed" -
+        else
+            _ac_health_row req wrapper miss "installed copy is BEHIND source ($stale)" \
+                "antcrate self install"
+        fi
     else
         _ac_health_row req wrapper miss "no $ANTCRATE_BIN_DIR/antcrate" \
             "bash <repo>/assets/code/install.sh"
