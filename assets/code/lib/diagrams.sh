@@ -115,6 +115,18 @@ ac_diagrams_tree_to_mermaid() {
     printf '  root(["%s"])\n' "$project"
     local addr rel base parent_addr label shape
     while IFS=$'\t' read -r addr rel; do
+        # tree.mmd is COMMITTED, so it is a published artifact: anything named
+        # in it is public. Skip whatever git keeps out of the tree, or the
+        # diagram re-publishes by name exactly the dev context the boundary
+        # exists to hide (observed 2026-07-25 — circular-pong's diagram listed
+        # dev/context/CLAUDE.md). Filtering happens HERE and never in
+        # ac_addr_render_tree: addresses are positional, so filtering them
+        # would renumber every address in the project. The diagram's addresses
+        # therefore carry gaps, which is correct — they still agree with
+        # whatever `antcrate addr` resolves.
+        if git -C "$root" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+            git -C "$root" check-ignore -q -- "$rel" 2>/dev/null && continue
+        fi
         base=$(basename "$rel")
         if [[ -d "$root/$rel" ]]; then
             shape='[/'"$base"'/]'    # parallelogram = directory
