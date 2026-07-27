@@ -54,6 +54,33 @@ for f in "$SRC"/lib/*.sh; do
     mv -f "$LIB_DIR/.$(basename "$f").tmp.$$" "$LIB_DIR/$(basename "$f")"
 done
 
+# retired libs — drop installed *.sh that no longer exist in the source.
+#
+# Without this the installer only ever adds, so a lib deleted from the source
+# lives on in every install forever. On 2026-07-27 a live box carried five
+# (canary, cost, delegate, loop, obsidian) and `antcrate st` correctly reported
+# the drift while naming `antcrate self install` as the fix — a fix that could
+# not work. Dead code that still loads is drift in the dangerous direction.
+#
+# Deliberately NOT _ac_quarantine_capture / _ac_unlink_internal: these are
+# antcrate's own installed artifacts, byte-identical to a git-tracked source
+# file one version back, not user data — capturing them would fill the
+# quarantine with recoverable noise. And _ac_unlink_internal resolves symlinks
+# before judging, so a symlinked lib would be refused rather than unlinked.
+# Scope is held by construction instead: depth 1, inside $LIB_DIR only, *.sh
+# only, and the name must be absent from $SRC/lib.
+retired=()
+for f in "$LIB_DIR"/*.sh; do
+    [[ -f "$f" || -L "$f" ]] || continue
+    base=$(basename "$f")
+    [[ -e "$SRC/lib/$base" ]] && continue
+    rm -f -- "$LIB_DIR/$base"
+    retired+=("$base")
+done
+if (( ${#retired[@]} )); then
+    echo "[antcrate] removed ${#retired[@]} retired lib(s): ${retired[*]}"
+fi
+
 # lib subdirs (e.g. targets/) — same temp+rename discipline, generic for any depth-1 dir
 for d in "$SRC"/lib/*/; do
     [[ -d "$d" ]] || continue

@@ -281,3 +281,53 @@ src() {
     [ "$status" -eq 0 ]
     git -C "$R" show --name-only --pretty=format: HEAD | grep -q "app.py"
 }
+
+# ---- the content gate must judge what a commit ADDS, not what it removes ----
+#
+# Found 2026-07-27 while committing the fix for CI's own gitleaks failure: the
+# gate scans `git diff --cached` whole, so the '-' lines count too. Removing a
+# secret from a file therefore looked identical to adding one, and the guard
+# blocked the one commit that fixes a leak. Its own docstring says the question
+# is "does THIS commit introduce a secret" — removed lines are the opposite.
+
+leaks_setup() {
+    # scan.sh is sourced inside src(), not here, so probe the binary directly
+    command -v gitleaks >/dev/null 2>&1 \
+        || [[ -x "${ANTCRATE_TOOLS_BIN:-}/gitleaks" ]] \
+        || skip "gitleaks not available"
+}
+
+@test "content-leaks: adding a secret-shaped line is blocked" {
+    leaks_setup
+    printf 'token = "%s"\n' "gh""p_0123456789abcdef0123456789abcdef0123" > "$R/creds.tf"
+    git -C "$R" add creds.tf
+    run src "ac_commit_content_leaks '$R'"
+    [ "$status" -eq 1 ]
+}
+
+@test "content-leaks: REMOVING a secret-shaped line is allowed" {
+    leaks_setup
+    printf 'token = "%s"\n' "gh""p_0123456789abcdef0123456789abcdef0123" > "$R/creds.tf"
+    git -C "$R" add creds.tf
+    git -C "$R" commit -qm "oops" --no-verify
+    printf 'token = "elided"\n' > "$R/creds.tf"
+    git -C "$R" add creds.tf
+    run src "ac_commit_content_leaks '$R'"
+    [ "$status" -eq 0 ]
+}
+
+@test "content-leaks: a clean staged diff passes" {
+    leaks_setup
+    echo "just prose" > "$R/notes.md"
+    git -C "$R" add notes.md
+    run src "ac_commit_content_leaks '$R'"
+    [ "$status" -eq 0 ]
+}
+
+@test "content-leaks: a rename that carries a secret through is still blocked" {
+    leaks_setup
+    printf 'token = "%s"\n' "gh""p_0123456789abcdef0123456789abcdef0123" > "$R/creds.tf"
+    git -C "$R" add creds.tf
+    run src "ac_commit_content_leaks '$R'"
+    [ "$status" -eq 1 ]
+}

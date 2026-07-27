@@ -17,6 +17,10 @@
 # re-sourcing free (bats tests source libs directly, without the wrapper preamble).
 # shellcheck disable=SC1091
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/git.sh"
+# quarantine.sh self-source: _ac_unlink_internal removes the JSON report temp
+# file (mktemp -t antcrate-* is one of its allowed zones — rule #16).
+# shellcheck disable=SC1091
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/quarantine.sh"
 : "${ANTCRATE_SCAN_DEV_MARKERS:=}"
 
 # ac_scan_gitleaks_bin — print a usable gitleaks path, or return 1.
@@ -27,10 +31,31 @@ ac_scan_gitleaks_bin() {
 }
 
 # ac_scan_secrets <dir> — 0 clean, 1 leaks, 2 gitleaks unavailable.
+#
+# Findings are printed as "<rule>  <file>:<line>", one per line, to stderr.
+# They used to go to /dev/null with the caller advising "run gitleaks detect
+# for detail" — advice nobody can act on inside a CI job, which is how this
+# repo's own CI stayed red from 2026-07-20 to 2026-07-27 over five false
+# positives that were one line each to identify.
+#
+# Values are never printed. gitleaks runs with --redact, and only RuleID,
+# File and StartLine are read back out of the report — a leak scanner that
+# echoes the leak into a public build log is worse than one that says nothing.
 ac_scan_secrets() {
-    local dir="${1:-.}" gl
+    local dir="${1:-.}" gl rc report
     gl=$(ac_scan_gitleaks_bin) || return 2
-    "$gl" detect --source "$dir" --no-git --no-banner --redact >/dev/null 2>&1
+    report=$(mktemp -t antcrate-scan-XXXXXX) || return 2
+    "$gl" detect --source "$dir" --no-git --no-banner --redact \
+          --report-format json --report-path "$report" >/dev/null 2>&1
+    rc=$?
+    AC_SCAN_SECRET_FINDINGS=""
+    if (( rc != 0 )) && [[ -s "$report" ]]; then
+        AC_SCAN_SECRET_FINDINGS=$(
+            jq -r '.[] | "  \(.RuleID)  \(.File):\(.StartLine)"' "$report" 2>/dev/null | sort -u
+        )
+    fi
+    _ac_unlink_internal "$report" >/dev/null 2>&1
+    return "$rc"
 }
 
 # ac_scan_devtree <dir> — the dev/ records tree must be git-ignored. 0 clean, 1 tracked.
@@ -66,7 +91,9 @@ ac_scan_run() {
         if (( s == 2 )); then
             printf 'scan: secrets   SKIPPED (gitleaks unavailable — antcrate --tool-install gitleaks)\n'
         else
-            printf 'scan: secrets   FINDINGS — run gitleaks detect for detail\n' >&2; rc=1
+            printf 'scan: secrets   FINDINGS (rule / location, values redacted):\n' >&2
+            [[ -n "$AC_SCAN_SECRET_FINDINGS" ]] && printf '%s\n' "$AC_SCAN_SECRET_FINDINGS" >&2
+            rc=1
         fi
     fi
     if ac_scan_devtree "$dir"; then printf 'scan: dev-tree  OK (dev/ not tracked)\n'; else rc=1; fi

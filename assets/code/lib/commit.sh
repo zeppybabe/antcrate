@@ -61,10 +61,20 @@ ac_commit_unstage() {
 # guard answers "does THIS commit introduce a secret", which is the question
 # a commit gate should ask. Pre-existing secrets elsewhere in the repo are
 # `antcrate scan`'s job.
+#
+# Only ADDED lines are fed to gitleaks (2026-07-27). Piping the whole diff
+# meant the '-' lines counted too, so removing a secret looked exactly like
+# adding one and the gate blocked the single commit that fixes a leak — found
+# the hard way while committing the fix for CI's own gitleaks failure. The
+# docstring above already said the question is what the commit INTRODUCES;
+# the implementation just did not ask it that way. '+++' file headers are
+# dropped so a path never reads as content.
 ac_commit_content_leaks() {
     local p="$1" gl out rc
     gl=$(ac_scan_gitleaks_bin) || return 2
-    out=$(git -C "$p" diff --cached | "$gl" stdin --no-banner --redact 2>&1); rc=$?
+    out=$(git -C "$p" diff --cached \
+            | grep '^+' | grep -v '^+++' | cut -c2- \
+            | "$gl" stdin --no-banner --redact 2>&1); rc=$?
     (( rc == 0 )) && return 0
     printf '%s\n' "$out"
     return 1

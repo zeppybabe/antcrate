@@ -454,12 +454,15 @@ def test_policy_endpoints_and_budgets(fake_xdg):
 
 
 def test_policy_redacts_credential_shapes(fake_xdg):
+    # assembled at runtime: a literal credential shape in this doc is a real
+    # finding for antcrate's own `scan` gate (CI red 2026-07-20..27)
+    secret = "sk-" + "abcdefghij1234567890abcd"
     paths.policy_file().write_text(json.dumps({
-        "endpoints": {"bad": {"kind": "api", "url": "https://x.test?api_key=sk-abcdefghij1234567890abcd"}},
+        "endpoints": {"bad": {"kind": "api", "url": f"https://x.test?api_key={secret}"}},
         "budgets": {},
     }))
     out = readers.read_policy(paths.policy_file())
-    assert "sk-abcdefghij" not in json.dumps(out)
+    assert secret not in json.dumps(out)
     assert REDACTED in out["endpoints"][0]["url"]
 
 

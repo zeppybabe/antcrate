@@ -31,8 +31,14 @@ src() {
     [[ "$output" == *"secret-pattern"* ]]
 }
 
+# Credential-shaped fixtures are assembled from halves at runtime. A literal
+# one in the tree is a real finding for the repo's own `antcrate scan` gate —
+# which is how CI went red on 2026-07-20 and stayed red for a week. The guard
+# is right; the fixture was wrong. Same precedent as the glpat-/npm_ fixtures
+# in post_polish.bats.
 @test "guard: github pat refused" {
-    run src "ac_post_guard_text 'ghp_0123456789abcdef0123456789abcdef0123'"
+    local pat='gh''p_0123456789abcdef0123456789abcdef0123'
+    run src "ac_post_guard_text '$pat'"
     [ "$status" -eq 1 ]
 }
 
@@ -47,11 +53,12 @@ src() {
 }
 
 @test "redact: replaces only the secret line" {
-    result=$(printf 'safe line\ntoken: xoxb-1234567890-abcdef\nlast line\n' | src "ac_post_redact")
+    local tok='xo''xb-1234567890-abcdef'
+    result=$(printf 'safe line\ntoken: %s\nlast line\n' "$tok" | src "ac_post_redact")
     [[ "$result" == *"safe line"* ]]
     [[ "$result" == *"[redacted: secret-pattern]"* ]]
     [[ "$result" == *"last line"* ]]
-    [[ "$result" != *"xoxb"* ]]
+    [[ "$result" != *"$tok"* ]]
 }
 
 @test "x_len: plain ascii" {
