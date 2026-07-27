@@ -14,6 +14,12 @@
 # re-sourcing free (bats tests source libs directly, without the wrapper preamble).
 # shellcheck disable=SC1091
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/git.sh"
+# compat.sh self-source: ac_tac (log view). Sourcing post.sh alone left it
+# undefined — the existing tests only passed because a sibling lib happened to
+# pull compat.sh in first, which is exactly the accidental-dependency shape
+# health.sh's own comment warns about.
+# shellcheck disable=SC1091
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/compat.sh"
 : "${ANTCRATE_POSTS_DIR:=${XDG_STATE_HOME:-$HOME/.local/state}/antcrate/posts}"
 
 # ac_post_log_file <project>
@@ -51,7 +57,7 @@ ac_post_log_show() {
     local f
     f=$(ac_post_log_file "$1")
     if [[ ! -s "$f" ]]; then ac_error "post: no posts logged for '$1' yet"; return 1; fi
-    tac "$f" | awk -F'\t' '{ printf "%s  %s  %s  [%s]  %s\n", $1, $2, $3, $4, $5 }'
+    ac_tac "$f" | awk -F'\t' '{ printf "%s  %s  %s  [%s]  %s\n", $1, $2, $3, $4, $5 }'
 }
 
 # Content secret guard — credential SHAPES, deliberately conservative: a post is

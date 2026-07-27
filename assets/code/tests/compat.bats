@@ -189,3 +189,46 @@ setup() {
     [ "$status" -ne 0 ]
   fi
 }
+
+# ---- ac_tac (2026-07-27, found by CI on macOS) ----
+#
+# post.sh's log view called `tac` directly. GNU coreutils ships it; BSD/macOS
+# does not (it spells the same thing `tail -r`). `antcrate post x log <p>`
+# was therefore broken outright on macOS — two tests failed there and passed
+# on Linux, invisible for a week because the leak-scan step aborted CI before
+# bats ever ran.
+
+@test "ac_tac: reverses lines from a file" {
+  printf 'one\ntwo\nthree\n' > "$T/f"
+  run bash -c ". '$COMPAT'; ac_tac '$T/f'"
+  [ "${lines[0]}" = "three" ]
+  [ "${lines[2]}" = "one" ]
+}
+
+@test "ac_tac: reverses lines from stdin" {
+  run bash -c ". '$COMPAT'; printf 'a\nb\n' | ac_tac"
+  [ "${lines[0]}" = "b" ]
+  [ "${lines[1]}" = "a" ]
+}
+
+@test "ac_tac: a single line comes back unchanged" {
+  printf 'only\n' > "$T/f"
+  run bash -c ". '$COMPAT'; ac_tac '$T/f'"
+  [ "$output" = "only" ]
+}
+
+@test "ac_tac: empty input yields empty output, rc 0" {
+  : > "$T/f"
+  run bash -c ". '$COMPAT'; ac_tac '$T/f'"
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
+# Force the BSD branch on a GNU box so the macOS path is covered here too.
+@test "ac_tac: the non-tac fallback branch also reverses" {
+  printf 'one\ntwo\n' > "$T/f"
+  run bash -c ". '$COMPAT'; _AC_TAC=0; ac_tac '$T/f'"
+  [ "$status" -eq 0 ]
+  [ "${lines[0]}" = "two" ]
+  [ "${lines[1]}" = "one" ]
+}

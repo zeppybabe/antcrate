@@ -542,3 +542,38 @@ src() {
     [ "$status" -eq 0 ]
     [ ! -e "$ANTCRATE_HOME/scratch" ]
 }
+
+# Platform-determinism: the zone decision must not depend on whether the host's
+# realpath resolves the final path component (GNU -m does, the pure-bash
+# fallback used on macOS does not). Refusing symlinks outright makes both hosts
+# agree. Found by CI 2026-07-27 — devsync's symlink test passed on Linux and
+# failed on macOS for exactly this reason.
+@test "unlink: refuses a symlink inside dev/context even when it points back inside" {
+    P="$ANTCRATE_ROOT/proj"
+    mkdir -p "$P/dev/context"
+    echo "real" > "$P/dev/context/real.md"
+    ln -s "$P/dev/context/real.md" "$P/dev/context/alias.md"
+    run src "_ac_unlink_internal '$P/dev/context/alias.md' '$P'"
+    [ "$status" -ne 0 ]
+    [ -L "$P/dev/context/alias.md" ]
+}
+
+@test "unlink: refuses a symlink inside dev/context that escapes the repo" {
+    P="$ANTCRATE_ROOT/proj"
+    mkdir -p "$P/dev/context"
+    echo "precious" > "$BATS_TEST_TMPDIR/outside.md"
+    ln -s "$BATS_TEST_TMPDIR/outside.md" "$P/dev/context/escape.md"
+    run src "_ac_unlink_internal '$P/dev/context/escape.md' '$P'"
+    [ "$status" -ne 0 ]
+    [ "$(cat "$BATS_TEST_TMPDIR/outside.md")" = "precious" ]
+}
+
+@test "unlink: a real file next to a refused symlink is still removable" {
+    P="$ANTCRATE_ROOT/proj"
+    mkdir -p "$P/dev/context"
+    echo "real" > "$P/dev/context/real.md"
+    ln -s "$P/dev/context/real.md" "$P/dev/context/alias.md"
+    run src "_ac_unlink_internal '$P/dev/context/real.md' '$P'"
+    [ "$status" -eq 0 ]
+    [ ! -e "$P/dev/context/real.md" ]
+}

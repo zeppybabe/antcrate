@@ -109,7 +109,14 @@ _ac_unlink_internal() {
     # opt-in dev/context zone. The root must be a real directory and not "/",
     # so a caller cannot hand in an empty-ish value and turn the check into
     # "anything under /dev/context".
-    if [[ -n "$repo_root" && -d "$repo_root" ]]; then
+    # A symlink is refused outright rather than judged by where it resolves.
+    # GNU `realpath -m` resolves the final component; the pure-bash fallback
+    # used where realpath(1) has no -m (macOS) resolves only the longest
+    # existing ANCESTOR, so the same symlink landed inside the zone on macOS
+    # and outside it on Linux. A security decision must not depend on which
+    # realpath the host happens to ship — caught by CI on 2026-07-27, where
+    # this divergence failed the devsync symlink test on macOS only.
+    if [[ -n "$repo_root" && -d "$repo_root" && ! -L "$path" ]]; then
         local abs_root; abs_root=$(ac_realpath_m "$repo_root") || abs_root=""
         if [[ -n "$abs_root" && "$abs_root" != "/" ]]; then
             case "$abs_path" in

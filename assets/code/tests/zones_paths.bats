@@ -10,8 +10,14 @@ setup() {
     # live registry with one project
     jq -n '{projects:{live:{path:"/tmp/live",parent:"x",linked_nodes:[],git_remote:""}}}' \
         > "$HOME/.local/share/antcrate/registry.json"
+    # The unset list must cover EVERY var _zones.sh consults, or a value
+    # inherited from the environment decides the answer instead of the fixture.
+    # The config pair was missing, so "control plane: covers state, data and
+    # config homes" passed on this dev box and failed on GitHub's Linux runner
+    # — invisible for a week because the leak-scan step failed before bats ran.
     unset ANTCRATE_REGISTRY ANTCRATE_HOME ANTCRATE_DATA_HOME XDG_DATA_HOME
     unset ANTCRATE_POLICY_FILE ANTCRATE_STATE_HOME XDG_STATE_HOME
+    unset ANTCRATE_CONFIG_HOME XDG_CONFIG_HOME
 }
 
 zsrc() { bash -c '. "'"$ZONES"'"; '"$1"; }
@@ -100,4 +106,17 @@ zsrc() { bash -c '. "'"$ZONES"'"; '"$1"; }
     [[ "$output" == *"$HOME/.local/state/antcrate"* ]]
     [[ "$output" == *"$HOME/.local/share/antcrate"* ]]
     [[ "$output" == *"$HOME/.config/antcrate"* ]]
+}
+
+# Pin the override paths too, so the unset above cannot silently become the
+# only reason the control-plane test passes.
+@test "control plane: ANTCRATE_CONFIG_HOME overrides the config root" {
+    ANTCRATE_CONFIG_HOME="$BATS_TEST_TMPDIR/cfg" run zsrc 'zones_control_plane'
+    [[ "$output" == *"$BATS_TEST_TMPDIR/cfg"* ]]
+    [[ "$output" != *"$HOME/.config/antcrate"* ]]
+}
+
+@test "control plane: XDG_CONFIG_HOME is honored when ANTCRATE_CONFIG_HOME is unset" {
+    XDG_CONFIG_HOME="$BATS_TEST_TMPDIR/xdgcfg" run zsrc 'zones_control_plane'
+    [[ "$output" == *"$BATS_TEST_TMPDIR/xdgcfg/antcrate"* ]]
 }

@@ -840,8 +840,11 @@ run_hook_from_repo() {
     ( cd "$R" && echo x > f && git add f && git commit -qm init )
     ( cd "$R" && git worktree add -q -b wt "$BATS_TEST_TMPDIR/wt" )
     out=$(src "ac_hooks_dir '$BATS_TEST_TMPDIR/wt'")
-    [ "$out" = "$R/.git/hooks" ]
     [ -d "$out" ]
+    # compared physically: git canonicalizes the worktree gitdir pointer, so on
+    # macOS (/var -> /private/var) the spellings differ while the directory is
+    # the same one. Failed there, passed on Linux, for that reason alone.
+    [ "$(cd "$out" && pwd -P)" = "$(cd "$R/.git/hooks" && pwd -P)" ]
 }
 
 @test "hooks: an installed hook actually fires and logs from inside a worktree" {

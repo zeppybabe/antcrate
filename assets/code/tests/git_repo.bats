@@ -97,20 +97,27 @@ src() { bash -c ". '$LIB/git.sh'; $1"; }
 @test "gitpath: worktree hooks resolve to the SHARED common dir" {
     # git looks up hooks in the common dir for every worktree; a per-worktree
     # "$p/.git/hooks" would be a path that does not exist ($p/.git is a file).
+    # Compared physically. git canonicalizes the worktree's gitdir pointer, so
+    # on a host where the tmpdir sits under a symlink (macOS: /var ->
+    # /private/var) the returned path is the resolved spelling while $R is not
+    # — the assertion failed on macOS and passed on Linux for that reason
+    # alone. Resolving both sides tests the same property on either host.
     ( cd "$R" && git worktree add -q -b wt "$T/wt" )
     run src "ac_git_path '$T/wt' hooks"
     [ "$status" -eq 0 ]
-    [ "$output" = "$R/.git/hooks" ]
     [ -d "$output" ]
+    [ "$(cd "$output" && pwd -P)" = "$(cd "$R/.git/hooks" && pwd -P)" ]
 }
 
 @test "gitpath: worktree per-repo files resolve to the worktree's own dir" {
     ( cd "$R" && git worktree add -q -b wt2 "$T/wt2" )
     run src "ac_git_path '$T/wt2' antcrate-hook.log"
     [ "$status" -eq 0 ]
-    [[ "$output" == "$R/.git/worktrees/wt2/antcrate-hook.log" ]]
-    # and the parent dir really exists, so a >> redirect will succeed
+    # the parent dir really exists, so a >> redirect will succeed
     [ -d "$(dirname "$output")" ]
+    # compared physically — see the note on the hooks test above
+    [ "$(cd "$(dirname "$output")" && pwd -P)" = "$(cd "$R/.git/worktrees/wt2" && pwd -P)" ]
+    [ "$(basename "$output")" = "antcrate-hook.log" ]
 }
 
 @test "gitpath: non-repo fails, emits nothing" {

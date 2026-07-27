@@ -54,6 +54,7 @@ if sed --version >/dev/null 2>&1; then _AC_SED_FLAVOR=gnu; else _AC_SED_FLAVOR=b
 if command -v sha256sum >/dev/null 2>&1; then _AC_SHA256=sha256sum; else _AC_SHA256=shasum; fi
 if realpath -m / >/dev/null 2>&1; then _AC_REALPATH_M=1; else _AC_REALPATH_M=0; fi
 if du -sb "${BASH_SOURCE[0]:-/dev/null}" >/dev/null 2>&1; then _AC_DU_BYTES=1; else _AC_DU_BYTES=0; fi
+if command -v tac >/dev/null 2>&1; then _AC_TAC=1; else _AC_TAC=0; fi
 
 ac_stat_mtime() {
     if [[ "$_AC_STAT_FLAVOR" == gnu ]]; then stat -c %Y "$1"; else stat -f %m "$1"; fi
@@ -103,6 +104,24 @@ ac_date_from_epoch() {
 
 ac_sed_i() {
     if [[ "$_AC_SED_FLAVOR" == gnu ]]; then sed -i "$@"; else sed -i '' "$@"; fi
+}
+
+# ac_tac [file] — print lines in reverse. GNU coreutils ships tac; BSD/macOS
+# does not (it spells the same thing `tail -r`). post.sh's log view called tac
+# directly, so `antcrate post x log <project>` was broken outright on macOS.
+# Found by CI 2026-07-27 — it had been failing there for a week behind an
+# earlier step that aborted the job before bats ran.
+# The fallback is awk, not `tail -r`: BSD tail has -r but GNU tail does not,
+# so a tail-based fallback would be untestable on the platform that has tac
+# and its only exercise would be the macOS CI job. awk is on both, so the
+# branch stays coverable everywhere. Post logs are a handful of lines, so
+# buffering the whole input costs nothing.
+ac_tac() {
+    if (( _AC_TAC )); then
+        tac "$@"
+    else
+        awk '{ a[NR] = $0 } END { for (i = NR; i > 0; i--) print a[i] }' "$@"
+    fi
 }
 
 ac_sha256() {
