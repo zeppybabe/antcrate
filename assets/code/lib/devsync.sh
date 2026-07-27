@@ -26,6 +26,11 @@ _AC_DEVSYNC_LOADED=1
 # shellcheck disable=SC1091
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/git.sh"
 
+# quarantine.sh self-source: the context mirror is user data, so both of its
+# destruction sites go through this lib rather than through a bare rm -rf.
+# shellcheck disable=SC1091
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/quarantine.sh"
+
 # Paths that are dev context worth mirroring. An explicit allowlist, NOT
 # "everything that is git-ignored": ignored also covers .env, *.pem, *.key,
 # node_modules/ and build output. Replicating credentials into a second remote
@@ -128,18 +133,38 @@ _ac_dev_is_ignored() {
 ac_dev_sync_context() {
     local p="$1" rel src dst
     local ctx="$p/dev/context"
+    local project; project=$(basename "$p")
     mkdir -p "$ctx" || return 1
     for rel in "${_AC_DEV_CONTEXT_PATHS[@]}"; do
         src="$p/$rel"; dst="$ctx/$rel"
         if [[ -e "$src" ]] && _ac_dev_is_ignored "$p" "$rel"; then
-            rm -rf -- "$dst"
+            # Refresh. The original is still on disk, so the stale copy is
+            # redundant, not precious — an audited unlink, not a capture, or
+            # every push would fill the quarantine with duplicates of live
+            # files. A refusal (dst symlinked out of the mirror, say) skips
+            # this entry: a stale mirror entry is recoverable, and neither
+            # deleting through the link nor aborting an unattended push is.
+            if [[ -e "$dst" || -L "$dst" ]]; then
+                _ac_unlink_internal "$dst" "$p" || {
+                    ac_warn "devsync: cannot replace context copy of '$rel' — leaving it as is"
+                    continue
+                }
+            fi
             mkdir -p "$(dirname "$dst")"
             cp -a -- "$src" "$dst" || return 1
-        else
+        elif [[ -e "$dst" || -L "$dst" ]]; then
             # Prune: the root file is gone (or became published), so the stale
             # context copy must go too, or the mirror keeps resurrecting a
             # record the owner deleted on purpose.
-            rm -rf -- "$dst"
+            #
+            # But this arm fires exactly when the mirror holds the LAST copy,
+            # and it runs unattended from every pp — so it captures instead of
+            # deleting (rule #16; audit 2026-07-25, finding E). If the capture
+            # cannot be written the copy STAYS: destroying it anyway would be
+            # the original bug with an extra step.
+            if ! _ac_quarantine_capture "$project" "$dst" devsync-prune "$rel"; then
+                ac_warn "devsync: prune capture failed for '$rel' — keeping the context copy"
+            fi
         fi
     done
     return 0

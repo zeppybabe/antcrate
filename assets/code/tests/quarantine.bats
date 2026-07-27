@@ -430,3 +430,115 @@ src() {
     [ -e "$scratch" ]
     rmdir "$scratch"
 }
+
+# ---------------------------------------------------------------------------
+# _ac_unlink_internal — the opt-in dev/context zone
+# (duty 2026-07-25, audit finding E)
+#
+# devsync.sh mirrors a project's local-only root records into $p/dev/context/
+# and must be able to replace or drop an entry. That path lives inside a USER
+# PROJECT TREE, which none of the three standing allowances cover, so devsync
+# was calling `rm -rf -- "$dst"` raw — an unaudited rm $VAR site against user
+# data, against rule #16.
+#
+# The zone is OPT-IN: it only opens when the caller names the repo root it is
+# operating on, and only for paths strictly BELOW <root>/dev/context. Passing a
+# root must not widen anything else.
+# ---------------------------------------------------------------------------
+
+@test "unlink: refuses a dev/context path when no repo root is passed" {
+    P="$ANTCRATE_ROOT/proj"
+    mkdir -p "$P/dev/context"
+    echo "records" > "$P/dev/context/CLAUDE.md"
+    run src "_ac_unlink_internal '$P/dev/context/CLAUDE.md'"
+    [ "$status" -ne 0 ]
+    [ -f "$P/dev/context/CLAUDE.md" ]
+}
+
+@test "unlink: removes a dev/context path when its repo root is passed" {
+    P="$ANTCRATE_ROOT/proj"
+    mkdir -p "$P/dev/context"
+    echo "records" > "$P/dev/context/CLAUDE.md"
+    run src "_ac_unlink_internal '$P/dev/context/CLAUDE.md' '$P'"
+    [ "$status" -eq 0 ]
+    [ ! -e "$P/dev/context/CLAUDE.md" ]
+}
+
+@test "unlink: removes a nested dev/context subtree when the repo root is passed" {
+    P="$ANTCRATE_ROOT/proj"
+    mkdir -p "$P/dev/context/.claude/agents"
+    echo "agent" > "$P/dev/context/.claude/agents/cody.md"
+    run src "_ac_unlink_internal '$P/dev/context/.claude' '$P'"
+    [ "$status" -eq 0 ]
+    [ ! -e "$P/dev/context/.claude" ]
+    [ -d "$P/dev/context" ]
+}
+
+@test "unlink: refuses the dev/context directory itself" {
+    P="$ANTCRATE_ROOT/proj"
+    mkdir -p "$P/dev/context"
+    run src "_ac_unlink_internal '$P/dev/context' '$P'"
+    [ "$status" -ne 0 ]
+    [ -d "$P/dev/context" ]
+}
+
+@test "unlink: refuses a path inside the repo but outside dev/context" {
+    P="$ANTCRATE_ROOT/proj"
+    mkdir -p "$P/src" "$P/dev/context"
+    echo "code" > "$P/src/main.sh"
+    run src "_ac_unlink_internal '$P/src/main.sh' '$P'"
+    [ "$status" -ne 0 ]
+    [ -f "$P/src/main.sh" ]
+}
+
+@test "unlink: refuses a dev/context path belonging to a DIFFERENT repo" {
+    A="$ANTCRATE_ROOT/alpha"; B="$ANTCRATE_ROOT/beta"
+    mkdir -p "$A/dev/context" "$B/dev/context"
+    echo "beta records" > "$B/dev/context/CLAUDE.md"
+    run src "_ac_unlink_internal '$B/dev/context/CLAUDE.md' '$A'"
+    [ "$status" -ne 0 ]
+    [ -f "$B/dev/context/CLAUDE.md" ]
+}
+
+@test "unlink: refuses a .. escape out of the dev/context zone" {
+    P="$ANTCRATE_ROOT/proj"
+    mkdir -p "$P/dev/context" "$P/src"
+    echo "code" > "$P/src/main.sh"
+    run src "_ac_unlink_internal '$P/dev/context/../../src/main.sh' '$P'"
+    [ "$status" -ne 0 ]
+    [ -f "$P/src/main.sh" ]
+}
+
+@test "unlink: passing a repo root does not widen the other zones" {
+    P="$ANTCRATE_ROOT/proj"
+    mkdir -p "$P/dev/context"
+    echo "elsewhere" > "$BATS_TEST_TMPDIR/loose.txt"
+    run src "_ac_unlink_internal '$BATS_TEST_TMPDIR/loose.txt' '$P'"
+    [ "$status" -ne 0 ]
+    [ -f "$BATS_TEST_TMPDIR/loose.txt" ]
+}
+
+@test "unlink: refuses a repo root that is not an existing directory" {
+    P="$ANTCRATE_ROOT/proj"
+    mkdir -p "$P/dev/context"
+    echo "records" > "$P/dev/context/CLAUDE.md"
+    run src "_ac_unlink_internal '$P/dev/context/CLAUDE.md' '$ANTCRATE_ROOT/no-such-repo'"
+    [ "$status" -ne 0 ]
+    [ -f "$P/dev/context/CLAUDE.md" ]
+}
+
+@test "unlink: refuses / as a repo root" {
+    P="$ANTCRATE_ROOT/proj"
+    mkdir -p "$P/dev/context"
+    echo "records" > "$P/dev/context/CLAUDE.md"
+    run src "_ac_unlink_internal '$P/dev/context/CLAUDE.md' '/'"
+    [ "$status" -ne 0 ]
+    [ -f "$P/dev/context/CLAUDE.md" ]
+}
+
+@test "unlink: the ANTCRATE_HOME zone still works with no root argument" {
+    mkdir -p "$ANTCRATE_HOME/scratch"
+    run src "_ac_unlink_internal '$ANTCRATE_HOME/scratch'"
+    [ "$status" -eq 0 ]
+    [ ! -e "$ANTCRATE_HOME/scratch" ]
+}

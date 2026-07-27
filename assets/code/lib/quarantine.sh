@@ -68,13 +68,21 @@ _ac_quarantine_capture() {
     return 0
 }
 
-# _ac_unlink_internal <path>
+# _ac_unlink_internal <path> [repo_root]
 # THE ONLY audited rm $VAR site post-pivot.
 # Allowed zones: under $ANTCRATE_HOME, .git-resident AntCrate artifacts
-# (antcrate-hook-bypass inside a *.git/ directory), or antcrate-named
-# scratch under the system temp dir (mktemp -t antcrate-*).
+# (antcrate-hook-bypass inside a *.git/ directory), antcrate-named scratch
+# under the system temp dir (mktemp -t antcrate-*), or — only when the caller
+# names <repo_root> — a path strictly BELOW <repo_root>/dev/context.
+#
+# The fourth zone exists for devsync's context mirror, which lives inside a
+# USER PROJECT TREE and so falls outside every standing allowance (audit
+# 2026-07-25, finding E). It is opt-in on purpose: a caller that does not pass
+# a root gets exactly the old behaviour, and passing a root widens NOTHING
+# else — it opens one named subtree of one named repo and no more. The mirror
+# directory itself is never removable; only entries inside it.
 _ac_unlink_internal() {
-    local path="$1"
+    local path="$1" repo_root="${2:-}"
     [[ -z "$path" ]] && { ac_error "unlink_internal: empty path refused"; return 1; }
     if [[ -z "$_AC_UNLINK_ABS_HOME" ]]; then
         _AC_UNLINK_ABS_HOME=$(ac_realpath_m "$ANTCRATE_HOME") \
@@ -97,6 +105,18 @@ _ac_unlink_internal() {
     case "$abs_path" in
         "$abs_tmp"/antcrate-*) rm -rf -- "$path"; return 0 ;;
     esac
+
+    # opt-in dev/context zone. The root must be a real directory and not "/",
+    # so a caller cannot hand in an empty-ish value and turn the check into
+    # "anything under /dev/context".
+    if [[ -n "$repo_root" && -d "$repo_root" ]]; then
+        local abs_root; abs_root=$(ac_realpath_m "$repo_root") || abs_root=""
+        if [[ -n "$abs_root" && "$abs_root" != "/" ]]; then
+            case "$abs_path" in
+                "$abs_root"/dev/context/*) rm -rf -- "$path"; return 0 ;;
+            esac
+        fi
+    fi
 
     ac_error "unlink_internal: refusing to remove path outside ANTCRATE_HOME: $path"
     return 1
