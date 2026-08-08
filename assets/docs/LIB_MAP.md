@@ -49,7 +49,7 @@ Relocated verbatim from the orchestrator `SKILL.md` (three-tier skill cut, spec 
   - `cost-anticipator.sh` — PreToolUse Skill|Agent|Read predictive gate: estimates token load (bytes/4 × tokenizer factor) BEFORE the call; warns past soft, BLOCKS past hard budget or model window, naming a cheaper path; reads only policy.json + transcript; fails open; agents MUST NOT set `ANTCRATE_COST_GUARD_DISABLE`. Spec: `docs/specs/2026-06-11-least-cost-allocation-and-skill-scoping-design.md`
   - `env-guard.sh` — PreToolUse Bash+Read secret-value guard: secret VALUES never enter the transcript (names/assignment only)
 - **`templates/<domain>/`** — scaffolding templates per domain (`webapps`, `scripts`, `notes`, `projects`, `_generic`)
-- **`tests/*.bats`** — bats coverage; run all via `antcrate --ci`
+- **`tests/*.bats`** — bats coverage; run all via `antcrate self ci`
 - **`install.sh`** — idempotent installer; copies binaries to `~/.local/bin`, libs to `~/.local/share/antcrate/`
 - **`systemd/antcrated.service`** — optional user-mode daemon unit
 
@@ -68,8 +68,8 @@ Relocated verbatim from the orchestrator `SKILL.md` (three-tier skill cut, spec 
 
 ### Hooks + CI (root of skill repo)
 
-- **`.github/workflows/ci.yml`** — runs `antcrate --ci` on push to master/main + PRs
-- **`.githooks/pre-commit`** — opt-in local hook (enable per-clone via `git config core.hooksPath .githooks`); runs `antcrate --ci`, tees output to `.git/antcrate-hook.log`
+- **`.github/workflows/ci.yml`** — runs `antcrate self ci` on push to master/main + PRs
+- **`.githooks/pre-commit`** — opt-in local hook (enable per-clone via `git config core.hooksPath .githooks`); runs `antcrate self ci`, tees output to `.git/antcrate-hook.log`
 
 ### State (`~/.local/state/antcrate/`)
 

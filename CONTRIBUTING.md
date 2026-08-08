@@ -6,15 +6,15 @@ Before opening an issue or PR, skim [`assets/code/AGENTS.md`](assets/code/AGENTS
 
 ## Test gate
 
-Every PR must keep `antcrate --ci` green: shellcheck clean, full bats suite passing, and cmake/ctest passing for the C++ core. New functions added to `lib/*.sh` require a companion test file at `tests/<name>.bats`. Adding a flag without tests will not be merged.
+Every PR must keep `antcrate self ci` green: shellcheck clean and the full bats suite passing. New functions added to `lib/*.sh` require a companion test file at `tests/<name>.bats`. Adding a flag without tests will not be merged.
 
 ## Commit style
 
-Use `type(scope): description` with types `feat`, `fix`, `refactor`, `style`, `docs`, `test`, or `chore`. One logical change per commit. Use `antcrate --commit <project> -m "..."` rather than bare `git commit` — the wrapper applies the secret-pattern guard and enforces the commit message format.
+Use `type(scope): description` with types `feat`, `fix`, `refactor`, `style`, `docs`, `test`, or `chore`. One logical change per commit. Use `antcrate commit <project> -m "..."` rather than bare `git commit` — the wrapper applies the secret-pattern guard and enforces the commit message format.
 
 ## New flag proposals
 
-File proposals via `antcrate --propose "<flag-name>" "<rationale>"`. Proposals are reviewed with `antcrate --proposals` before implementation begins. Do not start implementation before a proposal is on record.
+File proposals via `antcrate propose "<name>" "<rationale>"`. Proposals are reviewed with `antcrate proposals` before implementation begins. Do not start implementation before a proposal is on record.
 
 ## Solo-maintained, pre-1.0
 

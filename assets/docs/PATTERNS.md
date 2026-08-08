@@ -20,7 +20,7 @@ Goal of this file: Claude Code (or any agent) reads this **before** reaching for
 | Show one project's full record | `antcrate info <project>` | Path, domain, git_remote, linked, backups, branch, last commit, working state. Replaces `jq '.projects.<n>'`. |
 | Create a new project | `antcrate new <name> --domain <domain> [--meta "csv"]` | Domain ∈ {webapps, scripts, notes, projects, _generic}. Auto-scaffolds `docs/diagrams/architecture.mmd`. |
 | Register an existing tree (no scaffold) | `antcrate reg <name> <existing-path> [--domain <d>]` | Adds a registry entry for a tree that's already on disk. Domain defaults to parent dir name. |
-| Bootstrap git tracking on a registered project (one-liner) | `antcrate bootstrap <project> [-m "<msg>"] [--with-remote --public/--private]` | Idempotent: runs `--git-init`, writes a default `.gitignore` (rule #13 secret-pattern denylist + cleanup-prune giants), commits everything. `--with-remote` chains `--gh-init` (private default per AGENTS.md #15). Re-runs on a clean tree are no-ops. Replaces the post-`--register` first-commit dance. |
+| Bootstrap git tracking on a registered project (one-liner) | `antcrate bootstrap <project> [-m "<msg>"] [--with-remote --public/--private]` | Idempotent: runs `--git-init`, writes a default `.gitignore` (rule #13 secret-pattern denylist + cleanup-prune giants), commits everything. `--with-remote` chains `--gh-init` (private default per AGENTS.md #15). Re-runs on a clean tree are no-ops. Replaces the post-`reg` first-commit dance. |
 | Local git init only (no commit, no .gitignore) | `antcrate --git-init <project>` | Idempotent. Wires `core.hooksPath .githooks` if the project ships a `.githooks/` dir. Counterpart to `--gh-init` for the local-only case. |
 | Branch from an existing project | `antcrate branch <name> --domain <domain> [--meta "from=<base>"]` | Inherits structure of `<base>`. |
 | Bidirectionally link two projects | `antcrate link <a> --rel <b>` | Stored under `linked_nodes`. |
@@ -28,9 +28,9 @@ Goal of this file: Claude Code (or any agent) reads this **before** reaching for
 | Rename a project | `antcrate mv <project> <new-name>` | Backup + approval; rewrites registry, parent refs, linked_nodes. |
 | Archive a project | `antcrate arc <project>` | Backup + approval; moves to `~/Projects/.archive/<project>`, marks parent=`_archived`, stores `previous_parent`. |
 | Restore an archived project | `antcrate arc -u <project>` | Backup + approval; reads `previous_parent` and moves back to `~/Projects/<previous_parent>/<name>`. |
-| Permanently delete a project | `antcrate rm <project>` | Backup + approval + loud "PERMANENT DELETE" banner. `rm -rf` + registry purge. Recovery only via the printed backup tarball. Prefer `--archive` if uncertain. |
+| Permanently delete a project | `antcrate rm <project>` | Backup + approval + loud "PERMANENT DELETE" banner. `rm -rf` + registry purge. Recovery only via the printed backup tarball. Prefer `arc` if uncertain. |
 | List ghost entries (registered but path gone) | `antcrate ghosts` | Read-only. Lists every registry entry whose on-disk `path` no longer exists. Run before a hygiene pass. |
-| Drop a ghost registry entry (registry-only) | `antcrate deregister <project>` | For a GHOST only — capture-first to `~/.local/state/antcrate/deregistered/<project>/<ts>/` (`entry.json`+`registry.json`+`manifest.json`), then `ac_registry_delete`. **REFUSES (exit 1) if the path still exists** → use `--archive` instead. No `rm` of user data; not the safety-guard path. See AGENTS.md #19 (three fates). |
+| Drop a ghost registry entry (registry-only) | `antcrate deregister <project>` | For a GHOST only — capture-first to `~/.local/state/antcrate/deregistered/<project>/<ts>/` (`entry.json`+`registry.json`+`manifest.json`), then `ac_registry_delete`. **REFUSES (exit 1) if the path still exists** → use `arc` instead. No `rm` of user data; not the safety-guard path. See AGENTS.md #19 (three fates). |
 
 ## Anchor & address (replaces `cd`)
 
@@ -49,7 +49,7 @@ The anchor mechanism gives every project (and every file in it) a stable handle 
 
 ## Non-interactive by default (audit 2026-07-10)
 
-Every command is TTY-free: `-y` and the `ANTCRATE_*_PREAPPROVED` prefixes are RETIRED (2026-07-10). Commits/`pp` show the Gateway preview and proceed; destructive ops back up first, proceed, and append a `[command]` review duty (`antcrate duty ls`) when no human is at the terminal. A TTY still gets the y/N prompt. Compact words are the ONLY leading form — a leading legacy `--flag` exits 2 with a pointer to the word (`antcrate st` → `antcrate st`); modifier flags after a word (`-m`, `--json`, `--domain`, …) are unchanged.
+Every command is TTY-free: `-y` and the `ANTCRATE_*_PREAPPROVED` prefixes are RETIRED (2026-07-10). Commits/`pp` show the Gateway preview and proceed; destructive ops back up first, proceed, and append a `[command]` review duty (`antcrate duty ls`) when no human is at the terminal. A TTY still gets the y/N prompt. Compact words are the ONLY leading form — a leading legacy `--flag` exits 2 with a pointer to the word (`antcrate --status` → `antcrate st`); modifier flags after a word (`-m`, `--json`, `--domain`, …) are unchanged.
 
 ## Retrieval (rag — read BEFORE grepping a big tree cold)
 
@@ -80,7 +80,7 @@ Every entry forces a backup tarball before touching disk; approval is the TTY pr
 
 | Intent | Command | Notes |
 |---|---|---|
-| Commit + push with conflict triage | `antcrate pp <project> [--no-mirror]` | Prints the bundled pre-push panel FIRST (branch, last/stable/current version, last commit, unpushed, working state, milestone from ledger heads, newest plan, backup age, open duties), then commits (if dirty) + pushes. On rejection: emails truncated diff, full log at `/tmp/antcrate_conflict.log`. Never bare `git push`. Successful pushes print `verify: <upstream> in sync at <SHA>`, then mirror dev/ to the private `<project>-dev` companion when config `mirror_dev=` lists the project (`--no-mirror` skips once; mirror failure never fails the push). |
+| Commit + push with conflict triage | `antcrate pp <project> [--no-mirror]` | Prints the bundled pre-push panel FIRST (branch, last/stable/current version, last commit, unpushed, working state, milestone from ledger heads, newest plan, backup age, open duties), then commits (if dirty) + pushes. On rejection: emails truncated diff, full log at `/tmp/antcrate_conflict.log`. Never bare `git push`. Successful pushes print `verify: <upstream> in sync at <SHA>`, then mirror dev/ to the private `<project>-dev` companion. **This is DEFAULT-ON since 2026-07-24** and creates the companion repo via `gh` on first push; opt out per project with config `mirror_dev_exclude=`, or globally with `mirror_dev_all=0`. `--no-mirror` skips once; mirror failure never fails the push. |
 | Read the same panel without pushing | `antcrate info <project>` | Registry record + the pp panel, fully read-only. |
 | Commit only (no push), unattended | `antcrate commit <project> -m "<msg>" --all-tracked` | Non-interactive (non-TTY) invocations proceed prompt-free automatically — no flag needed. `-y`/AUTO_YES was retired 2026-07-10 and now exits 2. |
 | `git status` + `git diff` (no cd) | `antcrate diff <project>` | Uses `git -C`. |
@@ -118,7 +118,7 @@ AntCrate develops AntCrate. These flags route the build/test/edit loop through t
 
 Mermaid `.mmd` files render inline on GitHub without any tool installed — that's the default. SVG rendering is opt-in via `mmdc -i in.mmd -o out.svg`.
 
-**Auto-regen.** Every mutating wrapper action (`--start`, `--register`, `--branch`, `--link`, `--resume --expand`, `--rename`, `--archive`, `--unarchive`, `--remove`, `--restore`) silently refreshes `~/.local/share/antcrate/registry.mmd` and (when applicable) `<project>/docs/diagrams/tree.mmd` after the operation succeeds. You normally never need to call `--registry-diagram` or `--tree-diagram` by hand — they exist as a manual override / repair path.
+**Auto-regen.** Every mutating wrapper action (`new`, `reg`, `branch`, `link`, `--resume --expand`, `mv`, `arc`, `arc -u`, `rm`, `bak restore`) silently refreshes `~/.local/share/antcrate/registry.mmd` and (when applicable) `<project>/docs/diagrams/tree.mmd` after the operation succeeds. You normally never need to call `--registry-diagram` or `--tree-diagram` by hand — they exist as a manual override / repair path.
 
 Disable with `export ANTCRATE_AUTO_DIAGRAMS=0` (e.g. for batch scripted mutations where you want a single explicit regen at the end). Failures are swallowed: a diagram refresh never blocks the action that triggered it.
 
@@ -126,7 +126,7 @@ Disable with `export ANTCRATE_AUTO_DIAGRAMS=0` (e.g. for batch scripted mutation
 
 | Intent | Command | Notes |
 |---|---|---|
-| Run shellcheck + bats + cmake/ctest | `antcrate self ci [--snapshot] [--source <path>]` | One command, fail-fast on any stage. Use before any change. PASS records to `ci-baseline.json`; `--snapshot` sets the audit baseline; `--source` CIs an alternate tree (worktrees). |
+| Run shellcheck + bats | `antcrate self ci [--snapshot] [--source <path>]` | Two stages, fail-fast on either. Use before any change. PASS records to `ci-baseline.json`; `--snapshot` sets the audit baseline; `--source` CIs an alternate tree (worktrees). |
 
 ## Intel (retrieval = Bash, judgment = the session — procedure folded into SKILL.md 2026-07-10; kinds + user sources added 2026-07-11)
 
@@ -189,7 +189,7 @@ the research machine) and dev-AntCrate (on this machine). Spec lives at
 |---|---|---|
 | Ingest a bundle into a registered project | `antcrate ingest <bundle-path>` | **shipped** (local-path bundles) |
 
-`--ingest` validates `manifest.json` per BUNDLE_SPEC §4 before any disk
+`ingest` validates `manifest.json` per BUNDLE_SPEC §4 before any disk
 write; on failure, sets `STATUS=failed: <reason>` and aborts with no
 partial state. Source materializers cover all four `source.type`
 variants (`none` / `git` / `archive` / `composite`). Relationships
@@ -215,7 +215,7 @@ file-pattern matches `*.test.tmp`, `*.pyc`, `*.bats.log`) and
 
 `--apply` runs each removal through `ac_safety_guard_destructive` (rule
 #1 backup + approval), emits a `delete` event with category as label
-(`--watch` paints a 1s tombstone), and appends to
+(`watch` paints a 1s tombstone), and appends to
 `projects.<n>.recent_removals` (capped at `ANTCRATE_CLEANUP_RECENT_CAP`,
 default 50).
 
@@ -262,20 +262,19 @@ Actions only the human can perform — control-plane jq seeds, `systemctl --user
 
 | Intent | Command | Notes |
 |---|---|---|
-| Record an action only the human can do | `antcrate duty add [--type <t>] "<text>"` | Appends `- [ ] <date> — [<type>] <text>` to duties.md. Types: `policy\|command\|research\|debug` (untyped reads as policy). Surfaced in `--status` and the session-budget gate's wrap-up checklist. |
-| See open human duties | `antcrate duty ls` | Numbered list of open items only, typed tags shown; flat indices stay valid for `--duty-done`. |
+| Record an action only the human can do | `antcrate duty add [--type <t>] "<text>"` | Appends `- [ ] <date> — [<type>] <text>` to duties.md. Types: `policy\|command\|research\|debug` (untyped reads as policy). Surfaced in `st` and the session-budget gate's wrap-up checklist. |
+| See open human duties | `antcrate duty ls` | Numbered list of open items only, typed tags shown; flat indices stay valid for `duty done`. |
 | Mark a duty done | `antcrate duty done <n>` | User-driven (or agent on explicit user instruction). Flips to `- [x]` + done-date; items are never deleted. |
 | Check how involved the user wants to be | `antcrate --duty-involvement` | `lean\|standard\|hands-on`; env > config `duty_involvement=` line > lean. Config line is rule-#13 human-only. Gates research routing (AGENTS.md rule #21). |
 
 ## Least-cost layer (policy, prediction, no-LLM retrieval)
 
-Research order of record: **TH duty → `--fetch` → model research LAST** (AGENTS.md rule #21).
+Research order of record: **TH duty → `fetch` → model research LAST** (AGENTS.md rule #21).
 
 | Intent | Command | Notes |
 |---|---|---|
 | See model tiers / budgets / classes / endpoints | `antcrate policy` | Pretty-prints `~/.local/state/antcrate/anycrate/policy.json` plus an `.endpoints` table, edit hint, and schema line. Only `budgets.fable` is agent-adjustable (rule #22); endpoints are HUMAN-ONLY (rule #23). |
-| Seed the policy file | `antcrate --policy-init` | Idempotent — never clobbers an existing file. |
-| Seed policy.json (idempotent) | `antcrate policy seed` | Compact-word form of `--policy-init`. |
+| Seed the policy file | `antcrate policy seed` | Idempotent — never clobbers an existing file. (`--policy-init` is the equivalent flag-only form.) |
 | Launch a local model endpoint (sandboxed) | lib: `ac_endpoint_run <name>` — prompt on stdin | Only `kind: local` endpoints launch (vllm/api refuse, rc 1). Sandboxed by default via `ac_sandbox_run`; endpoint `"sandbox": false` opts out. Endpoints are HUMAN-ONLY in policy.json (rule #23) — agents call by name, never add/edit one. |
 | Fetch a web page without spending model tokens | `antcrate fetch <url> [--name <slug>]` | Normalizes (script/tag-strip) + snapshots to `~/.local/state/antcrate/fetch/<slug>/`, append-only and hash-keyed; unchanged content = no new snapshot. http(s) only. |
 
@@ -285,23 +284,33 @@ Hooks backing this layer (wired in `~/.claude/settings.json`): `session-budget-g
 
 AntCrate is a **mediator, not a dominator**. It supplements tools so work can run locally; when a plugin/MCP already does that, AntCrate stays out of the way. It only steps in when something is missing or an AntCrate guideline is at stake. Every external surface sorts into one of three buckets:
 
-- **🟢 LET IT** — pure capability that touches no AntCrate invariant. Use freely; no antcrate involvement. Examples: `context7` (live library docs), `security-guidance` / `security-review`, `superpowers` method-skills (TDD, brainstorming, systematic-debugging — the *how*; AGENTS.md is the *what-you-may-touch*), `code-review` (cloud, opt-in deeper pass — `--ci` stays the must-pass LOCAL gate), `claude-code-setup`.
+- **🟢 LET IT** — pure capability that touches no AntCrate invariant. Use freely; no antcrate involvement. Examples: `context7` (live library docs), `security-guidance` / `security-review`, `superpowers` method-skills (TDD, brainstorming, systematic-debugging — the *how*; AGENTS.md is the *what-you-may-touch*), `code-review` (cloud, opt-in deeper pass — `self ci` stays the must-pass LOCAL gate), `claude-code-setup`.
 - **🔵 FEED IT** — AntCrate generates, the surface renders; AntCrate stays the source of truth. (Obsidian mirroring was atticked 2026-07-10 — branch `attic`.) **Google Drive** is the research/producer side of `BUNDLE_SPEC` (proposal `drive-bundle`).
-- **🟡 GATE IT** — overlaps an AntCrate guideline, so the gate-bearing flag stays mandatory **for registered projects** (AGENTS.md rule #18). The `commit-commands` + `github` plugins overlap `--commit` / `--pp`: those flags own the commit/push step for any registered project (secret-guard, push-triage, private-default, Gateway-Law). The plugins handle non-registered trees + read-only GitHub queries.
+- **🟡 GATE IT** — overlaps an AntCrate guideline, so the gate-bearing flag stays mandatory **for registered projects** (AGENTS.md rule #18). The `commit-commands` + `github` plugins overlap `commit` / `pp`: those commands own the commit/push step for any registered project (secret-guard, push-triage, private-default, Gateway-Law). The plugins handle non-registered trees + read-only GitHub queries.
 
 When a new plugin/MCP arrives, classify it into one of these buckets before reaching for it; if it would touch a registered project's structure, commits, or destructive ops, it's GATE-IT and the antcrate flag wins.
 
 ## Quick index by verb
 
-- **see**: `--status`, `--list`, `--map`, `--logs`, `--diff`, `--proposals`, `--registry-diagram`, `--tree-diagram`, `--watch`, `--watch-smoke`, `--watch-window`, `--selfcheck`, `--intel-new`, `--intel-status`
-- **make**: `--start`, `--register`, `--branch`, `--link`, `--gh-init`, `--diagrams`
-- **point at**: `--addr`, `--anchor`, `--in`
-- **change**: `--rename`, `--resume --expand`, `--restore`
-- **soft-delete / restore**: `--archive`, `--unarchive`
-- **hard-delete**: `--remove` (backup-only recovery)
-- **safeguard**: `--backup`, `--backups`, `--restore`
-- **ship**: `--pp`
-- **build self**: `--selfsrc`, `--selfinstall`, `--install-from-source`, `--selftest`, `--selfedit`, `--ci`
-- **propose**: `--propose`, `--proposals`
-- **duties**: `--duty`, `--duties`, `--duty-done`, `--duty-involvement`
-- **least-cost**: `--policy`, `--policy-init`, `--fetch`
+You type **words**. Leading `--flags` were retired as input on 2026-07-10 and now
+exit 2 with the word to use instead. The handful of `--flag` entries below are
+**flag-only surfaces**: they never got a compact word and are still typed with
+the dashes. Every entry here was verified against the dispatcher on 2026-08-07.
+
+- **see**: `st` · `list` · `info <p>` · `map <p>` · `logs [p] [n]` · `diff <p>` · `proposals` · `watch [<p>]` · `self check` · `intel ls` · `intel st` · `--registry-diagram` · `--tree-diagram` · `--watch-smoke` · `--watch-window`
+- **make**: `new <n> --domain <d>` · `reg <n> <path>` · `branch <n> --domain <d>` · `link <a> --rel <b>` · `--gh-init [--public]` · `--diagrams`
+- **point at**: `--addr <p> <code>` · `anchor <p>` · `in <p> -- <cmd>`
+- **change**: `mv <old> <new>` · `--resume <parent> --expand <child>`
+- **soft-delete / restore**: `arc <p>` · `arc -u <p>`
+- **hard-delete**: `rm <p>` (backup-only recovery)
+- **safeguard**: `bak <p>` · `bak ls <p>` · `bak restore <p> [--at <ts>]` · `--quarantine-list <p>` · `--quarantine-restore <p> --at <ts>`
+- **ship**: `commit <p> -m "…"` · `pp <p>` · `post x <p> --draft "…"`
+- **retrieve**: `rag q <p> "<query>" [n]` · `fetch <url>` · `intel pull`
+- **hygiene**: `gc <p>` · `gc ghosts` · `ghosts` · `deregister <p>` · `scan [path]` · `tool ls` · `tool install <t>` · `hook ls <p>`
+- **build self**: `self src` · `self install` · `--install-from-source` · `self test` · `self edit` · `self ci` · `self plugin`
+- **propose**: `propose <name> "<intent>"` · `proposals`
+- **duties**: `duty add "…"` · `duty ls` · `duty done <n>` · `duty clear` · `--duty-involvement`
+- **least-cost**: `policy` · `--policy-init`
+
+> `bak` takes its subcommand in either order — `bak ls <p>` and `bak <p> ls`
+> both work. Everything else is `<verb> <project> [options]`.

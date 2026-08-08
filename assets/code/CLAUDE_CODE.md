@@ -36,7 +36,7 @@ Optional: enable the daemon
 
 ```bash
 systemctl --user enable --now antcrated
-antcrate --status
+antcrate st
 ```
 
 ## Safety guarantees for Claude Code
@@ -74,7 +74,7 @@ gh auth status
 Then for any AntCrate project:
 
 ```bash
-antcrate --start myproj --domain webapps --meta "html,css,js"
+antcrate new myproj --domain webapps --meta "html,css,js"
 antcrate --gh-init myproj                 # private repo, push initial commit
 antcrate --gh-init myproj --public        # or public
 ```
@@ -90,7 +90,7 @@ What `--gh-init` does:
 
 If the repo already exists, `--gh-init` skips creation and just wires the remote and pushes.
 
-After that, `antcrate --pp myproj` does ordinary auto-commit + push, with the conflict triage flow engaged on rejection.
+After that, `antcrate pp myproj` does ordinary auto-commit + push, with the conflict triage flow engaged on rejection.
 
 ## Asking Claude Code to use AntCrate
 
@@ -101,10 +101,10 @@ Once installed, you can prompt Claude Code naturally:
 Claude Code will (per `AGENTS.md`):
 
 ```bash
-antcrate --start widget-shop --domain webapps --meta "html,css,js"
+antcrate new widget-shop --domain webapps --meta "html,css,js"
 antcrate --gh-init widget-shop
 systemctl --user start antcrated
-antcrate --status
+antcrate st
 ```
 
 If any step would touch a path outside `~/Projects/` or AntCrate's own config/data/state directories, Claude Code will pause and ask before proceeding.
