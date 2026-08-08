@@ -4,8 +4,12 @@
 # Companion to ~/.claude/agents/cody.md (the home Cody). Per AGENTS.md
 # proposal #89, every AntCrate-registered project gets its own Cody
 # variant under <project>/.claude/agents/<project>-cody.md plus an
-# attempt counter at <project>/.antcrate/cody-attempts.json that
-# --delegate (#93) increments on failed edits.
+# attempt counter at <project>/.antcrate/cody-attempts.json.
+#
+# The counter was to be incremented by a `--delegate` command (proposal #93)
+# that never shipped and has no code today. The file is still created because
+# it is part of the project-scoped agent contract and callers may write it;
+# nothing in-tree increments it.
 #
 # Today's surface (small, idempotent):
 #   ac_agent_init <project>     — create both files if missing; no-op otherwise

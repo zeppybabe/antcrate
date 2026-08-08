@@ -46,7 +46,7 @@ ac_policy_seed() {
         lookup:      {agent: "human",   tier: "TH", model: "none"}
       },
       skill_overrides: { "claude-api": {extra_bytes: 700000} },
-      budget_usd: {session_usd: 5.00, check: "--cost --porcelain --since today"}
+      budget_usd: {session_usd: 5.00}
     }') || return 1
     printf '%s\n' "$json" > "$f.tmp" && mv "$f.tmp" "$f"
     ac_info "policy: seeded $f"

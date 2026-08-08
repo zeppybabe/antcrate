@@ -25,9 +25,12 @@ node_modules/
 # never useful to track.
 .antcrate/
 
-# C++ build artifacts (Wave 0+; antcrate-core out-of-source CMake build).
-# Keep src/, include/, tests/, CMakeLists.txt tracked; ignore generated.
-assets/code/core/build/
+# Leftover CMake build tree from the retired C++ helper (AGENTS.md rule #15,
+# atticked 2026-07-10). No source for it remains in this repo — nothing here
+# is tracked — but a stale build/ can still sit on a maintainer's disk from
+# before the retirement, and it must never enter the tree. Safe to delete
+# locally; the rule stays so a leftover cannot be committed by accident.
+assets/code/core/
 
 # Claude Code background-session worktrees (scratch isolation)
 .claude/worktrees/

@@ -15,7 +15,7 @@ All invocations go through a single dispatcher; a compact WORD selects the comma
 
 ## DESCRIPTION
 
-AntCrate wraps the structural, destructive, and remote-facing operations of a project workspace behind one auditable command surface. Project state lives in a jq-managed JSON registry (`~/.antcrate/registry.json`); every mutation is atomic (jq + temp-file replacement). Destructive operations are gated by mandatory backup, human approval, and a compaction-canary check. Nothing runs elevated.
+AntCrate wraps the structural, destructive, and remote-facing operations of a project workspace behind one auditable command surface. Project state lives in a jq-managed JSON registry (`~/.antcrate/registry.json`); every mutation is atomic (jq + temp-file replacement). Destructive operations are gated by mandatory backup and human approval. Nothing runs elevated.
 
 The intended operator is a solo developer working with an AI coding agent: the agent gets full speed inside registered project trees, and AntCrate is the boundary it cannot cross — pushes, removals, renames, hook execution, and secret exposure all route through gated flags.
 
@@ -39,16 +39,17 @@ No command ever requires `cd`. `--anchor` exports a stable project handle (`$ANT
 
 ### The safety model
 
-Four mechanisms compose, strictest innermost:
+Three mechanisms compose, strictest innermost:
 
-1. **Rule #1 chokepoint** — `ac_safety_guard_destructive` forces backup + explicit approval before any destructive flag (`--rename`, `--archive`, `--remove`, `--cleanup --apply`, `--resume --expand`, bundle `supersedes`) touches disk.
+1. **Rule #1 chokepoint** — `ac_safety_guard_destructive` forces backup + explicit approval before any destructive action (`mv`, `arc`, `rm`, `gc --apply`, `--resume --expand`, bundle `supersedes`) touches disk.
 2. **Gateway Law** — updates/removals are always the *last* step of any chain: read state → confirm no dependents → backup → show the human the verify output → receive approval → execute.
-3. **Compaction canary** — a token-and-TTL gate (C++ `antcrate-core` binary) wired inside the chokepoint. When the canary is stale (TTL expired or invocation budget spent), destructive ops refuse until the operator re-reads the hard rules and runs `--canary-verify <TOKEN>`. Defends against an agent whose context was compacted past its safety instructions.
-4. **Quarantine over destruction** — automated paths never delete user data; they capture it (archive + manifest) into `~/.antcrate/quarantine/`. There is deliberately no purge flag.
+3. **Quarantine over destruction** — automated paths never delete user data; they capture it (archive + manifest) into the quarantine directory. There is deliberately no purge command.
+
+> A fourth mechanism, the Wave-1 **compaction canary**, was retired on 2026-07-10 (AGENTS.md rule #15). Harness-level context summaries made compaction-loss a non-threat, and the gate silently blocked every destructive op on installs without a built helper binary. Its code lives on the `attic` branch.
 
 ### The agent boundary
 
-Codified in `assets/code/AGENTS.md` (the hard rules). The operational summary: agents use wrapper flags, never bare structural/destructive/push commands; when no flag fits, they file `--propose`; actions only the human may take are filed with `--duty`; `~/.antcrate/config` is human-only territory, as are endpoints in `policy.json`; escape hatches (`ANTCRATE_CANARY_DISABLE`, `ANTCRATE_SESSION_GATE_DISABLE`, `ANTCRATE_ENV_GUARD_DISABLE`, `ANTCRATE_SANDBOX_DISABLE`) exist for CI and are off-limits to agents.
+Codified in `assets/code/AGENTS.md` (the hard rules). The operational summary: agents use wrapper flags, never bare structural/destructive/push commands; when no flag fits, they file `--propose`; actions only the human may take are filed with `--duty`; `~/.antcrate/config` is human-only territory, as are endpoints in `policy.json`; escape hatches (`ANTCRATE_SESSION_GATE_DISABLE`, `ANTCRATE_ENV_GUARD_DISABLE`, `ANTCRATE_SANDBOX_DISABLE`) exist for CI and are off-limits to agents.
 
 ## COMMANDS
 
@@ -73,9 +74,6 @@ Tails wrapper, daemon, and conflict logs (default 50 lines); with a registered p
 
 **`antcrate --selfcheck [--quiet]`**
 Self-source persistence health: registry path, skill link, git state, unpushed commits, dirty tree, backup age. Exit **0** healthy / **1** critical / **2** warnings. Pairs with the daily backup timer.
-
-**`antcrate --cost [--since <ts|epoch>] [--session <file>] [--porcelain]`**
-Real-dollar spend computed from Claude Code session transcripts (`~/.claude/projects`): per-model table + total. `--porcelain` prints a bare USD number (consumed by the loop engine's budget mode). Price table is embedded; override with `ANTCRATE_COST_PRICES_FILE`.
 
 **`antcrate --help`**
 Built-in usage summary.
@@ -118,9 +116,6 @@ Read-only list of registry entries whose on-disk path no longer exists.
 Drop a *ghost* entry from the registry — capture-first (entry, registry snapshot, manifest under `~/.antcrate/deregistered/`), then delete the entry. **Refuses (exit 1) if the path still exists** — use `--archive` instead. Never touches user data.
 
 ### Files and navigation
-
-**`antcrate --touch <project> <relpath>`** / **`antcrate --mkdir <project> <relpath>`**
-Create a file (auto-mkdir parents) or directory inside a project. Refuses overwrite, absolute paths, and `..` traversal. Prints the absolute path on stdout, composing with editors and agent Write tools.
 
 **`antcrate --addr <project> <code>`**
 Resolve a layered address (e.g. `1a3`) to an absolute path.
@@ -208,20 +203,6 @@ One-shot: read `--profile` recommendations, install the picked template per hook
 **`antcrate --hook-smoke <hook-script> (--command '<cmd>' | --file <path> | --payload '<json>') [--tool <name>]`**
 Pipe a synthetic Claude Code PreToolUse/PostToolUse payload into a hook script, surface its stderr and a verdict line, and **propagate its exit code** (0 allow / 1 warn / 2 block). Note: a literal destructive string in `--command` also sits in *your* shell command — live guards may block the smoke itself; use benign text live and assert block paths in tests.
 
-### Safety canary
-
-**`antcrate --canary-init [--ttl-seconds N] [--max-invocations N] [--with-claudemd]`**
-Generate the 32-hex canary token and state file. Defaults: TTL 3600 s, 30 invocations. `--with-claudemd` interactively patches the token placeholder into `~/CLAUDE.md`; otherwise the snippet is printed for manual placement.
-
-**`antcrate --canary-verify <TOKEN>`**
-Record a fresh verify (the operator has re-read the rules): bumps `last_verified_ts`, resets the invocation counter.
-
-**`antcrate --canary-status`**
-Human-readable state: initialized?, masked token, last verify, invocations/max, TTL.
-
-**`antcrate --canary-gate-check`**
-Standalone gate probe: exit **0** fresh, **4** stale, **2** missing state. Increments the invocation counter.
-
 ### Agent layer
 
 **`antcrate --agent-init <project>`**
@@ -236,12 +217,6 @@ Read-only stack/tooling/env profile + hook recommendations. `--raw` emits TAB-se
 **`antcrate --env-scan <project> [--apply]`**
 List `.env` files + environment-variable references. `--apply` idempotently adds standard `.env` patterns to `.gitignore`. Never modifies `.env` files themselves.
 
-**`antcrate --delegate <project> --key <key> --task "<desc>" [--file <relpath>]`**
-Hand a focused edit to the project's agent: increments the per-key attempt counter, **refuses with exit 3** at the threshold (`ANTCRATE_DELEGATE_THRESHOLD`, default 3), emits a `delegate` activity event, prints the handoff block. No infinite retry loops.
-
-**`antcrate --delegate-reset <project> [--key <key>]`** / **`antcrate --delegate-status <project>`**
-Zero one key (or all), and list non-zero counters.
-
 ### Duties and proposals
 
 **`antcrate --duty "<text>"`**
@@ -255,23 +230,6 @@ Log a proposed flag/pattern to `~/.antcrate/proposals.log` — the escape valve 
 
 **`antcrate --proposals`**
 List all logged proposals.
-
-### Loop engine
-
-**`antcrate --loop "<objective>" --project <p> [--max-iter N] [--budget SECONDS|$DOLLARS]`**
-Start a durable autonomous objective loop; prints the `/loop` command to paste into Claude Code. An integer budget is wall-clock seconds; a decimal or `$`-prefixed budget is real USD measured via `--cost`.
-
-**`antcrate --loop-tick <id>`**
-Advance one iteration (driven by Claude Code's `/loop`). Subject to three hard stops: max iterations, no-progress detection, budget exhaustion.
-
-**`antcrate --loop-signoff <id> <pass|fail>`**
-Record the reviewer's semantic verdict — the two-key verify: the loop cannot sign itself off.
-
-**`antcrate --loop-status <id> [--porcelain]`** / **`antcrate --loop-list`**
-One loop's state; all loops.
-
-**`antcrate --loop-resume <id>`** / **`antcrate --loop-halt <id> [--reason <r>]`**
-Resume a halted loop (re-emits context); manually halt with checkpoint + quarantine.
 
 ### Activity stream and watch
 
@@ -352,11 +310,6 @@ Endpoints are **HUMAN-ONLY**: agents may read `.endpoints` and reference an endp
 
 **Testing:** `tests/fixtures/mock-llm` is a deterministic model stand-in — reads the prompt on stdin, emits canned output, ignores argv. `MOCK_LLM_MODE` selects behavior: `ok` (default, echoes a char-count summary), `slow` (2s sleep then done), `garbage` (unparseable bytes), `tries-network` (attempts an outbound connection — must fail under `PrivateNetwork=yes`; a positive proof the sandbox is real). `ac_endpoint_run` carries `MOCK_LLM_MODE` through explicitly via `env(1)` since `systemd-run` units don't inherit the caller's environment. Also the designated test double for BizCrate v0.5's local tier.
 
-### Obsidian
-
-**`antcrate --obsidian-mirror [project] [--with-docs]`**
-One-way mirror of the registry graph + per-project tree/ledger/docs into `<vault>/AntCrate/` (`ANTCRATE_OBSIDIAN_VAULT`). Read-only: AntCrate stays the source of truth and never reads back.
-
 ### post — X update drafting
 
 Two modes, one command. `antcrate post x <project>` with no `--draft` emits **MATERIAL**: a secret-guarded git log (every commit since the last post, or `HEAD~10..HEAD`/`HEAD` on a first post) plus a draft update string, printed for an AI or human to word by hand. `antcrate post x <project> --draft "<text>"` is the **delivery** step: it prepends the worded post to the project's git-ignored `X-POSTS.md`, and the human copies it into X. This tool never touches X at all — the copy-paste is the deliberate publish gate, trivially compliant with X's automation rules. (The v1 web-intent browser delivery, `--open` + `x-accounts.json`, was retired 2026-07-18 by owner decision in favor of this simpler drafts-folder flow; an API/MCP delivery backend remains a possible future opt-in.)
@@ -426,7 +379,6 @@ Smoke-test any of them with `antcrate --hook-smoke`. Override knobs (`ANTCRATE_S
 | `~/.antcrate/proposals.log` | Append-only proposal log |
 | `~/.antcrate/ci-baseline.json` | Last CI pass + audit baseline |
 | `~/.antcrate/intel/` | Pinned-source snapshots + `new.jsonl`/`acked.jsonl` (append-only) |
-| `~/.antcrate/canary/state.json` | Compaction-canary state |
 | `~/.antcrate/anycrate/policy.json` | Model/budget/endpoint policy — human-only except `budgets.fable` (rule #22) and endpoints (rule #23); seed with `antcrate policy seed` |
 | `~/.antcrate/log/{wrapper,daemon}.log` | Leveled logs |
 | `~/.antcrate/daemon.{pid,lock}`, `pipe.paused` | Daemon coordination |
@@ -447,19 +399,17 @@ Smoke-test any of them with `antcrate --hook-smoke`. Override knobs (`ANTCRATE_S
 | `ANTCRATE_ADDR_INCLUDE_HIDDEN` | `0` | `1` includes hidden files in addressing |
 | `ANTCRATE_BACKUP_RETENTION` | — | Backup pruning depth |
 | `ANTCRATE_TRIAGE_LINES` | `300` | Diff truncation for triage email |
-| `ANTCRATE_DELEGATE_THRESHOLD` | `3` | Delegate attempt refusal point |
-| `ANTCRATE_CANARY_TTL_SECONDS` / `_MAX_INVOCATIONS` | `3600` / `30` | Canary freshness window |
-| `ANTCRATE_COST_PRICES_FILE` | embedded | Override model price table |
-| `ANTCRATE_OBSIDIAN_VAULT` | — | Obsidian mirror target |
 | `ANTCRATE_INGEST_OFFLINE` | `0` | Skip bundle reachability checks |
 | `ANTCRATE_SESSION_SOFT` / `_HARD` | `100000` / `140000` | Session-budget gate thresholds (human-only) |
 | `ANTCRATE_ALLOW_OUTSIDE_ROOT` | unset | Required guard for any path mutation outside `$ANTCRATE_ROOT` |
-| `ANTCRATE_CANARY_DISABLE`, `ANTCRATE_SESSION_GATE_DISABLE`, `ANTCRATE_ENV_GUARD_DISABLE`, `ANTCRATE_SANDBOX_DISABLE` | unset | CI/test escape hatches — **agents must never set these** |
+| `ANTCRATE_SESSION_GATE_DISABLE`, `ANTCRATE_ENV_GUARD_DISABLE`, `ANTCRATE_SANDBOX_DISABLE` | unset | CI/test escape hatches — **agents must never set these** |
 | `MOCK_LLM_MODE` | `ok` | Selects `tests/fixtures/mock-llm` behavior: `ok`\|`slow`\|`garbage`\|`tries-network` — test-only |
 
 ## EXIT STATUS
 
-Convention across the surface: **0** success · **1** operational failure or guarded refusal (e.g. `--deregister` on a live path, `--quarantine-restore` onto an existing path, `--selfcheck` critical) · **2** usage error, blocked operation, or policy refusal (hook block verdict, non-Anthropic intel host, missing canary state) · command-specific codes documented per flag (`--delegate` exit 3 at threshold; `--canary-gate-check` exit 4 stale; `--selfcheck` exit 2 warnings; `--hook-smoke` propagates the hook's own code).
+Convention across the surface: **0** success · **1** operational failure or guarded refusal (e.g. `deregister` on a live path, `--quarantine-restore` onto an existing path, `self check` critical) · **2** usage error, blocked operation, or policy refusal (unknown or retired flag, hook block verdict, non-Anthropic intel host) · `hook smoke` propagates the hook's own code.
+
+> **Caveat, and a known wart.** Exit **2** currently means two different things: a usage error *and* `self check` finishing with warnings only. A CI job cannot distinguish "you typed it wrong" from "healthy, with notes". Tracked as a duty; do not rely on 2 alone to mean failure.
 
 ## SECURITY MODEL
 

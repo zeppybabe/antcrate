@@ -123,7 +123,7 @@ src() {
     [ ! -f "$R/docs/diagrams/tree.mmd" ]   # no project arg → no tree
 }
 
-@test "auto_regen: silent on stdout (composes with --touch contract)" {
+@test "auto_regen: silent on stdout (composes with path-printing callers)" {
     out=$(src "
         ac_registry_upsert proj '$R' scripts ''
         ac_diagrams_auto_regen proj")

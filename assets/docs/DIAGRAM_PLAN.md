@@ -58,7 +58,7 @@ covers normal operation.
   `branch`, `link`, `resume --expand`, `rename`, `archive`,
   `unarchive`, `remove`, `touch`, `mkdir`, `restore`) calls
   `ac_diagrams_auto_regen <project>` after the underlying op succeeds.
-  Silent on stdout (preserves `--touch` / `--mkdir` composition
+  Silent on stdout (preserves path-printing composition
   contract). Errors swallowed (a diagram refresh never blocks the
   triggering action).
 - **Daemon-side**: `bin/antcrated` watches every registered project

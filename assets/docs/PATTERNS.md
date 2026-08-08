@@ -188,9 +188,6 @@ the research machine) and dev-AntCrate (on this machine). Spec lives at
 | Intent | Command | Status |
 |---|---|---|
 | Ingest a bundle into a registered project | `antcrate ingest <bundle-path>` | **shipped** (local-path bundles) |
-| Peek the queue of ready bundles | `antcrate --queue` | **planned** |
-| Claim and ingest the next ready bundle | `antcrate --next` | **planned** |
-| Mark a project complete and close its bundle | `antcrate --conclude <project>` | **planned** |
 
 `--ingest` validates `manifest.json` per BUNDLE_SPEC §4 before any disk
 write; on failure, sets `STATUS=failed: <reason>` and aborts with no
@@ -288,7 +285,7 @@ Hooks backing this layer (wired in `~/.claude/settings.json`): `session-budget-g
 
 AntCrate is a **mediator, not a dominator**. It supplements tools so work can run locally; when a plugin/MCP already does that, AntCrate stays out of the way. It only steps in when something is missing or an AntCrate guideline is at stake. Every external surface sorts into one of three buckets:
 
-- **🟢 LET IT** — pure capability that touches no AntCrate invariant. Use freely; no antcrate involvement. Examples: `context7` (live library docs), `clangd-lsp` + the `cpp-check` skill (C++ for `antcrate-core`), `security-guidance` / `security-review`, `superpowers` method-skills (TDD, brainstorming, systematic-debugging — the *how*; AGENTS.md is the *what-you-may-touch*), `code-review` (cloud, opt-in deeper pass — `--ci` stays the must-pass LOCAL gate), `claude-code-setup`.
+- **🟢 LET IT** — pure capability that touches no AntCrate invariant. Use freely; no antcrate involvement. Examples: `context7` (live library docs), `security-guidance` / `security-review`, `superpowers` method-skills (TDD, brainstorming, systematic-debugging — the *how*; AGENTS.md is the *what-you-may-touch*), `code-review` (cloud, opt-in deeper pass — `--ci` stays the must-pass LOCAL gate), `claude-code-setup`.
 - **🔵 FEED IT** — AntCrate generates, the surface renders; AntCrate stays the source of truth. (Obsidian mirroring was atticked 2026-07-10 — branch `attic`.) **Google Drive** is the research/producer side of `BUNDLE_SPEC` (proposal `drive-bundle`).
 - **🟡 GATE IT** — overlaps an AntCrate guideline, so the gate-bearing flag stays mandatory **for registered projects** (AGENTS.md rule #18). The `commit-commands` + `github` plugins overlap `--commit` / `--pp`: those flags own the commit/push step for any registered project (secret-guard, push-triage, private-default, Gateway-Law). The plugins handle non-registered trees + read-only GitHub queries.
 

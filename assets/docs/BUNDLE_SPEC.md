@@ -122,7 +122,7 @@ ready ──► claimed ──► ingested ──► consumed
 | `ready` | producer | Research is complete, bundle committed, available for ingestion. |
 | `claimed` | consumer | A consumer started ingestion. Acts as a lock; another consumer should not double-claim. |
 | `ingested` | consumer | Ingestion succeeded, project is registered, work can begin. |
-| `consumed` | consumer | Project work is complete (`antcrate --conclude <project>`). Bundle is closed. |
+| `consumed` | consumer | Project work is complete. Bundle is closed. (Closing is manual; no command implements it.) |
 | `failed` | consumer | Ingestion failed. The `STATUS` file should include a one-line reason (e.g., `failed: source.url unreachable`). |
 
 For solo-developer single-consumer setups, the lifecycle is mostly bookkeeping
@@ -271,7 +271,7 @@ See `assets/docs/examples/bundles/` for complete, minimal example bundles:
   triple).
 - **Live source tracking.** Optional `source.tracking: "head"` semantic where
   the dev side periodically checks for upstream changes and surfaces them
-  via `--queue` instead of requiring a new bundle.
+  by re-ingesting instead of requiring a new bundle. (There is no `--queue` command; it was planned and never shipped.)
 
 These are not part of v1.0 — they're noted so the field names don't get
 accidentally consumed by something else.
