@@ -172,6 +172,22 @@ usage() {
     cat <<'USAGE'
 antcrate — pure-Bash deterministic project scaffolder
 
+HOW TO READ THIS PAGE
+  The --flag names below are the INTERNAL action map, not the CLI you type.
+  They were retired as input on 2026-07-10: typing one exits 2 with the word
+  form to use instead. Of the 91 flags listed here, 69 are retired input and
+  only 22 remain typeable (mostly --init / --quarantine-* / diagram surfaces,
+  which never got a word form). Translate a flag to its command by dropping
+  the leading dashes and replacing '-' with a space: --tool-install becomes
+  `tool install`, --intel-pull becomes `intel pull`. A handful compress
+  instead: --status=st, --start=new, --register=reg, --rename=mv, --remove=rm,
+  --archive=arc, --unarchive='arc -u', --cleanup=gc, --backup=bak,
+  --backups='bak ls', --restore='bak restore', --duties='duty ls',
+  --duty='duty add', --hooks='hook ls', --tool-list='tool ls'.
+  A few entries below (--apply, --dry-run, --follow, --snapshot, --source,
+  --with-remote) are MODIFIERS of other commands, never commands themselves.
+  For the CLI you actually type, run: antcrate help
+
 Compact form (audit 2026-07-10; leading legacy --flags RETIRED same day — the
 --flag names below are the internal canonical map, invoke via the words):
   st · pp <p> · new <n> -d <dom> · reg <n> <path> · commit <p> -m "…"
@@ -585,7 +601,19 @@ elif [[ "${1:0:1}" != "-" ]]; then
         rm)     set -- --remove "$@" ;;
         gc)     if [[ "${1:-}" == "ghosts" ]]; then shift; set -- --ghosts "$@"
                 else set -- --cleanup "$@"; fi ;;
-        bak)    case "${1:-}" in
+        bak)    # Both orders are accepted on purpose. `help` has always printed
+                # the trailing form (`bak <p> [ls|restore]`) while only the
+                # leading form (`bak ls <p>`) dispatched, so the documented
+                # invocation died with "unknown arg: ls" (exit 2). Normalise the
+                # trailing form to the leading one rather than pick a winner —
+                # every existing script and both help texts keep working.
+                if [[ "${1:-}" != ls && "${1:-}" != restore ]] \
+                   && [[ "${2:-}" == ls || "${2:-}" == restore ]]; then
+                    _bak_p="$1"; _bak_sub="$2"; shift 2
+                    set -- "$_bak_sub" "$_bak_p" "$@"
+                    unset _bak_p _bak_sub
+                fi
+                case "${1:-}" in
                     ls)      shift; set -- --backups "$@" ;;
                     restore) shift; set -- --restore "$@" ;;
                     *)       set -- --backup "$@" ;;

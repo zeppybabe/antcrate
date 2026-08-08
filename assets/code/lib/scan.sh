@@ -89,7 +89,7 @@ ac_scan_run() {
     else
         s=$?
         if (( s == 2 )); then
-            printf 'scan: secrets   SKIPPED (gitleaks unavailable — antcrate --tool-install gitleaks)\n'
+            printf 'scan: secrets   SKIPPED (gitleaks unavailable — antcrate tool install gitleaks)\n'
         else
             printf 'scan: secrets   FINDINGS (rule / location, values redacted):\n' >&2
             [[ -n "$AC_SCAN_SECRET_FINDINGS" ]] && printf '%s\n' "$AC_SCAN_SECRET_FINDINGS" >&2

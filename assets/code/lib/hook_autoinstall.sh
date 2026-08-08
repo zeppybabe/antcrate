@@ -90,7 +90,7 @@ ac_hook_autoinstall() {
     done
     if (( ${#skipped[@]} > 0 )); then
         printf '  skipped (single-slot): %s\n' "${skipped[*]}"
-        printf '    install manually with: antcrate --hook-install %s <template> <hook-name>\n' "$project"
+        printf '    install manually with: antcrate hook install %s <template> <hook-name>\n' "$project"
     fi
 
     if (( dry == 1 )); then

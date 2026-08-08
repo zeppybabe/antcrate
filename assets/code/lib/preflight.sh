@@ -102,7 +102,7 @@ ac_preflight_deps() {
 
     for t in bats shellcheck; do
         command -v "$t" >/dev/null 2>&1 \
-            || printf "[antcrate] optional dev tool '%s' not found — local install: antcrate --tool-install %s\n" "$t" "$t"
+            || printf "[antcrate] optional dev tool '%s' not found — local install: antcrate tool install %s\n" "$t" "$t"
     done
     return 0
 }

@@ -53,3 +53,10 @@
 #   ~/.config/antcrate/intel-sources.json  — {"sources":[{"id","url","kind"?}]}
 # https-only, kind defaults to "dev"; hand-edit it yourself — agents read it,
 # never write it. The pinned Anthropic seed list is unaffected.
+
+# Draft length ceiling for `post x <p> --draft`, in X-weighted characters
+# (URLs always count as 23). Default 280 — the free-tier limit, correct for
+# every account. A paid X account allows 25,000; raise it here if yours does.
+# A non-numeric or absent value falls back to 280, so a typo can never turn
+# the ceiling off. Human-only, like every key in this file.
+# x_char_limit=25000

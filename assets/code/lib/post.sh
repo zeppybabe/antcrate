@@ -171,6 +171,27 @@ ac_post_material() {
     printf '%s\n' "$draft" | ac_post_redact
 }
 
+# ac_post_x_limit — the draft length ceiling, in X-weighted characters.
+#
+# 280 is the free-tier limit and stays the default: it is the only ceiling that
+# is correct for every account, and silently letting a 4k draft through for
+# someone who cannot post it wastes the writing. But a paid X account allows
+# 25,000, and hardcoding 280 made `post x --draft` refuse posts the owner could
+# legitimately publish (observed 2026-08-07 on a 4,410-char e2e write-up).
+#
+# Config key `x_char_limit=` is rule #13 human-only territory: agents read it,
+# never write it. A non-numeric or absent value falls back to 280 rather than
+# failing, so a typo in the config can never turn the ceiling off entirely.
+ac_post_x_limit() {
+    local v=""
+    if [[ -f "${ANTCRATE_CONFIG:-}" ]]; then
+        v=$(grep -E '^x_char_limit=' "$ANTCRATE_CONFIG" 2>/dev/null | tail -1 | cut -d= -f2) || true
+    fi
+    v="${v//[[:space:]]/}"
+    [[ "$v" =~ ^[0-9]+$ ]] && (( v > 0 )) || v=280
+    printf '%s\n' "$v"
+}
+
 # ac_post_draft <project> <text> — the delivery step. Prepends a copy-ready
 # entry to the project's git-ignored X-POSTS.md; the human pastes it into X.
 # The paste is the publish gate — this lib never touches X at all.
@@ -183,8 +204,9 @@ ac_post_draft() {
     fi
     ac_post_guard_text "$text" || return 1
     len=$(ac_post_x_len "$text")
-    if (( len > 280 )); then
-        ac_error "post: text is $len chars (X limit 280, URLs count as 23)"
+    local limit; limit=$(ac_post_x_limit)
+    if (( len > limit )); then
+        ac_error "post: text is $len chars (limit $limit, URLs count as 23) — raise it with x_char_limit= in the antcrate config"
         return 1
     fi
     end=$(git -C "$path" rev-parse --short HEAD 2>/dev/null) || { ac_error "post: '$project' has no commits yet — nothing to announce"; return 2; }

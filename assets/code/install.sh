@@ -148,7 +148,17 @@ else
 fi
 
 # optional systemd user units
-if command -v systemctl >/dev/null 2>&1 && [[ -d "$SVC_DIR" || $(mkdir -p "$SVC_DIR") ]]; then
+#
+# The dir must be created BEFORE the test, not inside it. This was previously
+# `[[ -d "$SVC_DIR" || $(mkdir -p "$SVC_DIR") ]]` — command substitution captures
+# stdout, and `mkdir -p` prints nothing, so the branch evaluated false on any
+# machine that did not already have ~/.config/systemd/user. The dir got created
+# as a side effect and the units did not, so a first-ever install shipped zero
+# units while `st` told the user to `systemctl --user enable --now antcrated` —
+# a unit that did not exist. A second install run silently "fixed" it, which is
+# why it survived: it was invisible to anyone who had ever installed twice.
+mkdir -p "$SVC_DIR" 2>/dev/null || true
+if command -v systemctl >/dev/null 2>&1 && [[ -d "$SVC_DIR" ]]; then
     sed "s|__BIN__|$BIN_DIR/antcrated|g" \
         "$SRC/systemd/antcrated.service" > "$SVC_DIR/antcrated.service"
     sed "s|__BIN__|$BIN_DIR/antcrate|g" \

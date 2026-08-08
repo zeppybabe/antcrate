@@ -52,7 +52,7 @@ ac_anchor_export() {
         printf 'unset ANTCRATE_ANCHOR_FILE\n'
     fi
     # shellcheck disable=SC2016  # the $( ... ) in this comment is meant to be literal
-    printf '# consume: eval "$(antcrate --anchor %s%s)"\n' \
+    printf '# consume: eval "$(antcrate anchor %s%s)"\n' \
         "$project" "${addr:+ --addr $addr}"
 }
 

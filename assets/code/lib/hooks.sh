@@ -161,7 +161,7 @@ if [[ -f "$__ac_flag" ]]; then
     __ac_reason=$(jq -r '.reason // "<no reason>"' "$__ac_flag" 2>/dev/null || tr '\n' ' ' < "$__ac_flag")
     __ac_ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
     __ac_dir=$(git rev-parse --git-dir 2>/dev/null)
-    printf '%s [%s] BYPASSED via antcrate --hook-bypass; reason=%s\n' \
+    printf '%s [%s] BYPASSED via antcrate hook bypass; reason=%s\n' \
         "$__ac_ts" "$__ac_hook" "$__ac_reason" >> "$__ac_dir/antcrate-hook.log" 2>/dev/null || true
     printf '%s hook-bypass-consumed project=__PROJECT_NAME__ hook=%s reason=%s\n' \
         "$__ac_ts" "$__ac_hook" "$__ac_reason" >> "$__ac_dir/antcrate-hook-audit.log" 2>/dev/null || true

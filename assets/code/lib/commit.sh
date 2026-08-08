@@ -173,7 +173,7 @@ ac_commit_run() {
     fi
 
     # preview (Gateway Law step 4)
-    printf '\n=== antcrate --commit %s ===\n' "$project"
+    printf '\n=== antcrate commit %s ===\n' "$project"
     printf 'project path : %s\n' "$p"
     printf 'message      : %s\n' "$msg"
     printf '\nstaged diff stat:\n'

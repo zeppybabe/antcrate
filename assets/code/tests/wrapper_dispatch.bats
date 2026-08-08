@@ -43,3 +43,37 @@ setup() {
     run "$WRAPPER" list
     [ "$status" -eq 0 ]
 }
+
+# --- bak argument-order normalisation (e2e audit 2026-08-07) -----------------
+# `help` has always printed the trailing form `bak <p> [ls|restore]` while only
+# the leading form `bak ls <p>` dispatched, so the documented invocation died
+# with "unknown arg: ls" (exit 2). Both orders must now reach --backups; these
+# pin that, and pin that a bare `bak <p>` still means "take a backup" rather
+# than being mistaken for a subcommand.
+
+@test "dispatch: bak <p> ls (documented trailing form) reaches the backups list" {
+    run "$WRAPPER" bak myproj ls
+    [ "$status" -eq 0 ]
+    [[ "$output" != *"unknown arg"* ]]
+}
+
+@test "dispatch: bak ls <p> (leading form) still reaches the backups list" {
+    run "$WRAPPER" bak ls myproj
+    [ "$status" -eq 0 ]
+    [[ "$output" != *"unknown arg"* ]]
+}
+
+@test "dispatch: both bak orders produce identical output" {
+    run "$WRAPPER" bak myproj ls
+    local trailing="$output"
+    run "$WRAPPER" bak ls myproj
+    [ "$output" = "$trailing" ]
+}
+
+@test "dispatch: bare bak <p> is still a backup request, not a subcommand" {
+    # backup dir is unwritable in setup(), so a real backup attempt refuses —
+    # that non-zero is the proof it took the --backup path, not --backups.
+    run "$WRAPPER" bak myproj
+    [ "$status" -ne 0 ]
+    [[ "$output" != *"unknown arg"* ]]
+}

@@ -58,3 +58,32 @@ src() {
     [ "$status" -eq 0 ]
     [[ "${lines[0]}" == *"new"* ]]
 }
+
+# --- x_char_limit (e2e audit 2026-08-07) ------------------------------------
+# The 280 ceiling was hardcoded, so `post x --draft` refused drafts a paid X
+# account (25,000 chars) could legitimately publish. The key is human-only
+# config, and both failure modes must fall back to 280 rather than disabling
+# the ceiling — a typo in the config must never let an unpostable draft land.
+
+@test "post: x limit defaults to 280 with no config file" {
+    run bash -c 'ANTCRATE_CONFIG=/nonexistent bash -c ". '"$BATS_TEST_DIRNAME"'/../lib/post.sh 2>/dev/null; ac_post_x_limit"'
+    [ "$output" = "280" ]
+}
+
+@test "post: x_char_limit raises the ceiling" {
+    echo "x_char_limit=25000" > "$BATS_TEST_TMPDIR/cfg"
+    run bash -c 'ANTCRATE_CONFIG="'"$BATS_TEST_TMPDIR"'/cfg" bash -c ". '"$BATS_TEST_DIRNAME"'/../lib/post.sh 2>/dev/null; ac_post_x_limit"'
+    [ "$output" = "25000" ]
+}
+
+@test "post: a non-numeric x_char_limit falls back to 280" {
+    echo "x_char_limit=lots" > "$BATS_TEST_TMPDIR/cfg"
+    run bash -c 'ANTCRATE_CONFIG="'"$BATS_TEST_TMPDIR"'/cfg" bash -c ". '"$BATS_TEST_DIRNAME"'/../lib/post.sh 2>/dev/null; ac_post_x_limit"'
+    [ "$output" = "280" ]
+}
+
+@test "post: a zero x_char_limit falls back to 280, never disables the ceiling" {
+    echo "x_char_limit=0" > "$BATS_TEST_TMPDIR/cfg"
+    run bash -c 'ANTCRATE_CONFIG="'"$BATS_TEST_TMPDIR"'/cfg" bash -c ". '"$BATS_TEST_DIRNAME"'/../lib/post.sh 2>/dev/null; ac_post_x_limit"'
+    [ "$output" = "280" ]
+}

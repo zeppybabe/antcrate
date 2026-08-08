@@ -625,7 +625,7 @@ run_hook_from_repo() {
     # Flag was consumed.
     [ ! -f "$R/.git/antcrate-hook-bypass" ]
     # Per-project hook.log line names the reason.
-    grep -q "BYPASSED via antcrate --hook-bypass" "$R/.git/antcrate-hook.log"
+    grep -q "BYPASSED via antcrate hook bypass" "$R/.git/antcrate-hook.log"
     grep -q "reason=underlying check intentionally tripped for test" "$R/.git/antcrate-hook.log"
     # Per-project audit log line names the project + hook + reason.
     grep -q "hook-bypass-consumed project=proj hook=pre-commit reason=underlying check intentionally tripped for test" \
@@ -658,7 +658,7 @@ run_hook_from_repo() {
     run run_hook_from_repo pre-commit
     [ "$status" -eq 0 ]
     [ ! -f "$R/.git/antcrate-hook-bypass" ]
-    grep -q "BYPASSED via antcrate --hook-bypass" "$R/.git/antcrate-hook.log"
+    grep -q "BYPASSED via antcrate hook bypass" "$R/.git/antcrate-hook.log"
 }
 
 # ---------- ac_hook_debug (continued) ----------
