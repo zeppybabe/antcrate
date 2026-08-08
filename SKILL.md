@@ -11,7 +11,7 @@ AntCrate is the **single controllable surface** for solo-developer project ops �
 
 - **Rule #1** — no destructive op without a verified backup AND explicit user approval (`ac_safety_guard_destructive` enforces).
 - **Rule #12** — updates/removals are always LAST in any roadmap; verify chain: read state → confirm no dependents → backup → show the user the verify output → explicit approval → THEN execute.
-- **Rule #13** — `~/.antcrate/config` is human-only; agents read, never write.
+- **Rule #13** — `~/.config/antcrate/config` is human-only; agents read, never write.
 
 Full rules: `assets/code/AGENTS.md` — read whenever an op touches one.
 
@@ -34,7 +34,7 @@ Read AT THE MOMENT OF NEED, never as a session-start tax:
 | Resolver (AnyCrate, next build) | `anycrate` |
 | Session wrap-up | session-close protocol in `~/CLAUDE.md` (sweep / audit / learn) |
 
-Model tiers + per-model session budgets live in `~/.antcrate/anycrate/policy.json` (`antcrate policy`); the orchestrator's model is NEVER policy-assigned (`inherit` = the user's session choice). Only `budgets.fable` is agent-adjustable — evidence-backed, ledger-recorded. Automatics (hooks, timers) get no skill: zero-token by construction.
+Model tiers + per-model session budgets live in `~/.local/state/antcrate/anycrate/policy.json` (`antcrate policy`); the orchestrator's model is NEVER policy-assigned (`inherit` = the user's session choice). Only `budgets.fable` is agent-adjustable — evidence-backed, ledger-recorded. Automatics (hooks, timers) get no skill: zero-token by construction.
 
 ## Maintenance protocol
 
@@ -67,4 +67,4 @@ The skill source is itself a registered AntCrate project (`antcrate`, domain `cl
 
 ## Trigger phrases
 
-AntCrate · antcrate · the Wrapper · the Pipe · the Crate · Positional Indexing · Positional Extension Schema · registry.json · ~/.antcrate/ · ~/projects/ · `name.domain.action.#meta#` · any `antcrate --<flag>` · inotifywait daemon · Conflict Triage · `/tmp/antcrate_conflict.log` · Gateway Law · ac_safety_guard_destructive · BUNDLE_SPEC · research-bundles · bundle ingest · HOOK_PLAN · GH_PIPELINE_PLAN · POST_DEV_BACKLOG · live-tree auto-regen · `--commit` secret-pattern guard · sub-branching · `--pp` push triage + panel · `--in` / `--anchor` / `--addr` / `--map` · `rag init/index/q` FTS5 retrieval · `intel pull/ls/ack/st` · attic branch · `post x` · X-POSTS.md
+AntCrate · antcrate · the Wrapper · the Pipe · the Crate · Positional Indexing · Positional Extension Schema · registry.json · ~/.config/antcrate/ · ~/.local/share/antcrate/ · ~/.local/state/antcrate/ · ~/Projects/ · `name.domain.action.#meta#` · any `antcrate --<flag>` · inotifywait daemon · Conflict Triage · `/tmp/antcrate_conflict.log` · Gateway Law · ac_safety_guard_destructive · BUNDLE_SPEC · research-bundles · bundle ingest · HOOK_PLAN · GH_PIPELINE_PLAN · POST_DEV_BACKLOG · live-tree auto-regen · `--commit` secret-pattern guard · sub-branching · `--pp` push triage + panel · `--in` / `--anchor` / `--addr` / `--map` · `rag init/index/q` FTS5 retrieval · `intel pull/ls/ack/st` · attic branch · `post x` · X-POSTS.md

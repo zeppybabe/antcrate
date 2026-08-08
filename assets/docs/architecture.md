@@ -16,7 +16,7 @@ Source: official spec PDF (v0). Restructured for engineering reference.
 | The Wrapper (`antcrate`) | The primary CLI tool executing the logic. |
 | The Pipe (Daemon, `antcrated`) | The background `inotifywait` process that monitors the filesystem for specific Positional Extensions and feeds them to the Wrapper. |
 | Positional Indexing | Using dot-notation in filenames to map directly to array indices (`Index0.Index1.Index2.Index3`). |
-| The State Registry | A hidden mapping file (`~/.antcrate/registry.json`) tracking where projects live and how they are branched. |
+| The State Registry | A hidden mapping file (`~/.local/share/antcrate/registry.json`) tracking where projects live and how they are branched. |
 | Conflict Triage | The fail-safe protocol that fires when a remote Git push is rejected. |
 
 ## 3. The Positional Extension Schema
@@ -53,13 +53,13 @@ Lightweight JSON map updated upon every successful `--start` or `--branch`. Read
 {
   "projects": {
     "coolphotowebapp": {
-      "path": "~/projects/coolwebapps/coolphotowebapp",
+      "path": "~/Projects/coolwebapps/coolphotowebapp",
       "parent": "coolwebapps",
       "linked_nodes": ["coolgifwebapp"],
       "git_remote": "git@github.com:user/coolphoto.git"
     },
     "coolgifwebapp": {
-      "path": "~/projects/coolwebapps/coolgifwebapp",
+      "path": "~/Projects/coolwebapps/coolgifwebapp",
       "parent": "coolwebapps",
       "linked_nodes": ["coolphotowebapp"],
       "git_remote": "git@github.com:user/coolgif.git"
@@ -89,7 +89,7 @@ Command: `antcrate --resume coolwebapps --expand coolphotowebapp`
 Atomic execution sequence:
 
 1. **Pause the Pipe** — Temporarily halt `inotifywait` daemon so it doesn't try to sort directories while they're moving.
-2. **Update Filesystem** — `mkdir -p ~/projects/coolwebapps` → `mv ~/projects/coolphotowebapp ~/projects/coolwebapps/`
+2. **Update Filesystem** — `mkdir -p ~/Projects/coolwebapps` → `mv ~/Projects/coolphotowebapp ~/Projects/coolwebapps/`
 3. **Update Registry** — Rewrite `path` and `parent` keys for the project in `registry.json`.
 4. **Update Relational Links** — If any `.env.[project].secret` files exist, update their symlinks or paths based on the new registry coordinates.
 5. **Resume the Pipe** — Restart the `inotifywait` daemon.
@@ -98,7 +98,7 @@ Atomic execution sequence:
 
 These are not in the original PDF but are required for the v0 implementation to be safe:
 
-- **Wrapper/daemon coordination via `flock`** — both processes hold an advisory lock on `~/.antcrate/daemon.lock` during state-mutating sections to prevent registry races.
+- **Wrapper/daemon coordination via `flock`** — both processes hold an advisory lock on `~/.local/state/antcrate/daemon.lock` during state-mutating sections to prevent registry races.
 - **Editor swap-file ignore rules** — daemon ignores filenames matching: starts with `.`, ends with `~`, contains `.swp` / `.swo` / `.swx`, ends with `.tmp`.
 - **Debounce** — daemon waits for `close_write` after `create` before acting; if a `create` is followed by another `create` on the same basename within 200ms, the first is dropped (editor temp-file pattern).
 - **Atomic registry writes** — never edit `registry.json` in place. Always: `jq … registry.json > registry.json.tmp && mv registry.json.tmp registry.json`.

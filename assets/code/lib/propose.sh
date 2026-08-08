@@ -4,7 +4,7 @@
 # When an agent (or user) needs an action that has no AntCrate flag, they call
 #   antcrate --propose <name> "<description>"
 # instead of running a bare destructive shell command. The proposal is appended
-# to ~/.antcrate/proposals.log for human review. The user later promotes
+# to ~/.local/state/antcrate/proposals.log for human review. The user later promotes
 # accepted proposals into real flags. This keeps AntCrate as the sole
 # structural surface even for novel intents.
 #

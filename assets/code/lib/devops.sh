@@ -5,7 +5,7 @@
 # Bundled commands that AntCrate (and Claude) rely on every day:
 #   - --map       : addressed tree walk with dynamic/static classification
 #   - --rename    : safe project rename (backup + approval)
-#   - --archive   : safe move to ~/projects/.archive/<project>
+#   - --archive   : safe move to ~/Projects/.archive/<project>
 #   - --logs      : tail per-component logs + conflict log
 #   - --diff      : git status + diff via `git -C` (no cd)
 #   - --selfsrc   : echo the antcrate skill source root

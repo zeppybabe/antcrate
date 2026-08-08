@@ -70,7 +70,7 @@ Initial set:
 | `pre-commit-secrets` | pre-commit | Runs only the secret-pattern guard from `lib/commit.sh` standalone — for projects that want secret-blocking but don't have a full CI hook. |
 | `pre-commit-stack-bash` | pre-commit | shellcheck on changed `.sh` files. |
 | `pre-commit-stack-svelte` | pre-commit | `bunx tsc --noEmit` + `bunx eslint` on changed files. |
-| `pre-push-tests` | pre-push | Runs project test command (read from `~/.antcrate/registry.json` `test_cmd` field). |
+| `pre-push-tests` | pre-push | Runs project test command (read from `~/.local/share/antcrate/registry.json` `test_cmd` field). |
 | `commit-msg-format` | commit-msg | Enforces `type(scope): description` format. |
 
 Templates use a small token-substitution language (`__PROJECT_NAME__`,
@@ -82,8 +82,8 @@ self-contained and doesn't depend on env at execution time.
 Copies the named template into the project's effective hooks dir,
 substitutes tokens, marks executable. If a hook of the same name already
 exists, behavior is governed by AGENTS.md rule #1: backup the existing
-hook to `~/.antcrate/backups/<project>/hooks/` before overwrite,
-require approval. Logs the install to `~/.antcrate/hooks.log`.
+hook to `~/.local/state/antcrate/backups/<project>/hooks/` before overwrite,
+require approval. Logs the install to `~/.local/state/antcrate/hooks.log`.
 
 ### `antcrate --hook-remove <project> <hook-name>` — **shipped 2026-05-10**
 
@@ -92,7 +92,7 @@ adjacent to the original (mirroring `--hook-install --force`'s pattern),
 captures sha256 of the pre-removal file, and appends an audit entry to
 **two** sinks:
 
-- Global JSONL at `~/.antcrate/hooks.log` (one well-formed object per
+- Global JSONL at `~/.local/state/antcrate/hooks.log` (one well-formed object per
   line — `{ts, ts_ms, action, project, hook, hooks_dir, sha256, backup}`).
 - Per-project plain-text at `<project>/.git/antcrate-hook-audit.log`.
 
@@ -128,7 +128,7 @@ extend the bypass). The human consumes it (run a commit) or `rm`s it
 deliberately.
 
 Audit invariant. Three writes per bypass life-cycle:
-- Wrapper-side, at write time: one row in `~/.antcrate/hooks.log` with
+- Wrapper-side, at write time: one row in `~/.local/state/antcrate/hooks.log` with
   `action: "hook-bypass"`, `backup: "reason:<text>"`, plus one row in
   the per-project plain-text audit log with the same fields.
 - Hook-side, at consume time: one row in `.git/antcrate-hook.log`
@@ -148,7 +148,7 @@ unchanged, appropriate when bypass doesn't make semantic sense.
 This is the **escape valve** for cases where the hook itself is broken
 (the prior `--ci` is dirty for an unrelated reason and we need to land
 a fix). It is *not* a general "skip the gate" — that's what the human
-editing `~/.antcrate/config` is for.
+editing `~/.config/antcrate/config` is for.
 
 ### AGENTS.md rule for hook bypass — **rule #14, added 2026-05-11**
 

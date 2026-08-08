@@ -35,5 +35,5 @@ PDFs are in `attachments/papers/`.
 ## Why "theoretical" type
 
 There is no upstream repo that does exactly this. We're starting from papers
-and a blank `~/projects/projects/submodular-scheduler/`. AntCrate just needs
+and a blank `~/Projects/projects/submodular-scheduler/`. AntCrate just needs
 to register an empty project and drop the research/skill into place.

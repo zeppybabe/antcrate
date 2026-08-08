@@ -62,7 +62,7 @@ to register, clone, and route the project lives here.
 |---|---|---|
 | `spec_version` | string | Bundle spec version, e.g. `"1.0"`. AntCrate refuses unknown major versions. |
 | `name` | string | Project name. Matches AntCrate registry rules: no whitespace, no `/`, no leading `.`, no `..`. |
-| `domain` | string | Routing directory under `~/projects/`. One of: `webapps`, `scripts`, `notes`, `projects`, `_generic` (or any value if domain whitelisting is disabled). |
+| `domain` | string | Routing directory under `~/Projects/`. One of: `webapps`, `scripts`, `notes`, `projects`, `_generic` (or any value if domain whitelisting is disabled). |
 | `objective` | string | One-line plain-English purpose. Why this bundle exists. Stored on the registered project. |
 | `generated_at` | string | ISO-8601 UTC timestamp of bundle creation, e.g. `"2026-04-28T15:00:00Z"`. |
 
@@ -157,7 +157,7 @@ In order:
 
 A successful ingest writes:
 
-- The cloned source repo (or empty scaffold) to `~/projects/<domain>/<name>/`
+- The cloned source repo (or empty scaffold) to `~/Projects/<domain>/<name>/`
 - `manifest.objective` into the registry alongside the project entry
 - `research.md` → `<project>/docs/research.md`
 - `claude.md` → `<project>/CLAUDE.md` (if present)
@@ -165,7 +165,7 @@ A successful ingest writes:
 - `diagrams/*` → `<project>/docs/diagrams/`
 - `attachments/*` → `<project>/docs/attachments/`
 
-Then the standard auto-regen fires: `~/.antcrate/registry.mmd` and the new
+Then the standard auto-regen fires: `~/.local/share/antcrate/registry.mmd` and the new
 project's `tree.mmd` refresh.
 
 ---

@@ -24,11 +24,11 @@ Filenames decode positionally:
 
 ```bash
 ./install.sh                 # installs into ~/.local
-antcrate --init              # creates ~/.antcrate state dir + config
+antcrate --init              # creates the XDG config/data/state dirs + config
 systemctl --user enable --now antcrated   # optional daemon
 ```
 
-Edit `~/.antcrate/config` to set `ANTCRATE_EMAIL` and `ANTCRATE_GIT_REMOTE_PREFIX`.
+Edit `~/.config/antcrate/config` to set `ANTCRATE_EMAIL` and `ANTCRATE_GIT_REMOTE_PREFIX`.
 
 ## Layout
 
@@ -38,7 +38,7 @@ bin/
   antcrated      Pipe (inotifywait daemon)
 lib/
   schema.sh      positional decoder
-  registry.sh    atomic jq CRUD on ~/.antcrate/registry.json
+  registry.sh    atomic jq CRUD on ~/.local/share/antcrate/registry.json
   git_triage.sh  automated push + conflict triage
   subbranch.sh   atomic project nesting
   scaffold.sh    action dispatcher (start/branch/link/rel)
@@ -60,7 +60,7 @@ On `git push` rejection, AntCrate captures stderr, runs `git diff @{u}..HEAD`, w
 
 `antcrate --resume <new_parent> --expand <child>` runs:
 
-1. Pause daemon (touch `~/.antcrate/pipe.paused`)
+1. Pause daemon (touch `~/.local/state/antcrate/pipe.paused`)
 2. `mkdir -p` parent → `mv` child under it (under `flock`)
 3. Rewrite `path` and `parent` in registry
 4. Rewrite any symlinks across registered projects pointing into old path

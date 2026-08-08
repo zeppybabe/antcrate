@@ -11,7 +11,7 @@ Agent rules for this project. Inherits from the home AntCrate AGENTS.md at `~/.c
 1. **No destructive op without backup + explicit user approval.**
 2. **Never bypass AntCrate's structure** — no bare `mv` / `rm` / `git push` on registered project paths.
 3. **Read before write** (the harness enforces this).
-4. **Stay in zone** — `~/projects/__NAME__/**` is in zone; everything else asks.
+4. **Stay in zone** — `~/Projects/__NAME__/**` is in zone; everything else asks.
 5. **Three-attempt rule** for delegated agents — see `~/.claude/agents/cody.md`.
 6. **Gateway Law (#12)** — updates/removals last in any roadmap.
 

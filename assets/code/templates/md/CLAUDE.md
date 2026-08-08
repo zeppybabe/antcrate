@@ -14,7 +14,7 @@ Read these from `~/CLAUDE.md` before any structural action:
 
 - **Gateway Law (AGENTS.md #12)** — updates/removals last in any roadmap; chain is read state → confirm no dependents → backup → show user → explicit approval → execute.
 - **Rule #1** — no destructive op without backup + explicit user approval.
-- **Rule #13** — `~/.antcrate/config` is human-only.
+- **Rule #13** — `~/.config/antcrate/config` is human-only.
 - **Write zones** — this project's tree is in zone; anything else asks first.
 
 Use `antcrate --pp __NAME__` to push, `antcrate --commit __NAME__ -m "..."` to commit, `antcrate --backup __NAME__` before any structural change. Never `mv`/`rm`/`git push` bare on this registered project.

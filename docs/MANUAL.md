@@ -15,7 +15,7 @@ All invocations go through a single dispatcher; a compact WORD selects the comma
 
 ## DESCRIPTION
 
-AntCrate wraps the structural, destructive, and remote-facing operations of a project workspace behind one auditable command surface. Project state lives in a jq-managed JSON registry (`~/.antcrate/registry.json`); every mutation is atomic (jq + temp-file replacement). Destructive operations are gated by mandatory backup and human approval. Nothing runs elevated.
+AntCrate wraps the structural, destructive, and remote-facing operations of a project workspace behind one auditable command surface. Project state lives in a jq-managed JSON registry (`~/.local/share/antcrate/registry.json`); every mutation is atomic (jq + temp-file replacement). Destructive operations are gated by mandatory backup and human approval. Nothing runs elevated.
 
 The intended operator is a solo developer working with an AI coding agent: the agent gets full speed inside registered project trees, and AntCrate is the boundary it cannot cross — pushes, removals, renames, hook execution, and secret exposure all route through gated flags.
 
@@ -23,7 +23,7 @@ The intended operator is a solo developer working with an AI coding agent: the a
 
 ### The registry
 
-`~/.antcrate/registry.json` is the single source of truth: per-project path, domain, parent/child nesting, linked nodes, git remote, recent removals. All reads and writes go through `lib/registry.sh`. Direct edits are prohibited (and guarded against).
+`~/.local/share/antcrate/registry.json` is the single source of truth: per-project path, domain, parent/child nesting, linked nodes, git remote, recent removals. All reads and writes go through `lib/registry.sh`. Direct edits are prohibited (and guarded against).
 
 ### Positional Extension Schema
 
@@ -31,7 +31,7 @@ Filenames are argument arrays: `Name.Domain.Action.#Meta#`. Position 1 is the pr
 
 ### The daemon
 
-`antcrated` is a single-instance (`flock`-coordinated) `inotifywait` process. It watches for `create | close_write | moved_to | moved_from | delete` events, filters editor swap/dot files, decodes schema-matching filenames into wrapper invocations, and regenerates the per-project Mermaid tree diagram on every filesystem event (debounced per project, default 600 ms). A pause flag (`~/.antcrate/pipe.paused`) suspends it atomically during structural refactors.
+`antcrated` is a single-instance (`flock`-coordinated) `inotifywait` process. It watches for `create | close_write | moved_to | moved_from | delete` events, filters editor swap/dot files, decodes schema-matching filenames into wrapper invocations, and regenerates the per-project Mermaid tree diagram on every filesystem event (debounced per project, default 600 ms). A pause flag (`~/.local/state/antcrate/pipe.paused`) suspends it atomically during structural refactors.
 
 ### Anchor and address
 
@@ -49,14 +49,14 @@ Three mechanisms compose, strictest innermost:
 
 ### The agent boundary
 
-Codified in `assets/code/AGENTS.md` (the hard rules). The operational summary: agents use wrapper flags, never bare structural/destructive/push commands; when no flag fits, they file `--propose`; actions only the human may take are filed with `--duty`; `~/.antcrate/config` is human-only territory, as are endpoints in `policy.json`; escape hatches (`ANTCRATE_SESSION_GATE_DISABLE`, `ANTCRATE_ENV_GUARD_DISABLE`, `ANTCRATE_SANDBOX_DISABLE`) exist for CI and are off-limits to agents.
+Codified in `assets/code/AGENTS.md` (the hard rules). The operational summary: agents use wrapper flags, never bare structural/destructive/push commands; when no flag fits, they file `--propose`; actions only the human may take are filed with `--duty`; `~/.config/antcrate/config` is human-only territory, as are endpoints in `policy.json`; escape hatches (`ANTCRATE_SESSION_GATE_DISABLE`, `ANTCRATE_ENV_GUARD_DISABLE`, `ANTCRATE_SANDBOX_DISABLE`) exist for CI and are off-limits to agents.
 
 ## COMMANDS
 
 ### Setup and status
 
 **`antcrate --init`**
-First-run setup: creates `~/.antcrate/`, writes the default config, reports missing dependencies. The only sanctioned automated write to `~/.antcrate/config` (the rule-#13 carve-out).
+First-run setup: creates the XDG config/data/state directories (`~/.config/antcrate`, `~/.local/share/antcrate`, `~/.local/state/antcrate`), writes the default config, reports missing dependencies. The only sanctioned automated write to `~/.config/antcrate/config` (the rule-#13 carve-out).
 
 **`antcrate --status`**
 One-screen summary: root, state dir, registry path, daemon state, pipe state, project count, self-source health, unread intel count, audit cadence (`last/due`), open duties count.
@@ -99,13 +99,13 @@ Atomic sub-branch / nesting refactor: pauses the daemon, moves the tree, rewrite
 Backup + approval; rewrites registry, parent refs, and linked nodes.
 
 **`antcrate --archive <project>`** / **`antcrate --unarchive <project>`**
-Backup + approval; moves to `~/projects/.archive/<project>` (storing `previous_parent`) and back.
+Backup + approval; moves to `~/Projects/.archive/<project>` (storing `previous_parent`) and back.
 
 **`antcrate --remove <project>`**
 PERMANENT delete: backup + approval + loud banner; `rm -rf` + registry purge. Recovery only via the printed backup tarball. Prefer `--archive` when uncertain.
 
 **`antcrate --relocate <project> [--no-watch]`**
-Move a project out of `~/.claude` into `~/projects`, leaving a symlink behind; `--no-watch` keeps the daemon off it.
+Move a project out of `~/.claude` into `~/Projects`, leaving a symlink behind; `--no-watch` keeps the daemon off it.
 
 ### Registry hygiene
 
@@ -113,7 +113,7 @@ Move a project out of `~/.claude` into `~/projects`, leaving a symlink behind; `
 Read-only list of registry entries whose on-disk path no longer exists.
 
 **`antcrate --deregister <project>`**
-Drop a *ghost* entry from the registry — capture-first (entry, registry snapshot, manifest under `~/.antcrate/deregistered/`), then delete the entry. **Refuses (exit 1) if the path still exists** — use `--archive` instead. Never touches user data.
+Drop a *ghost* entry from the registry — capture-first (entry, registry snapshot, manifest under `~/.local/state/antcrate/deregistered/`), then delete the entry. **Refuses (exit 1) if the path still exists** — use `--archive` instead. Never touches user data.
 
 ### Files and navigation
 
@@ -180,7 +180,7 @@ Linked worktrees and submodules are first-class since the 2026-07-24 audit: ever
 Install a shipped template (`pre-commit-ci`, `pre-commit-secrets`, `pre-commit-stack-bash`, `pre-push-tests`). Idempotent; `--force` backs up then overwrites.
 
 **`antcrate --hook-remove <project> <hook> [--force]`**
-Remove a hook — backs up to `<hook>.bak.<ts>`, audit-logged to both `~/.antcrate/hooks.log` and `.git/antcrate-hook-audit.log`.
+Remove a hook — backs up to `<hook>.bak.<ts>`, audit-logged to both `~/.local/state/antcrate/hooks.log` and `.git/antcrate-hook-audit.log`.
 
 **`antcrate --hook-render <template> [project]`**
 Render a template to stdout without installing (placeholder substitution + bypass-check injection) — preview after edits to catch injection bugs.
@@ -226,7 +226,7 @@ Append a human-only action to the `duties.md` checklist (key rotation, policy ap
 Numbered list of open duties; mark the nth done (user-driven — agents file duties, never close them). Items are never deleted.
 
 **`antcrate --propose <name> "<description>"`**
-Log a proposed flag/pattern to `~/.antcrate/proposals.log` — the escape valve when no flag fits an intent. The bare command stays off-limits until the human turns the proposal into a real flag.
+Log a proposed flag/pattern to `~/.local/state/antcrate/proposals.log` — the escape valve when no flag fits an intent. The bare command stays off-limits until the human turns the proposal into a real flag.
 
 **`antcrate --proposals`**
 List all logged proposals.
@@ -234,7 +234,7 @@ List all logged proposals.
 ### Activity stream and watch
 
 **`antcrate --emit-activity <project> <kind> <relpath> [--ttl-ms N] [--label X] [--agent A]`**
-Append an event to the durable JSONL stream (`~/.antcrate/events/<project>.jsonl`). Kinds: `modify` (yellow), `read` (cyan), `think` (magenta), `delegate` (green), `delete` (bright-red strikethrough, 1 s tombstone). Kind-specific default TTLs.
+Append an event to the durable JSONL stream (`~/.local/state/antcrate/events/<project>.jsonl`). Kinds: `modify` (yellow), `read` (cyan), `think` (magenta), `delegate` (green), `delete` (bright-red strikethrough, 1 s tombstone). Kind-specific default TTLs.
 
 **`antcrate --watch [<project>] [--follow] [--once] [--interval-ms N] [--no-color] [--depth N]`**
 Live colored project tree painted by active events. Full-screen loop: alternate screen buffer (scrollback preserved), cursor hidden, autowrap off, frame clamped to terminal height with a `… (+N more lines)` marker. `--follow` tracks the registered project with the newest active event each frame (project arg optional; with `--once` it renders the hot project once, exit 1 if none). Severity ordering: delete > modify > delegate > think > read; ancestors paint with their highest-severity descendant. The `activity-emitter.sh` Claude Code hook (PostToolUse `Edit|Write|Read|NotebookEdit`) feeds the stream automatically.
@@ -276,7 +276,7 @@ Mark reviewed (everything, one source, or one item); per-source kind / last-pull
 
 ### Model endpoints & sandbox
 
-`~/.antcrate/anycrate/policy.json` carries an `.endpoints` map (spec 2026-07-16) describing where local/remote model inference may run. Three kinds, validated by `ac_policy_endpoints_validate` (reports every defect, not just the first):
+`~/.local/state/antcrate/anycrate/policy.json` carries an `.endpoints` map (spec 2026-07-16) describing where local/remote model inference may run. Three kinds, validated by `ac_policy_endpoints_validate` (reports every defect, not just the first):
 
 | Kind | Requires | Notes |
 |---|---|---|
@@ -290,7 +290,7 @@ Pretty-prints the whole policy file, then an `.endpoints` table (`name  [kind]  
 **`antcrate policy seed`**
 Idempotent seed (compact-word form of `--policy-init`): writes the file only if absent, never clobbers an existing one.
 
-Endpoints are **HUMAN-ONLY**: agents may read `.endpoints` and reference an endpoint by name, but must never add, edit, or remove one — file `antcrate propose` instead (AGENTS.md rule #23; same standing as `~/.antcrate/config` and the intel-sources file). Edit by hand at `~/.antcrate/anycrate/policy.json`.
+Endpoints are **HUMAN-ONLY**: agents may read `.endpoints` and reference an endpoint by name, but must never add, edit, or remove one — file `antcrate propose` instead (AGENTS.md rule #23; same standing as `~/.config/antcrate/config` and the intel-sources file). Edit by hand at `~/.local/state/antcrate/anycrate/policy.json`.
 
 `antcrate st` shows a one-line summary — `policy: N endpoints (M local) · sandbox available|unavailable|unavailable (macOS)` — or, if the file is missing, `policy: missing — fix: antcrate policy seed`. The doctor also carries an optional `policy` row (`present` / `policy.json absent — budget guards inert`, fix `antcrate policy seed`).
 
@@ -334,7 +334,7 @@ Exit codes: **0** material printed or draft written + logged · **1** guard refu
 ### CI and self-development
 
 **`antcrate --ci [--snapshot] [--source <path>]`**
-Three fail-fast stages: shellcheck, full bats suite, cmake build + ctest. Every PASS records `{ts, bats, sha, branch}` to `~/.antcrate/ci-baseline.json`; `--snapshot` also sets the audit baseline; `--source` runs CI against an alternate tree (e.g. a git worktree). A check tool that is missing after `$ANTCRATE_TOOLS_BIN` is prepended is a hard FAIL, never a skip — a PASS that verified nothing is worse than no run, because it gets quoted as evidence afterwards. The shellcheck stage covers `lib/*.sh`, both binaries, `install.sh`, the hook source tree `hooks/claude/*.sh` and the hand-written `plugin/hooks/*.sh`; the generated copies under `plugin/hooks/claude/` are covered instead by `self plugin --check` (audit 2026-07-25, finding C).
+Three fail-fast stages: shellcheck, full bats suite, cmake build + ctest. Every PASS records `{ts, bats, sha, branch}` to `~/.local/state/antcrate/ci-baseline.json`; `--snapshot` also sets the audit baseline; `--source` runs CI against an alternate tree (e.g. a git worktree). A check tool that is missing after `$ANTCRATE_TOOLS_BIN` is prepended is a hard FAIL, never a skip — a PASS that verified nothing is worse than no run, because it gets quoted as evidence afterwards. The shellcheck stage covers `lib/*.sh`, both binaries, `install.sh`, the hook source tree `hooks/claude/*.sh` and the hand-written `plugin/hooks/*.sh`; the generated copies under `plugin/hooks/claude/` are covered instead by `self plugin --check` (audit 2026-07-25, finding C).
 
 **`antcrate --selfsrc`** / **`antcrate --selfedit <relpath>`**
 Print the skill source root; resolve a file under it (pipe into `$EDITOR`).
@@ -369,19 +369,19 @@ Smoke-test any of them with `antcrate --hook-smoke`. Override knobs (`ANTCRATE_S
 
 | Path | Purpose |
 |---|---|
-| `~/.antcrate/registry.json` | Project registry — single source of truth |
-| `~/.antcrate/registry.mmd` | Auto-regenerated Mermaid view of the registry |
-| `~/.antcrate/config` | User defaults — human-only (rule #13); written once by `--init` |
-| `~/.antcrate/backups/<project>/` | Verified tar.gz + sha256 manifests |
-| `~/.antcrate/quarantine/` | Captured (never deleted) user data |
-| `~/.antcrate/deregistered/<project>/<ts>/` | Capture-first ghost-drop records |
-| `~/.antcrate/events/<project>.jsonl` | Durable activity stream |
-| `~/.antcrate/proposals.log` | Append-only proposal log |
-| `~/.antcrate/ci-baseline.json` | Last CI pass + audit baseline |
-| `~/.antcrate/intel/` | Pinned-source snapshots + `new.jsonl`/`acked.jsonl` (append-only) |
-| `~/.antcrate/anycrate/policy.json` | Model/budget/endpoint policy — human-only except `budgets.fable` (rule #22) and endpoints (rule #23); seed with `antcrate policy seed` |
-| `~/.antcrate/log/{wrapper,daemon}.log` | Leveled logs |
-| `~/.antcrate/daemon.{pid,lock}`, `pipe.paused` | Daemon coordination |
+| `~/.local/share/antcrate/registry.json` | Project registry — single source of truth |
+| `~/.local/share/antcrate/registry.mmd` | Auto-regenerated Mermaid view of the registry |
+| `~/.config/antcrate/config` | User defaults — human-only (rule #13); written once by `--init` |
+| `~/.local/state/antcrate/backups/<project>/` | Verified tar.gz + sha256 manifests |
+| `~/.local/state/antcrate/quarantine/` | Captured (never deleted) user data |
+| `~/.local/state/antcrate/deregistered/<project>/<ts>/` | Capture-first ghost-drop records |
+| `~/.local/state/antcrate/events/<project>.jsonl` | Durable activity stream |
+| `~/.local/state/antcrate/proposals.log` | Append-only proposal log |
+| `~/.local/state/antcrate/ci-baseline.json` | Last CI pass + audit baseline |
+| `~/.local/share/antcrate/intel/` | Pinned-source snapshots + `new.jsonl`/`acked.jsonl` (append-only) |
+| `~/.local/state/antcrate/anycrate/policy.json` | Model/budget/endpoint policy — human-only except `budgets.fable` (rule #22) and endpoints (rule #23); seed with `antcrate policy seed` |
+| `~/.local/state/antcrate/log/{wrapper,daemon}.log` | Leveled logs |
+| `~/.local/state/antcrate/daemon.{pid,lock}`, `pipe.paused` | Daemon coordination |
 | `<project>/duties.md` | Human-only action checklist (antcrate repo root) |
 | `.git/antcrate-hook.log`, `.git/antcrate-hook-audit.log` | Per-repo hook logs |
 | `/tmp/antcrate_conflict.log` | Push-rejection triage log |
@@ -390,8 +390,8 @@ Smoke-test any of them with `antcrate --hook-smoke`. Override knobs (`ANTCRATE_S
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `ANTCRATE_ROOT` | `~/projects` | Project root |
-| `ANTCRATE_HOME` | `~/.antcrate` | State directory |
+| `ANTCRATE_ROOT` | `~/Projects` | Project root |
+| `ANTCRATE_HOME` | `~/.local/state/antcrate` | State directory (alias of `ANTCRATE_STATE_HOME`) |
 | `ANTCRATE_EMAIL` | — | Push-triage email recipient |
 | `ANTCRATE_LOG_LEVEL` | `info` | `debug` \| `info` \| `warn` \| `error` |
 | `ANTCRATE_TREE_DEBOUNCE_MS` | `600` | Daemon per-project diagram debounce |

@@ -15,7 +15,7 @@ AntCrate's non-trivial exposure points:
 - **`git push` wrapper** — captures stderr from `git push`, generates diffs, and sends truncated output via `mailx`/`sendmail` on rejection. A crafted remote response or local hook could influence what gets emailed.
 - **Repo-local hook execution** — `--ci`, `--hook-debug`, and the opt-in pre-commit path execute scripts under `.githooks/` without additional sandboxing.
 - **`inotifywait` daemon** — `antcrated` watches filesystem paths and translates create/write events on specially-named files into CLI invocations. Filename crafting in a watched directory is equivalent to issuing a CLI command.
-- **`jq`-managed registry** — `~/.antcrate/registry.json` is read and mutated via atomic temp-file replacement. Corruption or injection of this file affects all registered projects.
+- **`jq`-managed registry** — `~/.local/share/antcrate/registry.json` is read and mutated via atomic temp-file replacement. Corruption or injection of this file affects all registered projects.
 
 None of these run with elevated privileges. All operations are scoped to the invoking user's environment.
 

@@ -26,7 +26,7 @@ Relocated verbatim from the orchestrator `SKILL.md` (three-tier skill cut, spec 
   - `devops.sh` — `--map`, `--rename`, `--archive`, `--unarchive`, `--remove`, `--logs`, `--diff`, `--selfsrc`/`--selfinstall`/`--install-from-source`/`--selftest`/`--selfedit`, `--ci`. Also carries `ac_devops_touch` / `ac_devops_mkdir` — implemented, tested by nothing, and reachable from no command: the `--touch`/`--mkdir` CLI surface was never wired. Duty-tracked: wire or delete.
   - `diagrams.sh` — Mermaid registry + tree generation, `ac_diagrams_auto_regen` (silent, opt-out via `ANTCRATE_AUTO_DIAGRAMS=0`)
   - `hooks.sh` — `--hooks` (read-only listing) + `--hook-log` (debug blocked commits)
-  - `events.sh` — append-only activity stream (`~/.antcrate/events/<project>.jsonl`); `--emit-activity` writes
+  - `events.sh` — append-only activity stream (`~/.local/state/antcrate/events/<project>.jsonl`); `--emit-activity` writes
   - `watch.sh` — colored tree renderer over the active event overlay; `--watch` loops, `--once` for scripts; `--watch-smoke` emits + renders in one call
   - `watch_window.sh` — detached terminal window management; `--watch-window` spawns alacritty with PID-file dedup
   - `cleanup.sh` — classifier + apply for test-tmp / empty-dir candidates; `--cleanup <project> [--apply <id>...]`
@@ -40,8 +40,8 @@ Relocated verbatim from the orchestrator `SKILL.md` (three-tier skill cut, spec 
   - `health.sh` — the `st` doctor (deliberately NO separate command — owner directive 2026-07-11: fewer commands, more info per command); `ac_health_checks` TAB rows (req/opt · ok/miss/skip · fix command) over PATH/wrapper/config/root/registry/timers/tools/gh/git-id; `ac_health_status_line` renders the `health:` section of `--status`; install.sh ends by running `antcrate st` so install delivers the first report
   - `intel.sh` — intel tracker; `intel pull [--quiet] [<id>]` / `intel ls [--json] [--kind <k>]` / `intel ack all|<id>[ <sha>]` / `intel st`; pinned Anthropic-ONLY seed (`sources.json`, non-Anthropic seed host = exit 2, all kind=dev) + HUMAN-ONLY extras `~/.config/antcrate/intel-sources.json` ({id,url,kind?}, https-only, dup ids refused, agents never write it), snapshot-on-hash-change + append-only `new.jsonl`/`acked.jsonl`; `intel: N unread · S sources · last pull <age>` line in `--status`; pairs with `systemd/antcrate-intel.timer` (retrieval); the cognition procedure is folded into the root SKILL.md "Intel review" section (proposals only, never edits — the separate intel skill retired 2026-07-10, recoverable on origin/attic). Spec: `docs/specs/2026-06-10-anthropic-intel-tracker-design.md`
   - `duties.sh` — human-only action checklist (`duties.md` at repo root); `--duty [--type policy|command|research|debug] "<text>"` append / `--duties` list open (typed tags) / `--duty-done <n>` user-driven close / `--duty-involvement` effective knob (lean|standard|hands-on; env > config > lean); `duties: N open (oldest <date>)` line in `--status`; reviewed in session-close part 3. Agents file duties, never close them.
-  - `policy.sh` — model/tier/budget policy (`~/.antcrate/anycrate/policy.json`); `--policy` show / `--policy-init` idempotent seed; models cost table + classes (T0 orchestrator `inherit` / T1 opus heavy / T2 sonnet review / T3 haiku build / TH human) + per-model session budgets (Fable soft 250k / hard 400k). Only `budgets.fable` is agent-adjustable (evidence-backed, ledger-recorded); all else human-only or via `--propose`.
-  - `fetch.sh` — `--fetch <url> [--name slug]` no-LLM web fetcher (intel normalizer reuse, append-only hash-keyed snapshots to `~/.antcrate/fetch/`); research order: TH duty → `--fetch` → model research LAST.
+  - `policy.sh` — model/tier/budget policy (`~/.local/state/antcrate/anycrate/policy.json`); `--policy` show / `--policy-init` idempotent seed; models cost table + classes (T0 orchestrator `inherit` / T1 opus heavy / T2 sonnet review / T3 haiku build / TH human) + per-model session budgets (Fable soft 250k / hard 400k). Only `budgets.fable` is agent-adjustable (evidence-backed, ledger-recorded); all else human-only or via `--propose`.
+  - `fetch.sh` — `--fetch <url> [--name slug]` no-LLM web fetcher (intel normalizer reuse, append-only hash-keyed snapshots to `~/.local/state/antcrate/fetch/`); research order: TH duty → `--fetch` → model research LAST.
 - **`hooks/claude/`** — Claude Code hooks (SOURCE OF TRUTH; `antcrate self plugin` copies them to `plugin/hooks/claude/`, which is what the installed plugin wires):
   - `_lex.sh` — shared lexical normalisation for the Bash guards; `ac_lex_join_continuations` folds `\<newline>` so a continued command is analysed as the ONE command bash runs. Sourced by gateway-guard, env-guard, local-install-guard. Must run AFTER heredoc neutralisation (audit 2026-07-25, finding A)
   - `_zones.sh` — the auditable zone surface: critical paths, control plane, safe-temp carve-outs, registry/policy resolution, dangerous-argv0 catalogue
@@ -71,7 +71,7 @@ Relocated verbatim from the orchestrator `SKILL.md` (three-tier skill cut, spec 
 - **`.github/workflows/ci.yml`** — runs `antcrate --ci` on push to master/main + PRs
 - **`.githooks/pre-commit`** — opt-in local hook (enable per-clone via `git config core.hooksPath .githooks`); runs `antcrate --ci`, tees output to `.git/antcrate-hook.log`
 
-### State (`~/.antcrate/`)
+### State (`~/.local/state/antcrate/`)
 
 - `registry.json` — single source of truth (jq-mutated, atomic temp-file replacement)
 - `registry.mmd` — auto-regenerated Mermaid view of the whole registry (archived dimmed)

@@ -231,7 +231,7 @@ Commands:
   --watch-window <project> [--terminal NAME]
                                       spawn a detached terminal window running
                                       --watch; dedup by PID file at
-                                      ~/.antcrate/watch/<project>.pid.
+                                      ~/.local/state/antcrate/watch/<project>.pid.
                                       supported terminals: alacritty (default)
   --cleanup <project> [--apply <id>[,<id>...]]
                                       list test/cache/empty-dir candidates;
@@ -286,7 +286,7 @@ Commands:
   --duties-clear                      mark ALL open duties done at once (never deletes)
   --duty-involvement                  print effective duty_involvement (lean|standard|hands-on)
   --fetch <url> [--name <slug>]       no-LLM web fetch: normalize + snapshot to
-                                      ~/.antcrate/fetch/<slug>/ (append-only, hash-keyed);
+                                      ~/.local/state/antcrate/fetch/<slug>/ (append-only, hash-keyed);
                                       research order: TH duty -> --fetch -> model LAST
   --addr <project> <code>             resolve a layered address (e.g. 1a3) to a path
   --anchor <project> [--addr <code>]  emit eval-able exports: ANTCRATE_ANCHOR=...
@@ -294,10 +294,10 @@ Commands:
                                       run <cmd> with cwd set to anchor (no shell pollution)
   --map <project>                     print addressed tree with dynamic/static tags
   --rename <project> <new-name>       backup-protected rename + registry rewrite
-  --archive <project>                 backup-protected move to ~/projects/.archive/
+  --archive <project>                 backup-protected move to ~/Projects/.archive/
   --unarchive <project>               restore an archived project to its previous parent
   --remove <project>                  PERMANENT delete (backup + approval; recovery via tarball only)
-  --relocate <project> [--no-watch]   move a project out of ~/.claude into ~/projects (symlink left
+  --relocate <project> [--no-watch]   move a project out of ~/.claude into ~/Projects (symlink left
                                       behind; --no-watch keeps the daemon off it)
   --logs [project] [lines]            tail wrapper/daemon/conflict logs (+git log if project)
   --diff <project>                    git status + diff via git -C (no cd)
@@ -336,7 +336,7 @@ Commands:
                                       assets/code/hooks/templates/.
   --hook-remove <project> <hook> [--force]
                                       remove a hook (backs up to <hook>.bak.<ts>; audit-logged
-                                      to ~/.antcrate/hooks.log + .git/antcrate-hook-audit.log).
+                                      to ~/.local/state/antcrate/hooks.log + .git/antcrate-hook-audit.log).
   --hook-debug <project> [hook] [--with-stash] [--no-trace]
                                       re-run a hook with annotated trace + captured stdout/stderr;
                                       defaults to pre-commit; --with-stash mirrors the commit-time

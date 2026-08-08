@@ -9,7 +9,7 @@ description: Run AntCrate commands inside a registered project — for builder/r
 
 1. Backup before any structural change: `antcrate bak <project>`.
 2. No bare `git push`, `mv`, `rm`, or `cd` inside a registered project — use the wrapper flags below.
-3. `~/.antcrate/config` is human-only: read it if you must, never write it.
+3. `~/.config/antcrate/config` is human-only: read it if you must, never write it.
 4. Removals/destructive ops need the USER's explicit approval — surface them, don't run them.
 5. No flag fits your intent? `antcrate propose "<name>" "<why>"` and use a non-destructive workaround.
 
@@ -31,6 +31,6 @@ description: Run AntCrate commands inside a registered project — for builder/r
 
 ## Escalation
 
-Anything structural, destructive, or cross-project goes UP to the orchestrator — report it, don't attempt it. Same for repeated failures (3 strikes on the same target) and anything touching `~/.antcrate/` state files directly.
+Anything structural, destructive, or cross-project goes UP to the orchestrator — report it, don't attempt it. Same for repeated failures (3 strikes on the same target) and anything touching `~/.local/state/antcrate/` state files directly.
 
 Do NOT load the `antcrate` orchestrator skill — this file is your whole surface.

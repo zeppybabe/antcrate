@@ -206,7 +206,7 @@ ac_diagrams_tree_emit() {
 # some directory under the watched root; we need to map that directory back to
 # whichever registered project (possibly nested) it belongs to. Longest-prefix
 # match handles sub-branches correctly — a file under
-# ~/projects/parent/child/x.sh resolves to `child`, not `parent`.
+# ~/Projects/parent/child/x.sh resolves to `child`, not `parent`.
 ac_diagrams_resolve_project_for_path() {
     local target="${1:-}"
     [[ -z "$target" ]] && return 1

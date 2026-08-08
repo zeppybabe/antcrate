@@ -125,7 +125,7 @@ ac_registry_dump() {
 }
 
 # ac_registry_info <project> — formatted single-project record for human eyes.
-# Replaces the `jq '.projects.<name>' ~/.antcrate/registry.json` muscle-memory
+# Replaces the `jq '.projects.<name>' ~/.local/share/antcrate/registry.json` muscle-memory
 # pattern. Reads registry + project on-disk state + git status if .git present.
 # Read-only; never mutates.
 ac_registry_info() {

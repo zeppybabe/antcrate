@@ -31,7 +31,7 @@ relationship are for.
 
 ## Dev-side checklist
 
-1. Backup current `~/projects/webapps/tasklite/` tree (auto, via rule #1).
+1. Backup current `~/Projects/webapps/tasklite/` tree (auto, via rule #1).
 2. Backup current `~/.claude/skills/tasklite/` (manual flag may be needed).
 3. Re-clone from the fork.
 4. Restore any in-progress work by hand-merging from the backup tarball.

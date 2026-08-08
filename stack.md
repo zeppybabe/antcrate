@@ -95,7 +95,7 @@ hook and `.github/workflows/ci.yml` invoke it.
 - Outbound HTTPS to GitHub for `--pp` push automation, `--gh-init` repo
   create. Uses `gh` CLI auth (no plaintext PATs).
 - Outbound SMTP via local MTA (`mailx`/`sendmail`) for conflict
-  notifications when `ANTCRATE_EMAIL` is set in `~/.antcrate/config`.
+  notifications when `ANTCRATE_EMAIL` is set in `~/.config/antcrate/config`.
 - No inbound listeners. AntCrate is fully local.
 
 ## Schema constants
@@ -110,7 +110,7 @@ hook and `.github/workflows/ci.yml` invoke it.
 - Reserved registry parent value: `_archived` (set by `--archive`,
   cleared by `--unarchive`)
 - Reserved bypass-flag env vars (rule #13: editable only by human via
-  `~/.antcrate/config`):
+  `~/.config/antcrate/config`):
   - `ANTCRATE_REMOVAL_PREAPPROVED=1` — bypass interactive prompt for
     destructive ops (rule #1 backup still mandatory)
   - `ANTCRATE_COMMIT_PREAPPROVED=1` — bypass `--commit` y/N prompt

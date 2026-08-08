@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC2016  # jq filter strings: $-vars are jq, not shell
 # antcrate :: lib/relocate.sh — relocate a registered project out of the
-# ~/.claude skill tree into $ANTCRATE_ROOT (~/projects), leaving a symlink at
+# ~/.claude skill tree into $ANTCRATE_ROOT (~/Projects), leaving a symlink at
 # the old path so existing references and Claude Code skill-discovery resolve.
 #
 # Why: Claude Code carves ~/.claude out of background-subagent file writes, so a

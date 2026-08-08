@@ -9,8 +9,8 @@ During active development, agents act rapidly. The hard line that stays in force
 ## Hardening: gateway enforcement beyond policy
 
 - **Native (C/C++) plugin layer** — so an AI agent literally cannot bypass `ac_safety_guard_destructive` or the Gateway Law verify chain. Today's enforcement is bash + cooperative; native enforcement would intercept syscalls / wrap dangerous binaries.
-- **Runtime enforcement of AGENTS.md rule #13** (`~/.antcrate/config` is human-only). Currently policy — agent-side discipline. Add: integrity hash recorded at last-known-good state, surface alert if config mtime/hash changes between wrapper invocations without a corresponding ledger entry.
-- **Config file modification audit log** — every change to `~/.antcrate/config` (timestamp, hash before/after, user) appended to `~/.antcrate/config.audit.log`. Tampering with the audit log itself is detectable via append-only chain hash.
+- **Runtime enforcement of AGENTS.md rule #13** (`~/.config/antcrate/config` is human-only). Currently policy — agent-side discipline. Add: integrity hash recorded at last-known-good state, surface alert if config mtime/hash changes between wrapper invocations without a corresponding ledger entry.
+- **Config file modification audit log** — every change to `~/.config/antcrate/config` (timestamp, hash before/after, user) appended to `~/.config/antcrate/config.audit.log`. Tampering with the audit log itself is detectable via append-only chain hash.
 - **Bypass flag scope-narrowing** — current `ANTCRATE_*_PREAPPROVED` flags are global. Replace with per-project / per-action / time-bounded grants (e.g., `ANTCRATE_GRANT="remove:ac-livetest:30s"`).
 
 ## Per-tier deployment
@@ -36,19 +36,19 @@ Rule #12 names these in policy but the wrapper does not yet cover them:
 
 ## Backup hardening
 
-- **Backup encryption** — current backups are plaintext `tar.gz`. Projects on disk often contain `.env*` (gitignored but present locally), so backups capture them. Opt-in `gpg` encryption for `~/.antcrate/backups/`.
+- **Backup encryption** — current backups are plaintext `tar.gz`. Projects on disk often contain `.env*` (gitignored but present locally), so backups capture them. Opt-in `gpg` encryption for `~/.local/state/antcrate/backups/`.
 - **Off-machine backup target** — push backups to user-controlled remote storage (S3, B2, Storj) on a schedule. Lost-laptop scenario coverage.
 
 ## Schema robustness
 
-- **Domain allowlist** — current model accepts any `<domain>` value, creating a directory if it doesn't exist. Typos like `webaps` vs `webapps` silently bifurcate. Optional allowlist in `~/.antcrate/config`.
+- **Domain allowlist** — current model accepts any `<domain>` value, creating a directory if it doesn't exist. Typos like `webaps` vs `webapps` silently bifurcate. Optional allowlist in `~/.config/antcrate/config`.
 - **Editor swap-file rules** — current filter covers `nano`, `helix`, `vim` (`4913` probe). Confirm against `kakoune`, `micro`, `neovim` (different swap-file conventions).
 - **`mailx` vs `sendmail` runtime detection** — current order works on most distros, but minimal containers (alpine, distroless) may have neither. Detect at install time, surface a clear setup hint.
 
 ## Wrapper consistency / rule-#11 internal compliance
 
 - **`cmd_pp` bypasses the secret-pattern guard.** `bin/antcrate:cmd_pp` does bare `git add -A; git commit -qm "antcrate: auto-commit ..."` before delegating to `ac_git_push`. That misses the secret-pattern guard newly built into `lib/commit.sh::ac_commit_run`. Refactor `--pp` to delegate the commit step through `ac_commit_run` (mode `all`) so push-and-pipe shares the same secret-blocking gate as `--commit`. AGENTS.md rule #11 ("no bare command on a registered project when a wrapper exists") effectively requires this once `--commit` is the wrapper for staging.
-- **`install.sh` writes to `~/.antcrate/config`.** `install.sh` lines 38–42 use `printf '%s\n' >> "$CONFIG"` and `sed -i` to set `ANTCRATE_SELFSRC=`. AGENTS.md rule #13 makes `~/.antcrate/config` human-only territory. The installer is human-initiated, so the *intent* of rule #13 isn't violated — but the *literal* action conflicts with the rule's wording, and an agent reading the rule in isolation could be confused. Resolve by writing `ANTCRATE_SELFSRC` to a sibling file (e.g., `~/.antcrate/install.env`) that the wrapper sources separately, leaving `~/.antcrate/config` exclusively under human control even during install.
+- **`install.sh` writes to `~/.config/antcrate/config`.** `install.sh` lines 38–42 use `printf '%s\n' >> "$CONFIG"` and `sed -i` to set `ANTCRATE_SELFSRC=`. AGENTS.md rule #13 makes `~/.config/antcrate/config` human-only territory. The installer is human-initiated, so the *intent* of rule #13 isn't violated — but the *literal* action conflicts with the rule's wording, and an agent reading the rule in isolation could be confused. Resolve by writing `ANTCRATE_SELFSRC` to a sibling file (e.g., `~/.antcrate/install.env`) that the wrapper sources separately, leaving `~/.config/antcrate/config` exclusively under human control even during install.
 
 ## Wrapper coverage gaps
 

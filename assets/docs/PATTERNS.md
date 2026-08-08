@@ -26,11 +26,11 @@ Goal of this file: Claude Code (or any agent) reads this **before** reaching for
 | Bidirectionally link two projects | `antcrate link <a> --rel <b>` | Stored under `linked_nodes`. |
 | Sub-branch / nest under a new parent | `antcrate --resume <new_parent> --expand <child>` | Atomic; backup-protected. |
 | Rename a project | `antcrate mv <project> <new-name>` | Backup + approval; rewrites registry, parent refs, linked_nodes. |
-| Archive a project | `antcrate arc <project>` | Backup + approval; moves to `~/projects/.archive/<project>`, marks parent=`_archived`, stores `previous_parent`. |
-| Restore an archived project | `antcrate arc -u <project>` | Backup + approval; reads `previous_parent` and moves back to `~/projects/<previous_parent>/<name>`. |
+| Archive a project | `antcrate arc <project>` | Backup + approval; moves to `~/Projects/.archive/<project>`, marks parent=`_archived`, stores `previous_parent`. |
+| Restore an archived project | `antcrate arc -u <project>` | Backup + approval; reads `previous_parent` and moves back to `~/Projects/<previous_parent>/<name>`. |
 | Permanently delete a project | `antcrate rm <project>` | Backup + approval + loud "PERMANENT DELETE" banner. `rm -rf` + registry purge. Recovery only via the printed backup tarball. Prefer `--archive` if uncertain. |
 | List ghost entries (registered but path gone) | `antcrate ghosts` | Read-only. Lists every registry entry whose on-disk `path` no longer exists. Run before a hygiene pass. |
-| Drop a ghost registry entry (registry-only) | `antcrate deregister <project>` | For a GHOST only — capture-first to `~/.antcrate/deregistered/<project>/<ts>/` (`entry.json`+`registry.json`+`manifest.json`), then `ac_registry_delete`. **REFUSES (exit 1) if the path still exists** → use `--archive` instead. No `rm` of user data; not the safety-guard path. See AGENTS.md #19 (three fates). |
+| Drop a ghost registry entry (registry-only) | `antcrate deregister <project>` | For a GHOST only — capture-first to `~/.local/state/antcrate/deregistered/<project>/<ts>/` (`entry.json`+`registry.json`+`manifest.json`), then `ac_registry_delete`. **REFUSES (exit 1) if the path still exists** → use `--archive` instead. No `rm` of user data; not the safety-guard path. See AGENTS.md #19 (three fates). |
 
 ## Anchor & address (replaces `cd`)
 
@@ -93,7 +93,7 @@ Every entry forces a backup tarball before touching disk; approval is the TTY pr
 |---|---|---|
 | Tail wrapper + daemon + conflict logs | `antcrate logs [project] [lines]` | If `<project>` registered, also shows `git log --oneline -n 5`. Default 50 lines. |
 | Daemon + registry summary | `antcrate st` | |
-| Raw registry dump | `jq . ~/.antcrate/registry.json` | |
+| Raw registry dump | `jq . ~/.local/share/antcrate/registry.json` | |
 | Tail conflict log only | `tail -f /tmp/antcrate_conflict.log` | |
 
 ## Developer ops on AntCrate itself
@@ -102,7 +102,7 @@ AntCrate develops AntCrate. These flags route the build/test/edit loop through t
 
 | Intent | Command | Notes |
 |---|---|---|
-| Print skill source root | `antcrate self src` | Persisted in `~/.antcrate/config` as `ANTCRATE_SELFSRC=` at install. |
+| Print skill source root | `antcrate self src` | Persisted in `~/.config/antcrate/config` as `ANTCRATE_SELFSRC=` at install. |
 | Reinstall after edits | `antcrate self install` | Runs `install.sh` from selfsrc; copies libs to `~/.local/share/antcrate/`. |
 | Run all bats tests | `antcrate self test` | Requires `bats-core` on PATH. |
 | Run a specific test file | `antcrate self test <name>` | E.g. `antcrate self test address` → runs `tests/address.bats`. |
@@ -113,12 +113,12 @@ AntCrate develops AntCrate. These flags route the build/test/edit loop through t
 | Intent | Command | Notes |
 |---|---|---|
 | Render all diagram sources in a project | `antcrate --diagrams <project>` | Walks `docs/diagrams/*.{mmd,puml,d2}`. Renders if `mmdc`/`plantuml`/`d2` are on PATH; warns and continues if any are missing (text source still renders inline on GitHub). |
-| Mermaid view of the entire registry | `antcrate --registry-diagram [out.mmd]` | Default out: `~/.antcrate/registry.mmd`. Archived projects styled dimmed. Linked projects connected with `<-->`. |
+| Mermaid view of the entire registry | `antcrate --registry-diagram [out.mmd]` | Default out: `~/.local/share/antcrate/registry.mmd`. Archived projects styled dimmed. Linked projects connected with `<-->`. |
 | Mermaid view of a project's addressed tree | `antcrate --tree-diagram <project> [out.mmd]` | Default out: `<project>/docs/diagrams/tree.mmd`. Reflects current addresses (`1`, `1a3`, etc.). |
 
 Mermaid `.mmd` files render inline on GitHub without any tool installed — that's the default. SVG rendering is opt-in via `mmdc -i in.mmd -o out.svg`.
 
-**Auto-regen.** Every mutating wrapper action (`--start`, `--register`, `--branch`, `--link`, `--resume --expand`, `--rename`, `--archive`, `--unarchive`, `--remove`, `--restore`) silently refreshes `~/.antcrate/registry.mmd` and (when applicable) `<project>/docs/diagrams/tree.mmd` after the operation succeeds. You normally never need to call `--registry-diagram` or `--tree-diagram` by hand — they exist as a manual override / repair path.
+**Auto-regen.** Every mutating wrapper action (`--start`, `--register`, `--branch`, `--link`, `--resume --expand`, `--rename`, `--archive`, `--unarchive`, `--remove`, `--restore`) silently refreshes `~/.local/share/antcrate/registry.mmd` and (when applicable) `<project>/docs/diagrams/tree.mmd` after the operation succeeds. You normally never need to call `--registry-diagram` or `--tree-diagram` by hand — they exist as a manual override / repair path.
 
 Disable with `export ANTCRATE_AUTO_DIAGRAMS=0` (e.g. for batch scripted mutations where you want a single explicit regen at the end). Failures are swallowed: a diagram refresh never blocks the action that triggered it.
 
@@ -146,7 +146,7 @@ Findings become proposals (`antcrate propose`) — never direct code/config edit
 |---|---|---|
 | List active git hooks for a project | `antcrate hook ls <project>` | Honors `core.hooksPath`; flags antcrate's `.githooks` opt-in when active; shows `active`/`disabled` per hook. |
 | Install a hook from a shipped template | `antcrate hook install <project> <template> [hook-name] [--force]` | Templates: `pre-commit-ci`, `pre-commit-secrets`, `pre-commit-stack-bash`, `pre-push-tests` (at `assets/code/hooks/templates/`). Idempotent; `--force` backs up then overwrites. |
-| Remove a hook (audited) | `antcrate hook rm <project> <hook> [--force]` | Backs up to `<hook>.bak.<ts>`; audit-logged to `~/.antcrate/hooks.log` + `.git/antcrate-hook-audit.log`. |
+| Remove a hook (audited) | `antcrate hook rm <project> <hook> [--force]` | Backs up to `<hook>.bak.<ts>`; audit-logged to `~/.local/state/antcrate/hooks.log` + `.git/antcrate-hook-audit.log`. |
 | Preview a template without installing | `antcrate hook render <template> [project]` | Renders to stdout with placeholder substitution + bypass-check injection — catches injection bugs before install. |
 | Re-run a hook with trace | `antcrate hook debug <project> [hook] [--with-stash] [--no-trace]` | Annotated `bash -x` + captured output; `--with-stash` mirrors the staged set; exits with the hook's exit code. Audit-logged. |
 | Single-shot bypass (human-run) | `antcrate hook bypass <project> --reason "<text>"` | Next antcrate-shipped hook consumes the flag, logs bypass + reason to both audit sinks, exits 0. Agents PROPOSE; humans run (rule #14). |
@@ -232,7 +232,7 @@ default 50).
 Kinds: `modify` (yellow), `read` (cyan), `think` (magenta), `delegate`
 (green), `delete` (bright red strikethrough). Default TTLs are
 kind-specific. The event stream is durable JSONL at
-`~/.antcrate/events/<project>.jsonl` — agents emit; watchers tail.
+`~/.local/state/antcrate/events/<project>.jsonl` — agents emit; watchers tail.
 Severity ordering: delete > modify > delegate > think > read; ancestor
 directories paint with the highest-severity descendant kind.
 
@@ -244,15 +244,15 @@ When no flag fits the current intent, **do not** fall back to a bare command. In
 antcrate propose <short-name> "<one-line description of the intent>"
 ```
 
-This appends to `~/.antcrate/proposals.log` for user review. Examples:
+This appends to `~/.local/state/antcrate/proposals.log` for user review. Examples:
 
 ```
 antcrate propose remove "Backup-protected project removal with registry purge"
 antcrate propose dockerize "Generate Dockerfile + compose stub from project meta"
-antcrate propose env-rotate "Rotate .env values; backup the prior file under ~/.antcrate/secrets/"
+antcrate propose env-rotate "Rotate .env values; backup the prior file under ~/.local/state/antcrate/secrets/"
 ```
 
-Inspect: `antcrate proposals` or `cat ~/.antcrate/proposals.log`.
+Inspect: `antcrate proposals` or `cat ~/.local/state/antcrate/proposals.log`.
 
 The user reviews proposals and decides which become real flags. Until that happens, the bare command remains off-limits — the proposal log is how Claude says "I would have needed this" without bypassing the safety boundary.
 
@@ -273,11 +273,11 @@ Research order of record: **TH duty → `--fetch` → model research LAST** (AGE
 
 | Intent | Command | Notes |
 |---|---|---|
-| See model tiers / budgets / classes / endpoints | `antcrate policy` | Pretty-prints `~/.antcrate/anycrate/policy.json` plus an `.endpoints` table, edit hint, and schema line. Only `budgets.fable` is agent-adjustable (rule #22); endpoints are HUMAN-ONLY (rule #23). |
+| See model tiers / budgets / classes / endpoints | `antcrate policy` | Pretty-prints `~/.local/state/antcrate/anycrate/policy.json` plus an `.endpoints` table, edit hint, and schema line. Only `budgets.fable` is agent-adjustable (rule #22); endpoints are HUMAN-ONLY (rule #23). |
 | Seed the policy file | `antcrate --policy-init` | Idempotent — never clobbers an existing file. |
 | Seed policy.json (idempotent) | `antcrate policy seed` | Compact-word form of `--policy-init`. |
 | Launch a local model endpoint (sandboxed) | lib: `ac_endpoint_run <name>` — prompt on stdin | Only `kind: local` endpoints launch (vllm/api refuse, rc 1). Sandboxed by default via `ac_sandbox_run`; endpoint `"sandbox": false` opts out. Endpoints are HUMAN-ONLY in policy.json (rule #23) — agents call by name, never add/edit one. |
-| Fetch a web page without spending model tokens | `antcrate fetch <url> [--name <slug>]` | Normalizes (script/tag-strip) + snapshots to `~/.antcrate/fetch/<slug>/`, append-only and hash-keyed; unchanged content = no new snapshot. http(s) only. |
+| Fetch a web page without spending model tokens | `antcrate fetch <url> [--name <slug>]` | Normalizes (script/tag-strip) + snapshots to `~/.local/state/antcrate/fetch/<slug>/`, append-only and hash-keyed; unchanged content = no new snapshot. http(s) only. |
 
 Hooks backing this layer (wired in `~/.claude/settings.json`): `session-budget-guard.sh` is the REACTIVE gate (model-aware budgets — Fable soft 250k / hard 400k, default 100k/140k); `cost-anticipator.sh` is the PREDICTIVE gate (PreToolUse Skill|Agent|Read — estimates the call's token load first, warns past soft, blocks past hard/window naming a cheaper path). Both fail open; DISABLE hatches are human-only.
 

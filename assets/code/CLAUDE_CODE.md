@@ -22,9 +22,9 @@ cd ~/.claude/skills/antcrate/assets/code
 antcrate --init
 ```
 
-This puts `antcrate` and `antcrated` in `~/.local/bin`, libraries in `~/.local/share/antcrate/lib`, and creates `~/.antcrate/` for state.
+This puts `antcrate` and `antcrated` in `~/.local/bin`, libraries in `~/.local/share/antcrate/lib`, and creates `~/.local/state/antcrate/` for state.
 
-Edit `~/.antcrate/config`:
+Edit `~/.config/antcrate/config`:
 
 ```bash
 ANTCRATE_EMAIL="you@example.com"
@@ -43,7 +43,7 @@ antcrate --status
 
 Claude Code reads `assets/code/AGENTS.md` automatically when the skill is active. The agent rules enforce:
 
-- **No destructive ops outside `~/projects/`** without per-command user approval (rule #1)
+- **No destructive ops outside `~/Projects/`** without per-command user approval (rule #1)
 - **No deletion of `registry.json` or `/tmp/antcrate_conflict.log`** (rules #2, #3)
 - **No `git push --force`** without explicit approval (rule #4)
 - **No `sudo`** ever (rule #5)
@@ -107,7 +107,7 @@ systemctl --user start antcrated
 antcrate --status
 ```
 
-If any step would touch a path outside `~/projects/` or `~/.antcrate/`, Claude Code will pause and ask before proceeding.
+If any step would touch a path outside `~/Projects/` or AntCrate's own config/data/state directories, Claude Code will pause and ask before proceeding.
 
 ## Recovery
 

@@ -6,16 +6,20 @@
 # shellcheck disable=SC1091
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/compat.sh"
 
-: "${ANTCRATE_ROOT:=$HOME/projects}"
+: "${ANTCRATE_ROOT:=$HOME/Projects}"
 : "${ANTCRATE_TEMPLATES:=}"  # set by caller; defaults resolved below
 
 ac_scaffold_resolve_templates() {
     # If caller explicitly set a path that has _generic or any domain subdir, honor it.
     if [[ -n "$ANTCRATE_TEMPLATES" && -d "$ANTCRATE_TEMPLATES/_generic" ]]; then return; fi
+    # XDG data home FIRST, legacy LAST. The order used to be reversed, so a
+    # leftover ~/.antcrate/templates from before the 2026-06-13 migration beat
+    # the templates the installer had just written — stale scaffolding winning
+    # on exactly the machines that had been running AntCrate the longest.
     local candidates=(
-        "$HOME/.antcrate/templates"
+        "${ANTCRATE_DATA_HOME:-${XDG_DATA_HOME:-$HOME/.local/share}/antcrate}/templates"
         "$(dirname "${BASH_SOURCE[0]}")/../templates"
-        "$HOME/.local/share/antcrate/templates"
+        "$HOME/.antcrate/templates"
     )
     local c
     for c in "${candidates[@]}"; do
@@ -32,12 +36,21 @@ ac_scaffold_resolve_templates() {
 ac_scaffold_remote_for() {
     # ac_scaffold_remote_for <name>  — derive default remote from config
     local name="$1"
-    local prefix=""
-    if [[ -f "$HOME/.antcrate/config" ]]; then
-        # shellcheck disable=SC1091  # user config path resolved at runtime; not statically followable
-        . "$HOME/.antcrate/config"
+    local prefix="" cfg
+    # Read the CURRENT config location first. This used to source only
+    # $HOME/.antcrate/config, so after the XDG migration the documented
+    # ANTCRATE_GIT_REMOTE_PREFIX key — shipped in templates/config.example,
+    # which users are told to copy — was silently dead on every install:
+    # people set it in ~/.config/antcrate/config and new projects still got
+    # no remote. Legacy stays as a fallback for un-migrated machines.
+    for cfg in "${ANTCRATE_CONFIG:-${XDG_CONFIG_HOME:-$HOME/.config}/antcrate/config}" \
+               "$HOME/.antcrate/config"; do
+        [[ -f "$cfg" ]] || continue
+        # shellcheck disable=SC1090  # user config path resolved at runtime; not statically followable
+        . "$cfg"
         prefix="${ANTCRATE_GIT_REMOTE_PREFIX:-}"
-    fi
+        [[ -n "$prefix" ]] && break
+    done
     [[ -n "$prefix" ]] && printf '%s%s.git' "$prefix" "$name" || printf ''
 }
 

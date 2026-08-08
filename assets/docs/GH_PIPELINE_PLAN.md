@@ -22,7 +22,7 @@ ad-hoc is a candidate for absorption. The `gh` CLI is dual-use:
 - An AntCrate flag for a `gh` command MUST take a registered project
   name as its primary argument (resolves to repo via the project's
   `git_remote` field — same as `--pp`).
-- Flags MUST honor `~/.antcrate/config` for any `gh` defaults the user
+- Flags MUST honor `~/.config/antcrate/config` for any `gh` defaults the user
   wants to set (e.g., a default workflow name to watch).
 - Destructive `gh` operations (issue/PR delete, branch delete via API,
   repo delete) fall under AGENTS.md rule #12 (Gateway Law) — full

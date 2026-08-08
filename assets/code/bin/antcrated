@@ -9,11 +9,11 @@
 #   2. Live-tree auto-regen — when ANY structural change happens inside a
 #      registered project (file create/close_write/delete/move, dir mkdir/rmdir/
 #      move), refresh that project's `docs/diagrams/tree.mmd` and the global
-#      `~/.antcrate/registry.mmd`. This closes the gap where direct edits made
+#      `~/.local/share/antcrate/registry.mmd`. This closes the gap where direct edits made
 #      outside the wrapper would leave diagrams stale.
 #
-# Coordination: respects ~/.antcrate/pipe.paused (touched by sub-branch logic).
-# Lock: holds ~/.antcrate/daemon.pid for single-instance enforcement.
+# Coordination: respects ~/.local/state/antcrate/pipe.paused (touched by sub-branch logic).
+# Lock: holds ~/.local/state/antcrate/daemon.pid for single-instance enforcement.
 
 set -euo pipefail
 

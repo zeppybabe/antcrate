@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # lib/quarantine.sh — user-data destruction surface. All user-data rm sites
 # route through _ac_quarantine_capture; the captured tree is archived + moved
-# to ~/.antcrate/quarantine/<project>/<UTC-ts>__<op>__<sanitized-label>/.
+# to ~/.local/state/antcrate/quarantine/<project>/<UTC-ts>__<op>__<sanitized-label>/.
 # Only the user deletes the quarantine root. See AGENTS.md rule #16.
 
 # compat.sh self-source: shims used below; guard makes re-sourcing free

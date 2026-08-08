@@ -9,7 +9,7 @@ Stack: SvelteKit, drizzle (sqlite), TypeScript strict, vitest.
 
 ## When to invoke
 
-Whenever the user is working in `~/projects/webapps/tasklite/` or refers to
+Whenever the user is working in `~/Projects/webapps/tasklite/` or refers to
 "tasklite", "the task tracker", "the personal todo app".
 
 ## Key files

@@ -37,7 +37,7 @@ wrapper, governed by this document.
 
 | Diagram | Path | When refreshed | Tool |
 |---|---|---|---|
-| Registry overview | `~/.antcrate/registry.mmd` | Every wrapper mutation; daemon-event-driven via auto-regen | Mermaid `graph LR` |
+| Registry overview | `~/.local/share/antcrate/registry.mmd` | Every wrapper mutation; daemon-event-driven via auto-regen | Mermaid `graph LR` |
 | Project tree (addressed) | `<project>/docs/diagrams/tree.mmd` | Every wrapper mutation in this project; any direct filesystem event under it (daemon hook with per-project debounce) | Mermaid `graph TD` |
 | Architecture seed | `<project>/docs/diagrams/architecture.mmd` | Once, on `--start`, from `_generic/` template | Mermaid `graph TD` (placeholder for the user/agent to expand) |
 
@@ -165,7 +165,7 @@ Backward-compatible: missing `diagrams` field → preset defaults to
 - **Renderer absence is graceful.** `--diagrams` already warns and
   continues per-renderer; presets must follow the same pattern.
 - **Diagrams live with the code they describe.** All emitted diagrams
-  go under `<project>/docs/diagrams/`; never in `~/.antcrate/` or a
+  go under `<project>/docs/diagrams/`; never in `~/.local/state/antcrate/` or a
   global cache (with the single exception of the registry-level
   diagram which spans projects).
 
